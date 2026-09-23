@@ -8,5 +8,5 @@ Pagamento.init({
   metodo: { type: DataTypes.ENUM('MPESA', 'EMOLA', 'CARTAO'), allowNull: false },
   referencia: { type: DataTypes.STRING(60), allowNull: false, unique: true },
   valor: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
-  estado: { type: DataTypes.ENUM('PENDENTE', 'APROVADO', 'REJEITADO'), defaultValue: 'PENDENTE' }
+  estado: { type: DataTypes.ENUM('PENDENTE', 'APROVADO', 'REJEITADO', 'REEMBOLSADO'), defaultValue: 'PENDENTE' }
 }, { sequelize, modelName: 'Pagamento', tableName: 'pagamentos' });

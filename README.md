@@ -104,6 +104,8 @@ POST /api/gestao/autocarros
 POST /api/gestao/rotas
 POST /api/gestao/viagens
 GET  /api/viagens/:viagemId/assentos
+PATCH /api/bilhetes/:codigo/cancelar
+PATCH /api/viagens/:id/cancelar
 GET  /api/viagens
 GET  /api/viagens/:id
 POST /api/compras
