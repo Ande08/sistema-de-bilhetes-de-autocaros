@@ -100,6 +100,9 @@ Execute `database/schema.sql` no MySQL antes de iniciar o servidor.
 GET  /api/health
 POST /api/autenticacao/registar
 POST /api/autenticacao/iniciar-sessao
+POST /api/gestao/autocarros
+POST /api/gestao/rotas
+POST /api/gestao/viagens
 GET  /api/viagens
 GET  /api/viagens/:id
 POST /api/compras
