@@ -1,4 +1,5 @@
 import { Bus, Route, Trip } from '../models/index.js';
+import { criarAssentosDoAutocarro } from '../services/assento.service.js';
 
 export async function criarAutocarro(req, res, next) {
   try {
@@ -9,6 +10,8 @@ export async function criarAutocarro(req, res, next) {
       throw erro;
     }
     const autocarro = await Bus.create({ registration: matricula, model: modelo, capacity: capacidade });
+    // A capacidade informada gera automaticamente os assentos do autocarro.
+    await criarAssentosDoAutocarro(autocarro.id, capacidade);
     return res.status(201).json({ sucesso: true, dados: autocarro });
   } catch (erro) { return next(erro); }
 }

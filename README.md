@@ -103,6 +103,7 @@ POST /api/autenticacao/iniciar-sessao
 POST /api/gestao/autocarros
 POST /api/gestao/rotas
 POST /api/gestao/viagens
+GET  /api/viagens/:viagemId/assentos
 GET  /api/viagens
 GET  /api/viagens/:id
 POST /api/compras
