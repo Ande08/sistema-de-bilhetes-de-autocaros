@@ -15,9 +15,42 @@ export async function createPurchase(req, res, next) {
       throw error;
     }
 
+    // Apenas viagens agendadas podem receber novas compras.
+    if (viagem.status !== 'AGENDADA') {
+      const error = new Error('Esta viagem não está disponível para compra.');
+      error.statusCode = 409;
+      throw error;
+    }
+
+    // Uma viagem que já começou ou cuja data passou não aceita compras.
+    if (new Date(viagem.departureAt) <= new Date()) {
+      const error = new Error('Não é possível comprar uma viagem que já começou.');
+      error.statusCode = 409;
+      throw error;
+    }
+
     const assento = await Assento.findByPk(seat.id, { transaction: transacao, lock: transacao.LOCK.UPDATE });
     if (!assento) {
       const error = new Error('Assento não encontrado');
+      error.statusCode = 409;
+      throw error;
+    }
+
+    // O assento deve pertencer ao autocarro associado à viagem.
+    if (String(assento.autocarroId) !== String(viagem.busId)) {
+      const error = new Error('O assento não pertence ao autocarro desta viagem.');
+      error.statusCode = 409;
+      throw error;
+    }
+
+    // A consulta dentro da mesma transação protege contra compra duplicada.
+    const bilheteExistente = await Bilhete.findOne({
+      where: { viagemId: viagem.id, assentoId: assento.id },
+      transaction: transacao,
+      lock: transacao.LOCK.UPDATE
+    });
+    if (bilheteExistente && bilheteExistente.estado !== 'CANCELADO') {
+      const error = new Error('Este assento já foi vendido para esta viagem.');
       error.statusCode = 409;
       throw error;
     }

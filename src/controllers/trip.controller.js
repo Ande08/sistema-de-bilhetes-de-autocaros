@@ -1,13 +1,20 @@
 import { Op } from 'sequelize';
-import { Trip } from '../models/index.js';
+import { Route, Trip } from '../models/index.js';
 
 export async function listTrips(req, res, next) {
   try {
   const { origin, destination, date } = req.query;
-  const filtro = {};
+  const filtro = { status: 'AGENDADA' };
   if (date) filtro.departureAt = { [Op.gte]: `${date} 00:00:00` };
 
-  const viagens = await Trip.findAll({ where: filtro, order: [['departureAt', 'ASC']] });
+  const filtroRota = {};
+  if (origin) filtroRota.origin = origin;
+  if (destination) filtroRota.destination = destination;
+  const viagens = await Trip.findAll({
+    where: filtro,
+    include: [{ model: Route, where: filtroRota, required: Boolean(origin || destination) }],
+    order: [['departureAt', 'ASC']]
+  });
   return res.json({ sucesso: true, dados: viagens });
   } catch (erro) { return next(erro); }
 }
