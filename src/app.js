@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import tripRoutes from './routes/trip.routes.js';
 import purchaseRoutes from './routes/purchase.routes.js';
+import autenticacaoRoutes from './routes/autenticacao.routes.js';
 
 const app = express();
 
@@ -22,6 +23,7 @@ app.get('/api/health', (_req, res) => {
 
 app.use('/api/viagens', tripRoutes);
 app.use('/api/compras', purchaseRoutes);
+app.use('/api/autenticacao', autenticacaoRoutes);
 
 app.use((_req, _res, next) => {
   const error = new Error('Rota não encontrada');

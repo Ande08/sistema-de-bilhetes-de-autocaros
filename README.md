@@ -92,6 +92,8 @@ Execute `database/schema.sql` no MySQL antes de iniciar o servidor.
 
 ```text
 GET  /api/health
+POST /api/autenticacao/registar
+POST /api/autenticacao/iniciar-sessao
 GET  /api/viagens
 GET  /api/viagens/:id
 POST /api/compras
