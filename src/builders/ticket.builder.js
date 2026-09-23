@@ -32,6 +32,7 @@ export class TicketBuilder {
   }
 
   build() {
+    // Impede a emissão de um bilhete sem os dados essenciais.
     const required = ['passageiro', 'viagem', 'assento', 'pagamento', 'preco'];
     const missing = required.filter((field) => !this.ticket[field]);
     if (missing.length > 0) {

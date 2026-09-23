@@ -4,6 +4,7 @@ class PagamentoSimulado {
   }
 
   processar({ valor, referencia }) {
+    // O pagamento é simulado nesta fase, mas mantém a interface da integração real.
     return {
       referencia,
       metodo: this.metodo,
@@ -16,6 +17,7 @@ class PagamentoSimulado {
 }
 
 export class FabricaPagamento {
+  // Centraliza a criação dos métodos de pagamento suportados.
   static criar(metodo) {
     const metodoNormalizado = String(metodo || '').toUpperCase();
     const metodosSuportados = ['MPESA', 'EMOLA', 'CARTAO'];

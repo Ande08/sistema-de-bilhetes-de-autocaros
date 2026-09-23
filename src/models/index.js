@@ -6,6 +6,7 @@ import { Assento } from './assento.model.js';
 import { Bilhete } from './bilhete.model.js';
 import { Pagamento } from './pagamento.model.js';
 
+// Os relacionamentos ficam centralizados para permitir consultas com include.
 Route.hasMany(Trip, { foreignKey: 'routeId' });
 Trip.belongsTo(Route, { foreignKey: 'routeId' });
 Bus.hasMany(Trip, { foreignKey: 'busId' });

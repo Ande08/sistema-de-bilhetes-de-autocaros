@@ -4,6 +4,7 @@ import { verificarLigacaoBaseDados } from './config/inicializar-base-dados.js';
 
 const port = Number(process.env.PORT) || 3000;
 
+// A API só fica disponível depois de confirmar o acesso à base de dados.
 verificarLigacaoBaseDados()
   .then(() => {
     app.listen(port, () => {
