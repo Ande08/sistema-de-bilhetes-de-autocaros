@@ -86,6 +86,12 @@ copy .env.example .env
 npm run dev
 ```
 
+Executar os testes unitários:
+
+```bash
+npm test
+```
+
 Execute `database/schema.sql` no MySQL antes de iniciar o servidor.
 
 ## Endpoints atuais
