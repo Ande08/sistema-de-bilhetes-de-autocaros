@@ -1,0 +1,16 @@
+:root { font-family: Arial, sans-serif; color: #17202a; background: #f4f6f8; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+.pagina { max-width: 1100px; margin: 0 auto; padding: 48px 20px; }
+header { margin-bottom: 28px; }
+.marca { color: #1769aa; font-weight: bold; }
+h1 { font-size: clamp(2rem, 5vw, 3.5rem); margin: 8px 0; }
+.cartao { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 18px #17202a16; }
+.formulario-pesquisa { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; align-items: end; }
+label { display: grid; gap: 8px; font-weight: bold; }
+input { padding: 12px; border: 1px solid #ccd3da; border-radius: 6px; font: inherit; }
+button { border: 0; border-radius: 6px; padding: 12px 16px; background: #1769aa; color: white; cursor: pointer; font-weight: bold; }
+.lista-viagens { display: grid; gap: 14px; margin-top: 24px; }
+.viagem { display: flex; justify-content: space-between; align-items: center; gap: 20px; }
+.aviso { background: #fff4d6; padding: 14px; border-radius: 8px; }
+@media (max-width: 760px) { .formulario-pesquisa { grid-template-columns: 1fr; } .viagem { align-items: flex-start; flex-direction: column; } }
