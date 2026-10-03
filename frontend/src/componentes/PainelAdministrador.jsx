@@ -51,7 +51,7 @@ function ConteudoAdministrativo({ secao, dados, executar, submeter }) {
   if (secao === 'Rotas') return <><FormularioRota aoSubmeter={(e) => submeter(e, criarRota, 'Rota criada com sucesso.')} /><TabelaGestao titulo="Rotas" colunas={['ID', 'Origem', 'Destino', 'Distância', 'Estado', 'Criada em', 'Ação']} linhas={dados.rotas.map((item) => [item.id, item.origin, item.destination, item.distanceKm ? `${item.distanceKm} km` : '—', item.active ? 'Ativa' : 'Inativa', formatarData(item.criado_em), <BotaoEstado activo={item.active} aoClicar={() => executar(() => definirEstadoAdministrativo('rotas', item.id, !item.active), 'Estado da rota atualizado.')} />])} /></>;
   if (secao === 'Viagens') return <><FormularioViagem rotas={dados.rotas.filter((item) => item.active)} autocarros={dados.autocarros.filter((item) => item.active)} aoSubmeter={(e) => submeter(e, criarViagem, 'Viagem criada com sucesso.')} /><TabelaGestao titulo="Viagens" colunas={['ID', 'Rota', 'Autocarro', 'Partida', 'Chegada', 'Preço', 'Estado', 'Ações']} linhas={dados.viagens.map((item) => [item.id, `${item.Route?.origin} → ${item.Route?.destination}`, `${item.Bus?.registration || '—'} · ${item.Bus?.model || ''}`, formatarData(item.departureAt), item.arrivalExpectedAt ? formatarData(item.arrivalExpectedAt) : '—', formatarValor(item.price), item.status, <AcoesViagem viagem={item} executar={executar} />])} /></>;
   if (secao === 'Bilhetes') return <TabelaGestao titulo="Bilhetes emitidos" colunas={['Código', 'Passageiro', 'Rota', 'Autocarro', 'Assento', 'Pagamento', 'Referência', 'Preço', 'Estado', 'Emitido em']} linhas={dados.bilhetes.map((item) => [item.codigo, item.User?.nome || item.nomePassageiro, `${item.Trip?.Route?.origin || ''} → ${item.Trip?.Route?.destination || ''}`, item.Trip?.Bus?.registration || '—', item.Assento?.numero || '—', item.Pagamento?.metodo || '—', item.Pagamento?.referencia || '—', formatarValor(item.preco), item.estado, formatarData(item.criado_em)])} />;
-  if (secao === 'Auditoria') return <TabelaGestao titulo="Registo de auditoria" colunas={['Data', 'Administrador', 'Operação', 'Entidade', 'Identificador', 'Endereço IP', 'Valores']} linhas={dados.auditorias.map((item) => [formatarData(item.criado_em), item.User?.nome || 'Sistema', item.operacao, item.entidade, item.entidadeId || '—', item.enderecoIp || '—', JSON.stringify(item.valoresNovos || {})])} />;
+  if (secao === 'Auditoria') return <PaginaAuditoria auditorias={dados.auditorias} />;
   return <VisaoGeral dados={dados} />;
 }
 
@@ -90,6 +90,51 @@ function PaginaUtilizadores({ utilizadores, executar }) {
       {emEdicao && <button type="button" className="botao-voltar" onClick={() => setEmEdicao(null)}>Cancelar edição</button>}
     </form>
     <TabelaGestao titulo="Utilizadores" colunas={['ID', 'Nome', 'Email', 'Perfil', 'Estado', 'Ações']} linhas={utilizadores.map((item) => [item.id, item.nome, item.email, item.perfil === 'ADMIN' ? 'Administrador' : 'Passageiro', item.activo ? 'Ativo' : 'Inativo', <span className="admin-acoes"><button onClick={() => setEmEdicao(item)}>Editar</button><button onClick={() => redefinir(item)}>Redefinir senha</button><BotaoEstado activo={item.activo} aoClicar={() => executar(() => definirEstadoAdministrativo('utilizadores', item.id, !item.activo), 'Estado do utilizador atualizado.')} /></span>])} />
+  </>;
+}
+
+function PaginaAuditoria({ auditorias }) {
+  const [filtros, setFiltros] = useState({ utilizador: '', operacao: '', entidade: '', dataInicio: '', dataFim: '' });
+
+  // As opções são obtidas dos próprios registos para evitar filtros sem resultados.
+  const administradores = Array.from(new Map(auditorias.filter((item) => item.User).map((item) => [String(item.User.id), item.User.nome])).entries()).sort((a, b) => a[1].localeCompare(b[1], 'pt'));
+  const operacoes = [...new Set(auditorias.map((item) => item.operacao).filter(Boolean))].sort();
+  const entidades = [...new Set(auditorias.map((item) => item.entidade).filter(Boolean))].sort();
+
+  const auditoriasFiltradas = auditorias.filter((item) => {
+    const autor = item.User ? String(item.User.id) : 'sistema';
+    const data = new Date(item.criado_em);
+    const inicio = filtros.dataInicio ? new Date(`${filtros.dataInicio}T00:00:00`) : null;
+    const fim = filtros.dataFim ? new Date(`${filtros.dataFim}T23:59:59.999`) : null;
+
+    return (!filtros.utilizador || autor === filtros.utilizador)
+      && (!filtros.operacao || item.operacao === filtros.operacao)
+      && (!filtros.entidade || item.entidade === filtros.entidade)
+      && (!inicio || data >= inicio)
+      && (!fim || data <= fim);
+  });
+
+  function alterarFiltro(evento) {
+    setFiltros((actuais) => ({ ...actuais, [evento.target.name]: evento.target.value }));
+  }
+
+  function limparFiltros() {
+    setFiltros({ utilizador: '', operacao: '', entidade: '', dataInicio: '', dataFim: '' });
+  }
+
+  return <>
+    <section className="admin-filtros-auditoria vidro" aria-label="Filtros da auditoria">
+      <div className="titulo-secao"><div><h3>Filtros da auditoria</h3><p>Combine os campos para localizar uma operação específica.</p></div><span>{auditoriasFiltradas.length} de {auditorias.length} registos</span></div>
+      <div className="grelha-filtros-auditoria">
+        <label>Administrador<select name="utilizador" value={filtros.utilizador} onChange={alterarFiltro}><option value="">Todos</option>{auditorias.some((item) => !item.User) && <option value="sistema">Sistema</option>}{administradores.map(([id, nome]) => <option key={id} value={id}>{nome}</option>)}</select></label>
+        <label>Operação<select name="operacao" value={filtros.operacao} onChange={alterarFiltro}><option value="">Todas</option>{operacoes.map((operacao) => <option key={operacao} value={operacao}>{operacao}</option>)}</select></label>
+        <label>Entidade<select name="entidade" value={filtros.entidade} onChange={alterarFiltro}><option value="">Todas</option>{entidades.map((entidade) => <option key={entidade} value={entidade}>{entidade}</option>)}</select></label>
+        <label>Data inicial<input name="dataInicio" type="date" value={filtros.dataInicio} max={filtros.dataFim || undefined} onChange={alterarFiltro} /></label>
+        <label>Data final<input name="dataFim" type="date" value={filtros.dataFim} min={filtros.dataInicio || undefined} onChange={alterarFiltro} /></label>
+        <button type="button" onClick={limparFiltros} disabled={!Object.values(filtros).some(Boolean)}>Limpar filtros</button>
+      </div>
+    </section>
+    <TabelaGestao key={JSON.stringify(filtros)} titulo="Registo de auditoria" colunas={['Data', 'Administrador', 'Operação', 'Entidade', 'Identificador', 'Endereço IP', 'Valores']} linhas={auditoriasFiltradas.map((item) => [formatarData(item.criado_em), item.User?.nome || 'Sistema', item.operacao, item.entidade, item.entidadeId || '—', item.enderecoIp || '—', JSON.stringify(item.valoresNovos || {})])} />
   </>;
 }
 
