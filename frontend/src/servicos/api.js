@@ -65,3 +65,11 @@ export function listarAssentos(viagemId) {
 export function comprarBilhete(dados) {
   return requisicao('/compras', { method: 'POST', body: JSON.stringify(dados) });
 }
+
+export function obterResumoConta() {
+  return requisicao('/conta/resumo');
+}
+
+export function cancelarBilhete(codigo) {
+  return requisicao(`/bilhetes/${encodeURIComponent(codigo)}/cancelar`, { method: 'PATCH' });
+}

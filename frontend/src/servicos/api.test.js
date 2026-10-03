@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { comprarBilhete, guardarSessao, obterSessaoGuardada, terminarSessao } from './api.js';
+import { comprarBilhete, guardarSessao, obterResumoConta, obterSessaoGuardada, terminarSessao } from './api.js';
 
 describe('sessão do passageiro', () => {
   beforeEach(() => {
@@ -35,5 +35,16 @@ describe('sessão do passageiro', () => {
       method: 'POST',
       headers: expect.objectContaining({ Authorization: 'Bearer token-teste' })
     }));
+  });
+
+  it('consulta o resumo da conta autenticada', async () => {
+    guardarSessao({ token: 'token-resumo' });
+    const fetchSimulado = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ dados: { totalBilhetesActivos: 2 } }) });
+    vi.stubGlobal('fetch', fetchSimulado);
+
+    const resumo = await obterResumoConta();
+
+    expect(resumo.totalBilhetesActivos).toBe(2);
+    expect(fetchSimulado).toHaveBeenCalledWith(expect.stringContaining('/conta/resumo'), expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer token-resumo' }) }));
   });
 });

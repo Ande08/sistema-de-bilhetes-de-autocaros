@@ -1,13 +1,6 @@
 import { useEffect, useState } from 'react';
 import Icone from './componentes/Icone.jsx';
-import { comprarBilhete, guardarSessao, iniciarSessao, listarAssentos, obterPerfil, obterSessaoGuardada, pesquisarViagens, registarUtilizador, terminarSessao } from './servicos/api.js';
-
-const viagensRecentes = [
-  { data: '10 Fev 2026', rota: 'Nampula → Tete', assento: 'B4' },
-  { data: '22 Jan 2026', rota: 'Maputo → Beira', assento: 'C2' },
-  { data: '05 Jan 2026', rota: 'Tete → Nampula', assento: 'A3' },
-  { data: '12 Dez 2025', rota: 'Beira → Maputo', assento: 'D1' }
-];
+import { actualizarPerfil, alterarPalavraPasse, cancelarBilhete, comprarBilhete, guardarSessao, iniciarSessao, listarAssentos, obterPerfil, obterResumoConta, obterSessaoGuardada, pesquisarViagens, registarUtilizador, terminarSessao } from './servicos/api.js';
 
 const itensMenu = [
   ['inicio', 'Início'], ['viagens', 'Minhas Viagens'], ['bilhete', 'Bilhetes'],
@@ -20,6 +13,9 @@ export default function App() {
   const [menuAberto, setMenuAberto] = useState(false);
   const [paginaAtiva, setPaginaAtiva] = useState('Início');
   const [novaViagemAberta, setNovaViagemAberta] = useState(false);
+  const [resumoConta, setResumoConta] = useState(null);
+  const [erroConta, setErroConta] = useState('');
+  const [versaoConta, setVersaoConta] = useState(0);
 
   useEffect(() => {
     if (!sessao?.token) return;
@@ -36,6 +32,12 @@ export default function App() {
       .finally(() => setAVerificarSessao(false));
   }, [sessao?.token]);
 
+  useEffect(() => {
+    if (!sessao?.token) return;
+    setErroConta('');
+    obterResumoConta().then(setResumoConta).catch((erro) => setErroConta(erro.message));
+  }, [sessao?.token, versaoConta]);
+
   function selecionarPagina(nome) {
     setPaginaAtiva(nome);
     setMenuAberto(false);
@@ -51,6 +53,10 @@ export default function App() {
     terminarSessao();
     setSessao(null);
     setPaginaAtiva('Início');
+  }
+
+  function actualizarConta() {
+    setVersaoConta((versao) => versao + 1);
   }
 
   if (aVerificarSessao) {
@@ -99,53 +105,112 @@ export default function App() {
           <p>Aqui pode gerir as suas viagens, bilhetes, pagamentos e dados pessoais.</p>
         </div><button className="botao-nova-viagem" onClick={() => setNovaViagemAberta(true)}><span>+</span> Nova viagem</button></div></header>
 
-        <section className="proxima-viagem" aria-label="Próxima viagem">
-          <div className="viagem-conteudo">
-            <div className="linha-estado"><span>Próxima viagem</span><span className="confirmado"><Icone nome="confirmado" /> Confirmado</span></div>
-            <h3>Tete <span>→</span> Maputo</h3>
-            <div className="detalhes-viagem">
-              <div><Icone nome="calendario" /><span><strong>15 de Outubro de 2026</strong><small>Quinta-feira</small></span></div>
-              <div><Icone nome="relogio" /><span><strong>08:00</strong><small>Partida</small></span></div>
-              <div><Icone nome="assento" /><span><strong>Assento A1</strong><small>Classe normal</small></span></div>
-            </div>
-            <div className="acoes-viagem"><button className="botao-claro">Ver bilhete <Icone nome="seta" /></button><button className="botao-secundario" onClick={() => setNovaViagemAberta(true)}>Comprar outro bilhete</button></div>
-          </div>
-          <div className="arte-autocarro" aria-hidden="true"><Icone nome="autocarroGrande" /></div>
-        </section>
-
-        <section className="resumos">
-          <CartaoResumo icone="autocarro" titulo="Próxima viagem" valor="Tete → Maputo" detalhe="15 de Outubro · 08:00" />
-          <CartaoResumo icone="bilhete" titulo="Bilhetes ativos" valor="2" detalhe="Viagens futuras" />
-          <CartaoResumo icone="cartao" titulo="Pagamentos" valor="3" detalhe="Últimos 6 meses" />
-        </section>
-
-        <section className="grelha-inferior">
-          <div className="historico vidro">
-            <div className="titulo-secao"><h3>Viagens recentes</h3><button>Ver todas <Icone nome="seta" /></button></div>
-            <div className="tabela-cabecalho"><span>Data</span><span>Origem → Destino</span><span>Assento</span><span>Estado</span><span>Ações</span></div>
-            <div className="linhas-viagem">
-              {viagensRecentes.map((viagem) => (
-                <div className="linha-viagem" key={`${viagem.data}-${viagem.rota}`}>
-                  <span data-label="Data">{viagem.data}</span><span data-label="Rota">{viagem.rota}</span>
-                  <span data-label="Assento">{viagem.assento}</span><span data-label="Estado"><b className="estado-concluida">Concluída</b></span>
-                  <span data-label="Ação"><button className="botao-contorno">Ver bilhete</button></span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <aside className="suporte">
-            <span className="suporte-icone"><Icone nome="suporte" /></span><h3>Precisa de ajuda?</h3>
-            <p>A nossa equipa está pronta para ajudar com as suas viagens, bilhetes ou pagamentos.</p>
-            <button className="botao-claro">Falar com o suporte <Icone nome="seta" /></button>
-            <div className="links-suporte"><button><Icone nome="ajuda" /> Perguntas frequentes</button><button><Icone nome="documento" /> Políticas e termos</button></div>
-          </aside>
-        </section>
+        {erroConta && <p className="mensagem-formulario erro" role="alert">{erroConta}</p>}
+        {!resumoConta ? <div className="painel-carregando vidro">A carregar os dados da sua conta...</div> :
+          <ConteudoConta pagina={paginaAtiva} resumo={resumoConta} utilizador={utilizador} aoNovaViagem={() => setNovaViagemAberta(true)} aoActualizar={actualizarConta} aoActualizarUtilizador={(novoUtilizador) => {
+            const sessaoActualizada = { ...sessao, utilizador: novoUtilizador };
+            guardarSessao(sessaoActualizada);
+            setSessao(sessaoActualizada);
+          }} />}
       </main>
       <button className="botao-flutuante" onClick={() => setNovaViagemAberta(true)} aria-label="Comprar bilhete para uma nova viagem">+</button>
-      {novaViagemAberta && <FluxoCompra aoFechar={() => setNovaViagemAberta(false)} />}
+      {novaViagemAberta && <FluxoCompra aoFechar={() => setNovaViagemAberta(false)} aoComprar={actualizarConta} />}
     </div>
   );
+}
+
+function ConteudoConta({ pagina, resumo, utilizador, aoNovaViagem, aoActualizar, aoActualizarUtilizador }) {
+  if (pagina === 'Perfil') return <PaginaPerfil utilizador={utilizador} aoActualizarUtilizador={aoActualizarUtilizador} />;
+  if (pagina === 'Pagamentos') return <PaginaPagamentos pagamentos={resumo.pagamentos} />;
+  if (pagina === 'Bilhetes') return <PaginaBilhetes bilhetes={resumo.bilhetes} aoActualizar={aoActualizar} />;
+  if (pagina === 'Minhas Viagens') return <PaginaViagens viagens={resumo.bilhetes} aoActualizar={aoActualizar} />;
+  return <PaginaInicio resumo={resumo} aoNovaViagem={aoNovaViagem} aoActualizar={aoActualizar} />;
+}
+
+function PaginaInicio({ resumo, aoNovaViagem, aoActualizar }) {
+  const proxima = resumo.proximaViagem;
+  return <>
+    {proxima ? <section className="proxima-viagem" aria-label="Próxima viagem">
+      <div className="viagem-conteudo">
+        <div className="linha-estado"><span>Próxima viagem</span><span className="confirmado"><Icone nome="confirmado" /> Confirmado</span></div>
+        <h3>{proxima.viagem.origem} <span>→</span> {proxima.viagem.destino}</h3>
+        <div className="detalhes-viagem">
+          <div><Icone nome="calendario" /><span><strong>{formatarData(proxima.viagem.partidaEm)}</strong><small>Data da viagem</small></span></div>
+          <div><Icone nome="relogio" /><span><strong>{formatarHora(proxima.viagem.partidaEm)}</strong><small>Partida</small></span></div>
+          <div><Icone nome="assento" /><span><strong>Assento {proxima.assento?.numero}</strong><small>{proxima.codigo}</small></span></div>
+        </div>
+        <div className="acoes-viagem"><button className="botao-claro" onClick={() => imprimirBilhete(proxima)}>Ver bilhete <Icone nome="seta" /></button><button className="botao-secundario" onClick={aoNovaViagem}>Comprar outro bilhete</button></div>
+      </div><div className="arte-autocarro" aria-hidden="true"><Icone nome="autocarroGrande" /></div>
+    </section> : <section className="sem-proxima-viagem vidro"><span><Icone nome="autocarro" /></span><div><h3>Ainda não tem uma viagem marcada</h3><p>Pesquise destinos disponíveis e compre o seu próximo bilhete.</p></div><button className="botao-nova-viagem" onClick={aoNovaViagem}>Nova viagem</button></section>}
+
+    <section className="resumos">
+      <CartaoResumo icone="autocarro" titulo="Próxima viagem" valor={proxima ? `${proxima.viagem.origem} → ${proxima.viagem.destino}` : 'Sem viagem'} detalhe={proxima ? formatarDataHora(proxima.viagem.partidaEm) : 'Compre um novo bilhete'} />
+      <CartaoResumo icone="bilhete" titulo="Bilhetes ativos" valor={String(resumo.totalBilhetesActivos)} detalhe="Viagens futuras" />
+      <CartaoResumo icone="cartao" titulo="Pagamentos" valor={String(resumo.totalPagamentosSeisMeses)} detalhe="Últimos 6 meses" />
+    </section>
+    <section className="grelha-inferior">
+      <TabelaBilhetes titulo="Viagens recentes" bilhetes={resumo.viagensRecentes} aoActualizar={aoActualizar} />
+      <aside className="suporte"><span className="suporte-icone"><Icone nome="suporte" /></span><h3>Precisa de ajuda?</h3><p>A nossa equipa está pronta para ajudar com as suas viagens, bilhetes ou pagamentos.</p><button className="botao-claro">Falar com o suporte <Icone nome="seta" /></button><div className="links-suporte"><button><Icone nome="ajuda" /> Perguntas frequentes</button><button><Icone nome="documento" /> Políticas e termos</button></div></aside>
+    </section>
+  </>;
+}
+
+function PaginaViagens({ viagens, aoActualizar }) {
+  return <section className="pagina-dados vidro"><div className="titulo-secao"><div><p className="etiqueta">Histórico</p><h3>Minhas viagens</h3></div><span>{viagens.length} registos</span></div><TabelaBilhetes bilhetes={viagens} aoActualizar={aoActualizar} semMoldura /></section>;
+}
+
+function PaginaBilhetes({ bilhetes, aoActualizar }) {
+  return <section className="pagina-dados vidro"><div className="titulo-secao"><div><p className="etiqueta">Documentos eletrónicos</p><h3>Meus bilhetes</h3></div><span>{bilhetes.length} bilhetes</span></div><TabelaBilhetes bilhetes={bilhetes} aoActualizar={aoActualizar} semMoldura /></section>;
+}
+
+function TabelaBilhetes({ titulo, bilhetes, aoActualizar, semMoldura = false }) {
+  const [codigoEmCurso, setCodigoEmCurso] = useState('');
+  const [erro, setErro] = useState('');
+
+  async function cancelar(item) {
+    if (!window.confirm(`Deseja cancelar o bilhete ${item.codigo}?`)) return;
+    setCodigoEmCurso(item.codigo);
+    setErro('');
+    try { await cancelarBilhete(item.codigo); aoActualizar(); }
+    catch (falha) { setErro(falha.message); }
+    finally { setCodigoEmCurso(''); }
+  }
+
+  const conteudo = <>
+    {titulo && <div className="titulo-secao"><h3>{titulo}</h3></div>}
+    <div className="tabela-cabecalho"><span>Data</span><span>Origem → Destino</span><span>Assento</span><span>Estado</span><span>Ações</span></div>
+    <div className="linhas-viagem">{bilhetes.length === 0 ? <EstadoVazio texto="Ainda não existem viagens nesta conta." /> : bilhetes.map((item) => <div className="linha-viagem" key={item.codigo}>
+      <span data-label="Data">{item.viagem ? formatarData(item.viagem.partidaEm) : '—'}</span><span data-label="Rota">{item.viagem ? `${item.viagem.origem} → ${item.viagem.destino}` : '—'}</span><span data-label="Assento">{item.assento?.numero || '—'}</span><span data-label="Estado"><b className={`estado-bilhete estado-${item.estado.toLowerCase()}`}>{traduzirEstado(item.estado)}</b></span><span data-label="Ação" className="acoes-linha"><button className="botao-contorno" onClick={() => imprimirBilhete(item)}>Ver</button>{['EMITIDO', 'RESERVADO'].includes(item.estado) && item.viagem && new Date(item.viagem.partidaEm) > new Date() && <button className="botao-cancelar" disabled={codigoEmCurso === item.codigo} onClick={() => cancelar(item)}>Cancelar</button>}</span>
+    </div>)}</div>{erro && <p className="mensagem-formulario erro">{erro}</p>}
+  </>;
+  return semMoldura ? conteudo : <div className="historico vidro">{conteudo}</div>;
+}
+
+function PaginaPagamentos({ pagamentos }) {
+  return <section className="pagina-dados vidro"><div className="titulo-secao"><div><p className="etiqueta">Movimentos</p><h3>Pagamentos</h3></div><span>{pagamentos.length} registos</span></div><div className="lista-pagamentos">{pagamentos.length === 0 ? <EstadoVazio texto="Ainda não existem pagamentos nesta conta." /> : pagamentos.map((item) => <article key={item.referencia}><span className="resumo-icone"><Icone nome="cartao" /></span><div><strong>{nomeMetodoPagamento(item.metodo)}</strong><small>{item.referencia} · Bilhete {item.bilheteCodigo}</small></div><div className="valor-pagamento"><strong>{formatarMeticais(item.valor)}</strong><small>{item.criadoEm ? formatarData(item.criadoEm) : ''}</small></div><b className={`estado-bilhete estado-${item.estado.toLowerCase()}`}>{traduzirEstado(item.estado)}</b></article>)}</div></section>;
+}
+
+function PaginaPerfil({ utilizador, aoActualizarUtilizador }) {
+  const [mensagem, setMensagem] = useState('');
+  const [erro, setErro] = useState('');
+
+  async function guardarPerfil(evento) {
+    evento.preventDefault(); setMensagem(''); setErro('');
+    try { const actualizado = await actualizarPerfil(Object.fromEntries(new FormData(evento.currentTarget))); aoActualizarUtilizador(actualizado); setMensagem('Dados pessoais atualizados com sucesso.'); }
+    catch (falha) { setErro(falha.message); }
+  }
+
+  async function guardarPalavraPasse(evento) {
+    evento.preventDefault(); setMensagem(''); setErro('');
+    try { const resposta = await alterarPalavraPasse(Object.fromEntries(new FormData(evento.currentTarget))); setMensagem(resposta.mensagem); evento.currentTarget.reset(); }
+    catch (falha) { setErro(falha.message); }
+  }
+
+  return <section className="grelha-perfil"><form className="pagina-dados vidro formulario-perfil" onSubmit={guardarPerfil}><p className="etiqueta">Dados pessoais</p><h3>Informações da conta</h3><label>Nome completo<input name="nome" defaultValue={utilizador.nome} required minLength="3" /></label><label>Email<input name="email" type="email" defaultValue={utilizador.email} required /></label><button className="botao-pesquisar">Guardar alterações</button></form><form className="pagina-dados vidro formulario-perfil" onSubmit={guardarPalavraPasse}><p className="etiqueta">Segurança</p><h3>Alterar palavra-passe</h3><label>Palavra-passe atual<input name="palavraPasseActual" type="password" required /></label><label>Nova palavra-passe<input name="novaPalavraPasse" type="password" minLength="8" required /></label><button className="botao-pesquisar">Alterar palavra-passe</button></form>{mensagem && <p className="mensagem-formulario sucesso mensagem-perfil">{mensagem}</p>}{erro && <p className="mensagem-formulario erro mensagem-perfil">{erro}</p>}</section>;
+}
+
+function EstadoVazio({ texto }) {
+  return <div className="estado-vazio estado-vazio-lista"><Icone nome="bilhete" /><strong>{texto}</strong></div>;
 }
 
 function CartaoResumo({ icone, titulo, valor, detalhe }) {
@@ -215,7 +280,7 @@ function PaginaAutenticacao({ aoAutenticar }) {
   </main>;
 }
 
-function FluxoCompra({ aoFechar }) {
+function FluxoCompra({ aoFechar, aoComprar }) {
   const [etapa, setEtapa] = useState('pesquisa');
   const [viagens, setViagens] = useState([]);
   const [viagem, setViagem] = useState(null);
@@ -257,6 +322,7 @@ function FluxoCompra({ aoFechar }) {
       const compra = await comprarBilhete({ viagemId: viagem.id, assentoId, metodoPagamento });
       setBilhete(compra.bilhete);
       setEtapa('concluida');
+      aoComprar();
     } catch (falha) { setErro(falha.message); }
     finally { setAProcessar(false); }
   }
@@ -322,4 +388,41 @@ function formatarMeticais(valor) {
 
 function formatarDataHora(valor) {
   return new Intl.DateTimeFormat('pt-MZ', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(valor));
+}
+
+function formatarData(valor) {
+  return new Intl.DateTimeFormat('pt-MZ', { dateStyle: 'medium' }).format(new Date(valor));
+}
+
+function formatarHora(valor) {
+  return new Intl.DateTimeFormat('pt-MZ', { hour: '2-digit', minute: '2-digit' }).format(new Date(valor));
+}
+
+function traduzirEstado(estado) {
+  return { EMITIDO: 'Emitido', RESERVADO: 'Reservado', CANCELADO: 'Cancelado', UTILIZADO: 'Utilizado', APROVADO: 'Aprovado', PENDENTE: 'Pendente', REJEITADO: 'Rejeitado', REEMBOLSADO: 'Reembolsado' }[estado] || estado;
+}
+
+function nomeMetodoPagamento(metodo) {
+  return { MPESA: 'M-Pesa', EMOLA: 'e-Mola', CARTAO: 'Cartão' }[metodo] || metodo;
+}
+
+function imprimirBilhete(bilhete) {
+  const janela = window.open('', '_blank', 'width=620,height=760');
+  if (!janela) return;
+  const linhas = [
+    'VIAGEM BUS', 'BILHETE ELETRÓNICO', '',
+    `Código: ${bilhete.codigo}`,
+    `Passageiro: ${bilhete.nomePassageiro || 'Titular da conta'}`,
+    `Rota: ${bilhete.viagem?.origem || ''} → ${bilhete.viagem?.destino || ''}`,
+    `Partida: ${bilhete.viagem ? formatarDataHora(bilhete.viagem.partidaEm) : ''}`,
+    `Assento: ${bilhete.assento?.numero || ''}`,
+    `Preço: ${formatarMeticais(bilhete.preco)}`,
+    `Estado: ${traduzirEstado(bilhete.estado)}`
+  ];
+  janela.document.title = `Bilhete ${bilhete.codigo}`;
+  const pre = janela.document.createElement('pre');
+  pre.textContent = linhas.join('\n');
+  pre.style.cssText = 'font:16px/1.7 Arial;padding:40px;color:#08264d;white-space:pre-wrap';
+  janela.document.body.appendChild(pre);
+  janela.print();
 }

@@ -118,6 +118,7 @@ POST /api/autenticacao/iniciar-sessao
 GET  /api/autenticacao/perfil
 PUT  /api/autenticacao/perfil
 PUT  /api/autenticacao/palavra-passe
+GET  /api/conta/resumo
 POST /api/gestao/autocarros
 POST /api/gestao/rotas
 POST /api/gestao/viagens
