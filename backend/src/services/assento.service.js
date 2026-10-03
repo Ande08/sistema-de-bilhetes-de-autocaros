@@ -18,6 +18,11 @@ export async function listarAssentosDaViagem(viagemId) {
     erro.statusCode = 404;
     throw erro;
   }
+  if (viagem.status !== 'AGENDADA' || new Date(viagem.departureAt) <= new Date()) {
+    const erro = new Error('Esta viagem não está disponível para seleção de assentos.');
+    erro.statusCode = 409;
+    throw erro;
+  }
 
   const assentos = await Assento.findAll({ where: { autocarroId: viagem.busId }, order: [['numero', 'ASC']] });
   const bilhetes = await Bilhete.findAll({ where: { viagemId, estado: { [Op.in]: ['RESERVADO', 'EMITIDO'] } } });

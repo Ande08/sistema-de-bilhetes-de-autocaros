@@ -46,7 +46,7 @@ Não é utilizado atualmente. Poderá ser usado no futuro para criar famílias d
 
 ### Facade
 
-Representado por `ServicoPagamento` e `ServicoBilhete`, que oferecem operações simples para processos internos mais complexos. Serve para esconder a complexidade da compra e emissão do bilhete.
+Representado por `ServicoCompra`, `ServicoPagamento` e `ServicoBilhete`, que coordenam pesquisa, pagamento, validação do assento e emissão. Serve para esconder dos controllers a complexidade do fluxo de compra.
 
 ### Repository
 
@@ -134,9 +134,10 @@ Exemplo de compra:
 
 ```json
 {
-  "passageiro": { "nome": "Ico Tiago" },
   "viagemId": 1,
-  "assento": { "id": 1, "numero": "A1" },
+  "assentoId": 1,
   "metodoPagamento": "MPESA"
 }
 ```
+
+A compra exige autenticação. O nome do passageiro é obtido da conta autenticada, sem recolha de documento pessoal. O backend confirma o pagamento simulado, valida o assento na base de dados e só depois emite o bilhete.

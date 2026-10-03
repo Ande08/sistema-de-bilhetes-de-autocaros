@@ -23,6 +23,8 @@ Trip.hasMany(Bilhete, { foreignKey: 'viagemId' });
 Bilhete.belongsTo(Trip, { foreignKey: 'viagemId' });
 Assento.hasMany(Bilhete, { foreignKey: 'assentoId' });
 Bilhete.belongsTo(Assento, { foreignKey: 'assentoId' });
+User.hasMany(Bilhete, { foreignKey: 'utilizadorId' });
+Bilhete.belongsTo(User, { foreignKey: 'utilizadorId' });
 Bilhete.hasOne(Pagamento, { foreignKey: 'bilheteId' });
 Pagamento.belongsTo(Bilhete, { foreignKey: 'bilheteId' });
 User.hasMany(Reserva, { foreignKey: 'utilizadorId' });

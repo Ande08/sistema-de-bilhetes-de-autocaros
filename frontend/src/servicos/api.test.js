@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { guardarSessao, obterSessaoGuardada, terminarSessao } from './api.js';
+import { comprarBilhete, guardarSessao, obterSessaoGuardada, terminarSessao } from './api.js';
 
 describe('sessão do passageiro', () => {
   beforeEach(() => {
@@ -21,5 +21,19 @@ describe('sessão do passageiro', () => {
     guardarSessao({ token: 'token-teste' });
     terminarSessao();
     expect(obterSessaoGuardada()).toBeNull();
+  });
+
+  it('envia a compra com o token da sessão', async () => {
+    guardarSessao({ token: 'token-teste' });
+    const resposta = { dados: { bilhete: { codigo: 'BIL-1' } } };
+    const fetchSimulado = vi.fn().mockResolvedValue({ ok: true, json: async () => resposta });
+    vi.stubGlobal('fetch', fetchSimulado);
+
+    await comprarBilhete({ viagemId: 1, assentoId: 2, metodoPagamento: 'MPESA' });
+
+    expect(fetchSimulado).toHaveBeenCalledWith(expect.stringContaining('/compras'), expect.objectContaining({
+      method: 'POST',
+      headers: expect.objectContaining({ Authorization: 'Bearer token-teste' })
+    }));
   });
 });

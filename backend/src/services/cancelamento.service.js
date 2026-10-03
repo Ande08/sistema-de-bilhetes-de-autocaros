@@ -1,10 +1,15 @@
 import { Bilhete, Pagamento, Trip } from '../models/index.js';
 
-export async function cancelarBilhete(codigo, transacao) {
+export async function cancelarBilhete(codigo, utilizadorAutenticado, transacao) {
   const bilhete = await Bilhete.findOne({ where: { codigo }, include: [Pagamento, Trip], transaction: transacao, lock: transacao.LOCK.UPDATE });
   if (!bilhete) {
     const erro = new Error('Bilhete não encontrado.');
     erro.statusCode = 404;
+    throw erro;
+  }
+  if (utilizadorAutenticado.perfil !== 'ADMIN' && String(bilhete.utilizadorId) !== String(utilizadorAutenticado.id)) {
+    const erro = new Error('Não tem permissão para cancelar este bilhete.');
+    erro.statusCode = 403;
     throw erro;
   }
   if (bilhete.estado !== 'EMITIDO' && bilhete.estado !== 'RESERVADO') {

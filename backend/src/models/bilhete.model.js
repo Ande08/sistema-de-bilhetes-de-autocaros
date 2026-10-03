@@ -14,7 +14,5 @@ Bilhete.init({
 }, {
   sequelize,
   modelName: 'Bilhete',
-  tableName: 'bilhetes',
-  // Garante no banco que um assento não seja vendido duas vezes na mesma viagem.
-  indexes: [{ unique: true, fields: ['viagem_id', 'assento_id'], name: 'uq_bilhete_viagem_assento' }]
+  tableName: 'bilhetes'
 });

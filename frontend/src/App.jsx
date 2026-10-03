@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import Icone from './componentes/Icone.jsx';
-import { guardarSessao, iniciarSessao, obterPerfil, obterSessaoGuardada, registarUtilizador, terminarSessao } from './servicos/api.js';
+import { comprarBilhete, guardarSessao, iniciarSessao, listarAssentos, obterPerfil, obterSessaoGuardada, pesquisarViagens, registarUtilizador, terminarSessao } from './servicos/api.js';
 
 const viagensRecentes = [
   { data: '10 Fev 2026', rota: 'Nampula → Tete', assento: 'B4' },
@@ -20,7 +20,6 @@ export default function App() {
   const [menuAberto, setMenuAberto] = useState(false);
   const [paginaAtiva, setPaginaAtiva] = useState('Início');
   const [novaViagemAberta, setNovaViagemAberta] = useState(false);
-  const [mensagemPesquisa, setMensagemPesquisa] = useState('');
 
   useEffect(() => {
     if (!sessao?.token) return;
@@ -144,19 +143,7 @@ export default function App() {
         </section>
       </main>
       <button className="botao-flutuante" onClick={() => setNovaViagemAberta(true)} aria-label="Comprar bilhete para uma nova viagem">+</button>
-      {novaViagemAberta && <div className="modal-fundo" onMouseDown={(evento) => evento.target === evento.currentTarget && setNovaViagemAberta(false)}>
-        <section className="modal-nova-viagem vidro" role="dialog" aria-modal="true" aria-labelledby="titulo-nova-viagem">
-          <div className="modal-topo"><div><p className="etiqueta">Comprar bilhete</p><h2 id="titulo-nova-viagem">Para onde deseja viajar?</h2><p>Pesquise uma rota e escolha a melhor viagem para si.</p></div><button className="fechar-modal" onClick={() => setNovaViagemAberta(false)} aria-label="Fechar">×</button></div>
-          <form className="formulario-nova-viagem" onSubmit={(evento) => { evento.preventDefault(); setMensagemPesquisa('A procurar viagens disponíveis para a data selecionada.'); }}>
-            <label>Origem<input name="origem" placeholder="Ex.: Tete" required /></label><button type="button" className="trocar-rota" aria-label="Trocar origem e destino">⇄</button>
-            <label>Destino<input name="destino" placeholder="Ex.: Maputo" required /></label><label>Data da viagem<input name="data" type="date" required /></label>
-            <label>Passageiros<select name="passageiros" defaultValue="1"><option value="1">1 passageiro</option><option value="2">2 passageiros</option><option value="3">3 passageiros</option></select></label>
-            <button type="submit" className="botao-pesquisar"><Icone nome="pesquisa" /> Pesquisar viagens</button>
-          </form>
-          {mensagemPesquisa && <p className="mensagem-pesquisa" role="status">{mensagemPesquisa}</p>}
-          <div className="vantagens-compra"><span><Icone nome="escudo" /> Pagamento seguro</span><span><Icone nome="bilhete" /> Bilhete eletrónico</span><span><Icone nome="confirmado" /> Confirmação imediata</span></div>
-        </section>
-      </div>}
+      {novaViagemAberta && <FluxoCompra aoFechar={() => setNovaViagemAberta(false)} />}
     </div>
   );
 }
@@ -226,4 +213,113 @@ function PaginaAutenticacao({ aoAutenticar }) {
       <p className="nota-seguranca"><Icone nome="escudo" /> Os seus dados são protegidos e utilizados apenas para gerir as viagens.</p>
     </section>
   </main>;
+}
+
+function FluxoCompra({ aoFechar }) {
+  const [etapa, setEtapa] = useState('pesquisa');
+  const [viagens, setViagens] = useState([]);
+  const [viagem, setViagem] = useState(null);
+  const [assentos, setAssentos] = useState([]);
+  const [assentoId, setAssentoId] = useState(null);
+  const [metodoPagamento, setMetodoPagamento] = useState('MPESA');
+  const [bilhete, setBilhete] = useState(null);
+  const [aProcessar, setAProcessar] = useState(false);
+  const [erro, setErro] = useState('');
+
+  async function pesquisar(evento) {
+    evento.preventDefault();
+    setAProcessar(true);
+    setErro('');
+    try {
+      const resultados = await pesquisarViagens(Object.fromEntries(new FormData(evento.currentTarget)));
+      setViagens(resultados);
+      setEtapa('resultados');
+    } catch (falha) { setErro(falha.message); }
+    finally { setAProcessar(false); }
+  }
+
+  async function escolherViagem(seleccionada) {
+    setAProcessar(true);
+    setErro('');
+    try {
+      setAssentos(await listarAssentos(seleccionada.id));
+      setViagem(seleccionada);
+      setEtapa('assentos');
+    } catch (falha) { setErro(falha.message); }
+    finally { setAProcessar(false); }
+  }
+
+  async function concluirCompra() {
+    if (!assentoId) return setErro('Selecione um assento disponível.');
+    setAProcessar(true);
+    setErro('');
+    try {
+      const compra = await comprarBilhete({ viagemId: viagem.id, assentoId, metodoPagamento });
+      setBilhete(compra.bilhete);
+      setEtapa('concluida');
+    } catch (falha) { setErro(falha.message); }
+    finally { setAProcessar(false); }
+  }
+
+  const rota = viagem?.Route;
+  return <div className="modal-fundo" onMouseDown={(evento) => evento.target === evento.currentTarget && aoFechar()}>
+    <section className="modal-nova-viagem vidro" role="dialog" aria-modal="true" aria-labelledby="titulo-nova-viagem">
+      <div className="modal-topo"><div><p className="etiqueta">Comprar bilhete</p><h2 id="titulo-nova-viagem">{tituloEtapa(etapa)}</h2><p>{descricaoEtapa(etapa)}</p></div><button className="fechar-modal" onClick={aoFechar} aria-label="Fechar">×</button></div>
+
+      {etapa === 'pesquisa' && <form className="formulario-nova-viagem pesquisa-compra" onSubmit={pesquisar}>
+        <label>Origem<input name="origem" placeholder="Ex.: Tete" required /></label>
+        <label>Destino<input name="destino" placeholder="Ex.: Maputo" required /></label>
+        <label>Data da viagem<input name="data" type="date" min={new Date().toISOString().slice(0, 10)} required /></label>
+        <button disabled={aProcessar} type="submit" className="botao-pesquisar"><Icone nome="pesquisa" /> {aProcessar ? 'A pesquisar...' : 'Pesquisar viagens'}</button>
+      </form>}
+
+      {etapa === 'resultados' && <div className="resultados-viagens">
+        {viagens.length === 0 ? <div className="estado-vazio"><Icone nome="autocarro" /><strong>Nenhuma viagem encontrada</strong><p>Altere a origem, o destino ou a data e tente novamente.</p></div> : viagens.map((item) => <article className="opcao-viagem vidro" key={item.id}>
+          <div><strong>{item.Route?.origin} → {item.Route?.destination}</strong><span>{formatarDataHora(item.departureAt)}</span></div>
+          <div className="preco-viagem"><small>Preço</small><strong>{formatarMeticais(item.price)}</strong></div>
+          <button onClick={() => escolherViagem(item)} disabled={aProcessar}>Escolher</button>
+        </article>)}
+        <button className="botao-voltar" onClick={() => setEtapa('pesquisa')}>Alterar pesquisa</button>
+      </div>}
+
+      {etapa === 'assentos' && <div className="selecao-assento">
+        <ResumoViagem viagem={viagem} />
+        <div className="legenda-assentos"><span><i className="livre" /> Disponível</span><span><i className="ocupado" /> Ocupado</span><span><i className="seleccionado" /> Selecionado</span></div>
+        <div className="mapa-assentos" aria-label="Seleção de assento">{assentos.map((assento) => <button key={assento.id} disabled={!assento.disponivel} className={String(assentoId) === String(assento.id) ? 'seleccionado' : ''} onClick={() => setAssentoId(assento.id)}>{assento.numero}</button>)}</div>
+        <div className="rodape-etapa"><button className="botao-voltar" onClick={() => setEtapa('resultados')}>Voltar</button><button className="botao-pesquisar" onClick={() => assentoId ? setEtapa('pagamento') : setErro('Selecione um assento disponível.')}>Continuar para pagamento</button></div>
+      </div>}
+
+      {etapa === 'pagamento' && <div className="etapa-pagamento">
+        <ResumoViagem viagem={viagem} assento={assentos.find((item) => String(item.id) === String(assentoId))} />
+        <div className="metodos-pagamento">{[['MPESA', 'M-Pesa'], ['EMOLA', 'e-Mola'], ['CARTAO', 'Cartão']].map(([valor, nome]) => <label className={metodoPagamento === valor ? 'seleccionado' : ''} key={valor}><input type="radio" name="pagamento" value={valor} checked={metodoPagamento === valor} onChange={() => setMetodoPagamento(valor)} /><span>{nome}</span><small>Pagamento simulado</small></label>)}</div>
+        <p className="aviso-simulacao">Esta demonstração não movimenta dinheiro real. O pagamento será confirmado automaticamente.</p>
+        <div className="rodape-etapa"><button className="botao-voltar" onClick={() => setEtapa('assentos')}>Voltar</button><button className="botao-pesquisar" disabled={aProcessar} onClick={concluirCompra}>{aProcessar ? 'A confirmar...' : `Pagar ${formatarMeticais(viagem.price)}`}</button></div>
+      </div>}
+
+      {etapa === 'concluida' && <div className="compra-concluida"><span className="icone-sucesso"><Icone nome="confirmado" /></span><h3>Bilhete emitido com sucesso</h3><p>O pagamento foi aprovado e o seu assento está confirmado.</p><div className="bilhete-resumo"><small>Código do bilhete</small><strong>{bilhete.codigo}</strong><span>{rota?.origin} → {rota?.destination}</span><span>Assento {bilhete.assento.numero} · {formatarMeticais(bilhete.preco)}</span></div><button className="botao-pesquisar" onClick={aoFechar}>Concluir</button></div>}
+
+      {erro && <p className="mensagem-formulario erro" role="alert">{erro}</p>}
+      {etapa !== 'concluida' && <div className="vantagens-compra"><span><Icone nome="escudo" /> Pagamento seguro</span><span><Icone nome="bilhete" /> Bilhete eletrónico</span><span><Icone nome="confirmado" /> Confirmação imediata</span></div>}
+    </section>
+  </div>;
+}
+
+function ResumoViagem({ viagem, assento }) {
+  return <div className="resumo-compra"><div><small>Rota</small><strong>{viagem.Route?.origin} → {viagem.Route?.destination}</strong></div><div><small>Partida</small><strong>{formatarDataHora(viagem.departureAt)}</strong></div>{assento && <div><small>Assento</small><strong>{assento.numero}</strong></div>}<div><small>Total</small><strong>{formatarMeticais(viagem.price)}</strong></div></div>;
+}
+
+function tituloEtapa(etapa) {
+  return { pesquisa: 'Para onde deseja viajar?', resultados: 'Escolha a sua viagem', assentos: 'Selecione o assento', pagamento: 'Confirme o pagamento', concluida: 'Compra concluída' }[etapa];
+}
+
+function descricaoEtapa(etapa) {
+  return { pesquisa: 'Pesquise uma rota e encontre a melhor viagem para si.', resultados: 'Compare os horários e preços disponíveis.', assentos: 'Os assentos ocupados não podem ser selecionados.', pagamento: 'Escolha como deseja realizar o pagamento simulado.', concluida: 'O bilhete já está disponível na sua conta.' }[etapa];
+}
+
+function formatarMeticais(valor) {
+  return new Intl.NumberFormat('pt-MZ', { style: 'currency', currency: 'MZN' }).format(Number(valor));
+}
+
+function formatarDataHora(valor) {
+  return new Intl.DateTimeFormat('pt-MZ', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(valor));
 }

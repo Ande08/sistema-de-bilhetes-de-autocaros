@@ -2,13 +2,14 @@ import { sequelize } from '../config/database.js';
 import { cancelarBilhete, cancelarViagem } from '../services/cancelamento.service.js';
 
 export async function cancelarBilheteController(req, res, next) {
-  const transacao = await sequelize.transaction();
+  let transacao;
   try {
-    const bilhete = await cancelarBilhete(req.params.codigo, transacao);
+    transacao = await sequelize.transaction();
+    const bilhete = await cancelarBilhete(req.params.codigo, req.utilizador, transacao);
     await transacao.commit();
     return res.json({ sucesso: true, mensagem: 'Bilhete cancelado e pagamento reembolsado.', dados: bilhete });
   } catch (erro) {
-    await transacao.rollback();
+    if (transacao && !transacao.finished) await transacao.rollback();
     return next(erro);
   }
 }
