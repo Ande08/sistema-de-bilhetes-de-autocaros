@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import Icone from './componentes/Icone.jsx';
+import PainelAdministrador from './componentes/PainelAdministrador.jsx';
 import { actualizarPerfil, alterarPalavraPasse, cancelarBilhete, comprarBilhete, guardarSessao, iniciarSessao, listarAssentos, obterPerfil, obterResumoConta, obterSessaoGuardada, pesquisarViagens, registarUtilizador, terminarSessao } from './servicos/api.js';
 
 const itensMenu = [
@@ -18,7 +19,7 @@ export default function App() {
   const [versaoConta, setVersaoConta] = useState(0);
 
   useEffect(() => {
-    if (!sessao?.token) return;
+    if (!sessao?.token || sessao.utilizador?.perfil === 'ADMIN') return;
     obterPerfil()
       .then((utilizador) => {
         const sessaoActualizada = { ...sessao, utilizador };
@@ -69,6 +70,10 @@ export default function App() {
 
   const utilizador = sessao.utilizador;
   const primeiroNome = utilizador.nome.split(' ')[0];
+
+  if (utilizador.perfil === 'ADMIN') {
+    return <PainelAdministrador utilizador={utilizador} aoSair={sair} />;
+  }
 
   return (
     <div className="aplicacao">

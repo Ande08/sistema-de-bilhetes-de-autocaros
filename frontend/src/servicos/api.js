@@ -73,3 +73,23 @@ export function obterResumoConta() {
 export function cancelarBilhete(codigo) {
   return requisicao(`/bilhetes/${encodeURIComponent(codigo)}/cancelar`, { method: 'PATCH' });
 }
+
+export function obterPainelAdministrativo() {
+  return requisicao('/gestao/painel');
+}
+
+export function criarAutocarro(dados) {
+  return requisicao('/gestao/autocarros', { method: 'POST', body: JSON.stringify(dados) });
+}
+
+export function criarRota(dados) {
+  return requisicao('/gestao/rotas', { method: 'POST', body: JSON.stringify(dados) });
+}
+
+export function criarViagem(dados) {
+  return requisicao('/gestao/viagens', { method: 'POST', body: JSON.stringify(dados) });
+}
+
+export function definirEstadoAdministrativo(tipo, id, activo) {
+  return requisicao(`/gestao/${tipo}/${id}/estado`, { method: 'PATCH', body: JSON.stringify({ activo }) });
+}

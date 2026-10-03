@@ -1,7 +1,15 @@
-import { Bus, Route, Trip } from '../models/index.js';
+import { Bus, Route, Trip, User } from '../models/index.js';
 import { criarAssentosDoAutocarro } from '../services/assento.service.js';
+import { definirEstadoEntidade, obterPainelAdministrativo } from '../services/administracao.service.js';
+import { sequelize } from '../config/database.js';
+
+export async function obterPainel(req, res, next) {
+  try { return res.json({ sucesso: true, dados: await obterPainelAdministrativo() }); }
+  catch (erro) { return next(erro); }
+}
 
 export async function criarAutocarro(req, res, next) {
+  let transacao;
   try {
     const { matricula, modelo, capacidade } = req.body;
     if (!matricula || !modelo || !Number.isInteger(capacidade) || capacidade <= 0) {
@@ -9,11 +17,16 @@ export async function criarAutocarro(req, res, next) {
       erro.statusCode = 400;
       throw erro;
     }
-    const autocarro = await Bus.create({ registration: matricula, model: modelo, capacity: capacidade });
+    transacao = await sequelize.transaction();
+    const autocarro = await Bus.create({ registration: matricula, model: modelo, capacity: capacidade }, { transaction: transacao });
     // A capacidade informada gera automaticamente os assentos do autocarro.
-    await criarAssentosDoAutocarro(autocarro.id, capacidade);
+    await criarAssentosDoAutocarro(autocarro.id, capacidade, transacao);
+    await transacao.commit();
     return res.status(201).json({ sucesso: true, dados: autocarro });
-  } catch (erro) { return next(erro); }
+  } catch (erro) {
+    if (transacao && !transacao.finished) await transacao.rollback();
+    return next(erro);
+  }
 }
 
 export async function criarRota(req, res, next) {
@@ -44,12 +57,49 @@ export async function criarViagem(req, res, next) {
     }
     const autocarro = await Bus.findByPk(autocarroId);
     const rota = await Route.findByPk(rotaId);
-    if (!autocarro || !rota) {
+    if (!autocarro || !rota || !autocarro.active || !rota.active) {
       const erro = new Error('A rota ou o autocarro não foram encontrados.');
       erro.statusCode = 404;
       throw erro;
     }
     const viagem = await Trip.create({ routeId: rotaId, busId: autocarroId, departureAt: partidaEm, arrivalExpectedAt: chegadaPrevistaEm, price: preco });
     return res.status(201).json({ sucesso: true, dados: viagem });
+  } catch (erro) { return next(erro); }
+}
+
+export async function definirEstadoPassageiro(req, res, next) {
+  try {
+    const utilizador = await User.findByPk(req.params.id);
+    if (!utilizador || utilizador.perfil !== 'PASSAGEIRO') {
+      const erro = new Error('Passageiro não encontrado.'); erro.statusCode = 404; throw erro;
+    }
+    await utilizador.update({ activo: Boolean(req.body.activo) });
+    return res.json({ sucesso: true, dados: utilizador });
+  } catch (erro) { return next(erro); }
+}
+
+export async function definirEstadoAutocarro(req, res, next) {
+  try { return res.json({ sucesso: true, dados: await definirEstadoEntidade(Bus, req.params.id, req.body.activo) }); }
+  catch (erro) { return next(erro); }
+}
+
+export async function definirEstadoRota(req, res, next) {
+  try { return res.json({ sucesso: true, dados: await definirEstadoEntidade(Route, req.params.id, req.body.activo) }); }
+  catch (erro) { return next(erro); }
+}
+
+export async function actualizarViagem(req, res, next) {
+  try {
+    const viagem = await Trip.findByPk(req.params.id);
+    if (!viagem) { const erro = new Error('Viagem não encontrada.'); erro.statusCode = 404; throw erro; }
+    const alteracoes = {};
+    if (req.body.partidaEm) alteracoes.departureAt = req.body.partidaEm;
+    if (req.body.chegadaPrevistaEm) alteracoes.arrivalExpectedAt = req.body.chegadaPrevistaEm;
+    if (req.body.preco !== undefined) {
+      if (Number(req.body.preco) <= 0) { const erro = new Error('O preço deve ser superior a zero.'); erro.statusCode = 400; throw erro; }
+      alteracoes.price = req.body.preco;
+    }
+    await viagem.update(alteracoes);
+    return res.json({ sucesso: true, dados: viagem });
   } catch (erro) { return next(erro); }
 }

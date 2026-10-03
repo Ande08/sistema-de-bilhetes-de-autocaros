@@ -119,9 +119,14 @@ GET  /api/autenticacao/perfil
 PUT  /api/autenticacao/perfil
 PUT  /api/autenticacao/palavra-passe
 GET  /api/conta/resumo
+GET  /api/gestao/painel
 POST /api/gestao/autocarros
+PATCH /api/gestao/autocarros/:id/estado
 POST /api/gestao/rotas
+PATCH /api/gestao/rotas/:id/estado
 POST /api/gestao/viagens
+PUT  /api/gestao/viagens/:id
+PATCH /api/gestao/passageiros/:id/estado
 GET  /api/viagens/:viagemId/assentos
 PATCH /api/bilhetes/:codigo/cancelar
 PATCH /api/viagens/:id/cancelar
