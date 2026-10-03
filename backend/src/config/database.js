@@ -14,7 +14,9 @@ export const sequelize = new Sequelize(
     // Opções aplicadas automaticamente a todos os modelos.
     define: {
       underscored: true,
-      timestamps: true
+      timestamps: true,
+      createdAt: 'criado_em',
+      updatedAt: 'actualizado_em'
     }
   }
 );

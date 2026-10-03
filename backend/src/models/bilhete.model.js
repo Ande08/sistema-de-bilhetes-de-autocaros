@@ -10,7 +10,7 @@ Bilhete.init({
   assentoId: { type: DataTypes.BIGINT.UNSIGNED, allowNull: false },
   nomePassageiro: { type: DataTypes.STRING(120), allowNull: false },
   preco: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
-  estado: { type: DataTypes.ENUM('RESERVADO', 'EMITIDO', 'CANCELADO'), defaultValue: 'RESERVADO' }
+  estado: { type: DataTypes.ENUM('RESERVADO', 'EMITIDO', 'CANCELADO', 'UTILIZADO'), defaultValue: 'RESERVADO' }
 }, {
   sequelize,
   modelName: 'Bilhete',

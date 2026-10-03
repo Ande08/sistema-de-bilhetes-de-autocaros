@@ -84,6 +84,8 @@ Está previsto para operações administrativas como criar, cancelar e emitir. S
 cd backend
 npm install
 copy .env.example .env
+npm run db:migrate
+npm run db:seed
 npm run dev
 ```
 
@@ -93,7 +95,17 @@ Executar os testes unitários:
 npm test
 ```
 
-Execute `backend/database/schema.sql` no MySQL antes de iniciar o servidor.
+As migrations Sequelize são a fonte principal da estrutura da base de dados. O ficheiro `backend/database/schema.sql` é mantido apenas como referência histórica.
+
+Comandos da base de dados:
+
+```bash
+npm run db:migrate
+npm run db:migrate:undo
+npm run db:seed
+```
+
+Antes de executar os seeders, configure `ADMIN_NOME`, `ADMIN_EMAIL` e `ADMIN_PASSWORD` no `.env`. Defina `CRIAR_DADOS_DEMO=true` apenas quando desejar criar uma viagem de demonstração.
 
 O backend está localizado em `backend/` e o frontend em `frontend/`.
 
