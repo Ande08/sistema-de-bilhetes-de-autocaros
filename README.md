@@ -81,6 +81,7 @@ Está previsto para operações administrativas como criar, cancelar e emitir. S
 ## Configuração
 
 ```bash
+cd backend
 npm install
 copy .env.example .env
 npm run dev
@@ -92,7 +93,9 @@ Executar os testes unitários:
 npm test
 ```
 
-Execute `database/schema.sql` no MySQL antes de iniciar o servidor.
+Execute `backend/database/schema.sql` no MySQL antes de iniciar o servidor.
+
+O backend está localizado em `backend/` e o frontend em `frontend/`.
 
 ## Endpoints atuais
 
