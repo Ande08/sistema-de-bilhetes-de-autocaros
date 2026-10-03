@@ -18,9 +18,9 @@ app.use(morgan('dev'));
 
 app.get('/api/health', (_req, res) => {
   res.json({
-    success: true,
-    message: 'API do Sistema de Bilhetes disponível',
-    timestamp: new Date().toISOString()
+    sucesso: true,
+    mensagem: 'API do Sistema de Bilhetes disponível',
+    dataHora: new Date().toISOString()
   });
 });
 
@@ -37,12 +37,12 @@ app.use((_req, _res, next) => {
   next(error);
 });
 
-app.use((error, _req, res, _next) => {
-  const statusCode = error.statusCode || 500;
-  res.status(statusCode).json({
-    success: false,
-    message: error.message || 'Erro interno do servidor',
-    ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
+app.use((erro, _req, res, _next) => {
+  const codigoEstado = erro.statusCode || 500;
+  res.status(codigoEstado).json({
+    sucesso: false,
+    mensagem: erro.message || 'Erro interno do servidor',
+    ...(process.env.NODE_ENV === 'development' && { detalhes: erro.stack })
   });
 });
 

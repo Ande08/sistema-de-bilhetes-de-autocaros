@@ -3,16 +3,20 @@ import { Route, Trip } from '../models/index.js';
 
 export async function listTrips(req, res, next) {
   try {
-  const { origin, destination, date } = req.query;
+  const { origem, destino, data } = req.query;
   const filtro = { status: 'AGENDADA' };
-  if (date) filtro.departureAt = { [Op.gte]: `${date} 00:00:00` };
+  if (data) {
+    const inicio = new Date(`${data}T00:00:00`);
+    const fim = new Date(`${data}T23:59:59.999`);
+    filtro.departureAt = { [Op.between]: [inicio, fim] };
+  }
 
   const filtroRota = {};
-  if (origin) filtroRota.origin = origin;
-  if (destination) filtroRota.destination = destination;
+  if (origem) filtroRota.origin = origem;
+  if (destino) filtroRota.destination = destino;
   const viagens = await Trip.findAll({
     where: filtro,
-    include: [{ model: Route, where: filtroRota, required: Boolean(origin || destination) }],
+    include: [{ model: Route, where: filtroRota, required: Boolean(origem || destino) }],
     order: [['departureAt', 'ASC']]
   });
   return res.json({ sucesso: true, dados: viagens });

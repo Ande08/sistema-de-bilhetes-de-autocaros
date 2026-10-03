@@ -11,7 +11,7 @@ export function exigirAutenticacao(req, _res, next) {
     }
 
     // O utilizador autenticado fica disponível para o controller em req.utilizador.
-    req.utilizador = jwt.verify(token, process.env.JWT_SECRET || 'chave-apenas-para-desenvolvimento');
+    req.utilizador = jwt.verify(token, process.env.JWT_SECRET);
     return next();
   } catch (erro) {
     erro.statusCode = 401;

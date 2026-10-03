@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import { createPurchase, getTicket } from '../controllers/purchase.controller.js';
+import { criarCompra, consultarBilhete } from '../controllers/purchase.controller.js';
 
 const router = Router();
-router.post('/', createPurchase);
-router.get('/ticket/:code', getTicket);
+router.post('/', criarCompra);
+router.get('/bilhete/:codigo', consultarBilhete);
 
 export default router;

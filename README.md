@@ -112,7 +112,7 @@ PATCH /api/viagens/:id/cancelar
 GET  /api/viagens
 GET  /api/viagens/:id
 POST /api/compras
-GET  /api/compras/ticket/:codigo
+GET  /api/compras/bilhete/:codigo
 ```
 
 Exemplo de compra:

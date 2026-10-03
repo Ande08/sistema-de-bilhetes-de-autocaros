@@ -30,7 +30,7 @@ export class ServicoAutenticacao {
     // O token identifica o utilizador nas próximas requisições.
     const token = jwt.sign(
       { id: utilizador.id, perfil: utilizador.perfil },
-      process.env.JWT_SECRET || 'chave-apenas-para-desenvolvimento',
+      process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRACAO || '1d' }
     );
 

@@ -1,14 +1,14 @@
-import { TicketBuilder } from '../builders/ticket.builder.js';
+import { ConstrutorBilhete } from '../builders/ticket.builder.js';
 
 export class ServicoBilhete {
   // Fachada responsável por coordenar a construção do bilhete.
   emitir(dados) {
-    return new TicketBuilder()
-      .passenger(dados.passageiro)
-      .trip(dados.viagem)
-      .seat(dados.assento)
-      .payment(dados.pagamento)
-      .price(dados.preco)
-      .build();
+    return new ConstrutorBilhete()
+      .passageiro(dados.passageiro)
+      .viagem(dados.viagem)
+      .assento(dados.assento)
+      .pagamento(dados.pagamento)
+      .preco(dados.preco)
+      .construir();
   }
 }

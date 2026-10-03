@@ -1,15 +1,23 @@
 import { sequelize } from '../config/database.js';
-import { Assento, Bilhete, Pagamento, Trip } from '../models/index.js';
+import { Assento, Bilhete, Pagamento, Route, Trip } from '../models/index.js';
 import { ServicoPagamento } from '../services/payment.service.js';
+import { ServicoBilhete } from '../services/ticket.service.js';
 
 const servicoPagamento = new ServicoPagamento();
-export async function createPurchase(req, res, next) {
-  const transacao = await sequelize.transaction();
-  try {
-    const { passenger, tripId, seat, paymentMethod } = req.body;
-    const viagem = await Trip.findByPk(tripId, { transaction: transacao, lock: transacao.LOCK.UPDATE });
+const servicoBilhete = new ServicoBilhete();
 
-    if (!passenger?.name || !seat?.id || !viagem) {
+export async function criarCompra(req, res, next) {
+  let transacao;
+  try {
+    transacao = await sequelize.transaction();
+    const { passageiro, viagemId, assento: dadosAssento, metodoPagamento } = req.body;
+    const viagem = await Trip.findByPk(viagemId, {
+      include: [Route],
+      transaction: transacao,
+      lock: transacao.LOCK.UPDATE
+    });
+
+    if (!passageiro?.nome || !dadosAssento?.id || !viagem) {
       const error = new Error('Passageiro, viagem e assento são obrigatórios');
       error.statusCode = 400;
       throw error;
@@ -29,7 +37,7 @@ export async function createPurchase(req, res, next) {
       throw error;
     }
 
-    const assento = await Assento.findByPk(seat.id, { transaction: transacao, lock: transacao.LOCK.UPDATE });
+    const assento = await Assento.findByPk(dadosAssento.id, { transaction: transacao, lock: transacao.LOCK.UPDATE });
     if (!assento) {
       const error = new Error('Assento não encontrado');
       error.statusCode = 409;
@@ -55,9 +63,8 @@ export async function createPurchase(req, res, next) {
       throw error;
     }
 
-    const servicoPagamento = new ServicoPagamento();
     const pagamentoSimulado = servicoPagamento.processar({
-      metodo: paymentMethod,
+      metodo: metodoPagamento,
       valor: viagem.price
     });
 
@@ -67,11 +74,25 @@ export async function createPurchase(req, res, next) {
       throw error;
     }
 
+    // O Builder concentra a construção e validação dos dados do bilhete.
+    const bilheteConstruido = servicoBilhete.emitir({
+      passageiro: { nome: passageiro.nome },
+      viagem: {
+        id: viagem.id,
+        origem: viagem.Route?.origin || null,
+        destino: viagem.Route?.destination || null,
+        partidaEm: viagem.departureAt
+      },
+      assento: { id: assento.id, numero: assento.numero },
+      pagamento: pagamentoSimulado,
+      preco: viagem.price
+    });
+
     const bilhete = await Bilhete.create({
-      codigo: `BIL-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+      codigo: bilheteConstruido.codigo,
       viagemId: viagem.id,
       assentoId: assento.id,
-      nomePassageiro: passenger.name,
+      nomePassageiro: passageiro.nome,
       preco: viagem.price,
       estado: 'EMITIDO'
     }, { transaction: transacao });
@@ -87,15 +108,15 @@ export async function createPurchase(req, res, next) {
     await transacao.commit();
 
     return res.status(201).json({ sucesso: true, dados: { pagamento, bilhete } });
-  } catch (error) {
-    await transacao.rollback();
-    return next(error);
+  } catch (erro) {
+    if (transacao && !transacao.finished) await transacao.rollback();
+    return next(erro);
   }
 }
 
-export async function getTicket(req, res, next) {
+export async function consultarBilhete(req, res, next) {
   try {
-  const bilhete = await Bilhete.findOne({ where: { codigo: req.params.code }, include: [Pagamento, Trip, Assento] });
+  const bilhete = await Bilhete.findOne({ where: { codigo: req.params.codigo }, include: [Pagamento, Trip, Assento] });
   if (!bilhete) {
     const error = new Error('Bilhete não encontrado');
     error.statusCode = 404;
