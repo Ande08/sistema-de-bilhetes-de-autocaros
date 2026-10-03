@@ -9,6 +9,7 @@ import gestaoRoutes from './routes/gestao.routes.js';
 import assentoRoutes from './routes/assento.routes.js';
 import cancelamentoRoutes from './routes/cancelamento.routes.js';
 import contaRoutes from './routes/conta.routes.js';
+import suporteRoutes from './routes/suporte.routes.js';
 
 const app = express();
 
@@ -32,6 +33,7 @@ app.use('/api/conta', contaRoutes);
 app.use('/api/gestao', gestaoRoutes);
 app.use('/api', assentoRoutes);
 app.use('/api', cancelamentoRoutes);
+app.use('/api/suporte', suporteRoutes);
 
 app.use((_req, _res, next) => {
   const error = new Error('Rota não encontrada');

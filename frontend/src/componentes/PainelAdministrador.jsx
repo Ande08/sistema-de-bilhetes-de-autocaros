@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import Icone from './Icone.jsx';
-import { actualizarUtilizadorAdministrativo, actualizarViagemAdministrativa, cancelarViagemAdministrativa, criarAutocarro, criarRota, criarUtilizadorAdministrativo, criarViagem, definirEstadoAdministrativo, obterPainelAdministrativo, redefinirPalavraPasseAdministrativa } from '../servicos/api.js';
+import ChatTicketSuporte, { traduzirEstado } from './ChatTicketSuporte.jsx';
+import { actualizarUtilizadorAdministrativo, actualizarViagemAdministrativa, atribuirTicketSuporte, cancelarViagemAdministrativa, criarAutocarro, criarRota, criarUtilizadorAdministrativo, criarViagem, definirEstadoAdministrativo, listarGestoresSuporte, listarTicketsSuporte, obterPainelAdministrativo, redefinirPalavraPasseAdministrativa } from '../servicos/api.js';
 
-const secoes = ['Visão geral', 'Utilizadores', 'Autocarros', 'Rotas', 'Viagens', 'Bilhetes', 'Auditoria'];
+const secoes = ['Visão geral', 'Utilizadores', 'Autocarros', 'Rotas', 'Viagens', 'Bilhetes', 'Suporte', 'Auditoria'];
 
 export default function PainelAdministrador({ utilizador, aoSair }) {
   const [secao, setSecao] = useState('Visão geral');
@@ -51,6 +52,7 @@ function ConteudoAdministrativo({ secao, dados, executar, submeter }) {
   if (secao === 'Rotas') return <><FormularioRota aoSubmeter={(e) => submeter(e, criarRota, 'Rota criada com sucesso.')} /><TabelaGestao titulo="Rotas" colunas={['ID', 'Origem', 'Destino', 'Distância', 'Estado', 'Criada em', 'Ação']} linhas={dados.rotas.map((item) => [item.id, item.origin, item.destination, item.distanceKm ? `${item.distanceKm} km` : '—', item.active ? 'Ativa' : 'Inativa', formatarData(item.criado_em), <BotaoEstado activo={item.active} aoClicar={() => executar(() => definirEstadoAdministrativo('rotas', item.id, !item.active), 'Estado da rota atualizado.')} />])} /></>;
   if (secao === 'Viagens') return <><FormularioViagem rotas={dados.rotas.filter((item) => item.active)} autocarros={dados.autocarros.filter((item) => item.active)} aoSubmeter={(e) => submeter(e, criarViagem, 'Viagem criada com sucesso.')} /><TabelaGestao titulo="Viagens" colunas={['ID', 'Rota', 'Autocarro', 'Partida', 'Chegada', 'Preço', 'Estado', 'Ações']} linhas={dados.viagens.map((item) => [item.id, `${item.Route?.origin} → ${item.Route?.destination}`, `${item.Bus?.registration || '—'} · ${item.Bus?.model || ''}`, formatarData(item.departureAt), item.arrivalExpectedAt ? formatarData(item.arrivalExpectedAt) : '—', formatarValor(item.price), item.status, <AcoesViagem viagem={item} executar={executar} />])} /></>;
   if (secao === 'Bilhetes') return <TabelaGestao titulo="Bilhetes emitidos" colunas={['Código', 'Passageiro', 'Rota', 'Autocarro', 'Assento', 'Pagamento', 'Referência', 'Preço', 'Estado', 'Emitido em']} linhas={dados.bilhetes.map((item) => [item.codigo, item.User?.nome || item.nomePassageiro, `${item.Trip?.Route?.origin || ''} → ${item.Trip?.Route?.destination || ''}`, item.Trip?.Bus?.registration || '—', item.Assento?.numero || '—', item.Pagamento?.metodo || '—', item.Pagamento?.referencia || '—', formatarValor(item.preco), item.estado, formatarData(item.criado_em)])} />;
+  if (secao === 'Suporte') return <PaginaGestaoSuporte />;
   if (secao === 'Auditoria') return <PaginaAuditoria auditorias={dados.auditorias} />;
   return <VisaoGeral dados={dados} />;
 }
@@ -84,13 +86,35 @@ function PaginaUtilizadores({ utilizadores, executar }) {
       <h3>{emEdicao ? 'Editar utilizador' : 'Novo utilizador'}</h3>
       <label>Nome<input name="nome" defaultValue={emEdicao?.nome || ''} required minLength="3" /></label>
       <label>Email<input name="email" type="email" defaultValue={emEdicao?.email || ''} required /></label>
-      <label>Perfil<select name="perfil" defaultValue={emEdicao?.perfil || 'PASSAGEIRO'}><option value="PASSAGEIRO">Passageiro</option><option value="ADMIN">Administrador</option></select></label>
+      <label>Perfil<select name="perfil" defaultValue={emEdicao?.perfil || 'PASSAGEIRO'}><option value="PASSAGEIRO">Passageiro</option><option value="GESTOR_SUPORTE">Gestor de suporte</option><option value="ADMIN">Administrador</option></select></label>
       {!emEdicao && <label>Palavra-passe<input name="palavraPasse" type="password" minLength="8" required /></label>}
       <button>{emEdicao ? 'Guardar alterações' : 'Criar utilizador'}</button>
       {emEdicao && <button type="button" className="botao-voltar" onClick={() => setEmEdicao(null)}>Cancelar edição</button>}
     </form>
-    <TabelaGestao titulo="Utilizadores" colunas={['ID', 'Nome', 'Email', 'Perfil', 'Estado', 'Ações']} linhas={utilizadores.map((item) => [item.id, item.nome, item.email, item.perfil === 'ADMIN' ? 'Administrador' : 'Passageiro', item.activo ? 'Ativo' : 'Inativo', <span className="admin-acoes"><button onClick={() => setEmEdicao(item)}>Editar</button><button onClick={() => redefinir(item)}>Redefinir senha</button><BotaoEstado activo={item.activo} aoClicar={() => executar(() => definirEstadoAdministrativo('utilizadores', item.id, !item.activo), 'Estado do utilizador atualizado.')} /></span>])} />
+    <TabelaGestao titulo="Utilizadores" colunas={['ID', 'Nome', 'Email', 'Perfil', 'Estado', 'Ações']} linhas={utilizadores.map((item) => [item.id, item.nome, item.email, nomePerfil(item.perfil), item.activo ? 'Ativo' : 'Inativo', <span className="admin-acoes"><button onClick={() => setEmEdicao(item)}>Editar</button><button onClick={() => redefinir(item)}>Redefinir senha</button><BotaoEstado activo={item.activo} aoClicar={() => executar(() => definirEstadoAdministrativo('utilizadores', item.id, !item.activo), 'Estado do utilizador atualizado.')} /></span>])} />
   </>;
+}
+
+function PaginaGestaoSuporte() {
+  const [tickets, setTickets] = useState([]);
+  const [gestores, setGestores] = useState([]);
+  const [ticketActivo, setTicketActivo] = useState(null);
+  const [erro, setErro] = useState('');
+
+  function carregar() {
+    Promise.all([listarTicketsSuporte(), listarGestoresSuporte()]).then(([listaTickets, listaGestores]) => { setTickets(listaTickets); setGestores(listaGestores); }).catch((falha) => setErro(falha.message));
+  }
+  useEffect(carregar, []);
+
+  async function atribuir(evento, ticketId) {
+    const gestorId = evento.target.value;
+    if (!gestorId) return;
+    try { await atribuirTicketSuporte(ticketId, gestorId); carregar(); }
+    catch (falha) { setErro(falha.message); }
+  }
+
+  if (ticketActivo) return <><button className="botao-voltar-suporte" onClick={() => { setTicketActivo(null); carregar(); }}>Voltar aos tickets</button><ChatTicketSuporte ticketId={ticketActivo} perfil="ADMIN" aoActualizar={carregar} /></>;
+  return <section className="admin-tabela vidro"><div className="titulo-secao"><div><h3>Gestão de suporte</h3><p>Atribua os pedidos à equipa e acompanhe os atendimentos.</p></div><span>{tickets.length} tickets</span></div>{erro && <p className="mensagem-formulario erro">{erro}</p>}<div className="admin-tabela-scroll"><table><thead><tr><th>Código</th><th>Passageiro</th><th>Assunto</th><th>Prioridade</th><th>Estado</th><th>Gestor responsável</th><th>Ação</th></tr></thead><tbody>{tickets.map((ticket) => <tr key={ticket.id}><td>{ticket.codigo}</td><td>{ticket.Passageiro?.nome}</td><td>{ticket.assunto}</td><td>{ticket.prioridade}</td><td><b className={`estado-suporte estado-${ticket.estado.toLowerCase()}`}>{traduzirEstado(ticket.estado)}</b></td><td><select value={ticket.gestorId || ''} onChange={(evento) => atribuir(evento, ticket.id)}><option value="">Não atribuído</option>{gestores.map((gestor) => <option key={gestor.id} value={gestor.id}>{gestor.nome}</option>)}</select></td><td><button className="admin-activar" onClick={() => setTicketActivo(ticket.id)}>Abrir</button></td></tr>)}</tbody></table></div></section>;
 }
 
 function PaginaAuditoria({ auditorias }) {
@@ -167,3 +191,4 @@ function TabelaGestao({ titulo, colunas, linhas }) {
 function BotaoEstado({ activo, aoClicar }) { return <button className={activo ? 'admin-desactivar' : 'admin-activar'} onClick={aoClicar}>{activo ? 'Desativar' : 'Ativar'}</button>; }
 function formatarValor(valor) { return new Intl.NumberFormat('pt-MZ', { style: 'currency', currency: 'MZN' }).format(Number(valor)); }
 function formatarData(valor) { return new Intl.DateTimeFormat('pt-MZ', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(valor)); }
+function nomePerfil(perfil) { return { PASSAGEIRO: 'Passageiro', GESTOR_SUPORTE: 'Gestor de suporte', ADMIN: 'Administrador' }[perfil] || perfil; }

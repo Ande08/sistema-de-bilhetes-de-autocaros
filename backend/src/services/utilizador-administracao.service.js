@@ -4,8 +4,8 @@ import { validarEmail, validarNome, validarPalavraPasse } from '../validacoes/ut
 
 function validarPerfil(perfil) {
   const normalizado = String(perfil || '').toUpperCase();
-  if (!['PASSAGEIRO', 'ADMIN'].includes(normalizado)) {
-    const erro = new Error('O perfil deve ser PASSAGEIRO ou ADMIN.');
+  if (!['PASSAGEIRO', 'GESTOR_SUPORTE', 'ADMIN'].includes(normalizado)) {
+    const erro = new Error('O perfil deve ser PASSAGEIRO, GESTOR_SUPORTE ou ADMIN.');
     erro.statusCode = 400;
     throw erro;
   }

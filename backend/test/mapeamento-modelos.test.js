@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Assento, Bilhete, Bus, Pagamento, Route, Trip, User } from '../src/models/index.js';
+import { Assento, Bilhete, Bus, MensagemSuporte, Pagamento, Route, TicketSuporte, Trip, User } from '../src/models/index.js';
 
 test('modelos usam os mesmos nomes de colunas das migrations', () => {
   const casos = [
@@ -13,7 +13,9 @@ test('modelos usam os mesmos nomes de colunas das migrations', () => {
     [Trip, 'price', 'preco'],
     [Assento, 'autocarroId', 'autocarro_id'],
     [Bilhete, 'utilizadorId', 'utilizador_id'],
-    [Pagamento, 'bilheteId', 'bilhete_id']
+    [Pagamento, 'bilheteId', 'bilhete_id'],
+    [TicketSuporte, 'gestorId', 'gestor_id'],
+    [MensagemSuporte, 'ticketId', 'ticket_id']
   ];
   for (const [Modelo, atributo, coluna] of casos) {
     assert.equal(Modelo.getAttributes()[atributo].field, coluna, `${Modelo.name}.${atributo}`);

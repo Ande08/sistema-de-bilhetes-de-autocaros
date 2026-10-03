@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import Icone from './componentes/Icone.jsx';
 import PainelAdministrador from './componentes/PainelAdministrador.jsx';
+import PainelSuporte from './componentes/PainelSuporte.jsx';
+import PaginaSuportePassageiro from './componentes/PaginaSuportePassageiro.jsx';
 import { actualizarPerfil, alterarPalavraPasse, cancelarBilhete, comprarBilhete, guardarSessao, iniciarSessao, listarAssentos, obterPerfil, obterResumoConta, obterSessaoGuardada, pesquisarViagens, registarUtilizador, terminarSessao } from './servicos/api.js';
 
 const itensMenu = [
   ['inicio', 'Início'], ['viagens', 'Minhas Viagens'], ['bilhete', 'Bilhetes'],
-  ['cartao', 'Pagamentos'], ['utilizador', 'Perfil']
+  ['cartao', 'Pagamentos'], ['suporte', 'Suporte'], ['utilizador', 'Perfil']
 ];
 
 export default function App() {
@@ -19,7 +21,7 @@ export default function App() {
   const [versaoConta, setVersaoConta] = useState(0);
 
   useEffect(() => {
-    if (!sessao?.token || sessao.utilizador?.perfil === 'ADMIN') return;
+    if (!sessao?.token || sessao.utilizador?.perfil !== 'PASSAGEIRO') { setAVerificarSessao(false); return; }
     obterPerfil()
       .then((utilizador) => {
         const sessaoActualizada = { ...sessao, utilizador };
@@ -34,7 +36,7 @@ export default function App() {
   }, [sessao?.token]);
 
   useEffect(() => {
-    if (!sessao?.token) return;
+    if (!sessao?.token || sessao.utilizador?.perfil !== 'PASSAGEIRO') return;
     setErroConta('');
     obterResumoConta().then(setResumoConta).catch((erro) => setErroConta(erro.message));
   }, [sessao?.token, versaoConta]);
@@ -74,6 +76,9 @@ export default function App() {
   if (utilizador.perfil === 'ADMIN') {
     return <PainelAdministrador utilizador={utilizador} aoSair={sair} />;
   }
+  if (utilizador.perfil === 'GESTOR_SUPORTE') {
+    return <PainelSuporte utilizador={utilizador} aoSair={sair} />;
+  }
 
   return (
     <div className="aplicacao">
@@ -112,7 +117,7 @@ export default function App() {
 
         {erroConta && <p className="mensagem-formulario erro" role="alert">{erroConta}</p>}
         {!resumoConta ? <div className="painel-carregando vidro">A carregar os dados da sua conta...</div> :
-          <ConteudoConta pagina={paginaAtiva} resumo={resumoConta} utilizador={utilizador} aoNovaViagem={() => setNovaViagemAberta(true)} aoActualizar={actualizarConta} aoActualizarUtilizador={(novoUtilizador) => {
+          <ConteudoConta pagina={paginaAtiva} resumo={resumoConta} utilizador={utilizador} aoNovaViagem={() => setNovaViagemAberta(true)} aoAbrirSuporte={() => selecionarPagina('Suporte')} aoActualizar={actualizarConta} aoActualizarUtilizador={(novoUtilizador) => {
             const sessaoActualizada = { ...sessao, utilizador: novoUtilizador };
             guardarSessao(sessaoActualizada);
             setSessao(sessaoActualizada);
@@ -124,15 +129,16 @@ export default function App() {
   );
 }
 
-function ConteudoConta({ pagina, resumo, utilizador, aoNovaViagem, aoActualizar, aoActualizarUtilizador }) {
+function ConteudoConta({ pagina, resumo, utilizador, aoNovaViagem, aoAbrirSuporte, aoActualizar, aoActualizarUtilizador }) {
   if (pagina === 'Perfil') return <PaginaPerfil utilizador={utilizador} aoActualizarUtilizador={aoActualizarUtilizador} />;
+  if (pagina === 'Suporte') return <PaginaSuportePassageiro />;
   if (pagina === 'Pagamentos') return <PaginaPagamentos pagamentos={resumo.pagamentos} />;
   if (pagina === 'Bilhetes') return <PaginaBilhetes bilhetes={resumo.bilhetes} aoActualizar={aoActualizar} />;
   if (pagina === 'Minhas Viagens') return <PaginaViagens viagens={resumo.bilhetes} aoActualizar={aoActualizar} />;
-  return <PaginaInicio resumo={resumo} aoNovaViagem={aoNovaViagem} aoActualizar={aoActualizar} />;
+  return <PaginaInicio resumo={resumo} aoNovaViagem={aoNovaViagem} aoAbrirSuporte={aoAbrirSuporte} aoActualizar={aoActualizar} />;
 }
 
-function PaginaInicio({ resumo, aoNovaViagem, aoActualizar }) {
+function PaginaInicio({ resumo, aoNovaViagem, aoAbrirSuporte, aoActualizar }) {
   const proxima = resumo.proximaViagem;
   return <>
     {proxima ? <section className="proxima-viagem" aria-label="Próxima viagem">
@@ -155,7 +161,7 @@ function PaginaInicio({ resumo, aoNovaViagem, aoActualizar }) {
     </section>
     <section className="grelha-inferior">
       <TabelaBilhetes titulo="Viagens recentes" bilhetes={resumo.viagensRecentes} aoActualizar={aoActualizar} />
-      <aside className="suporte"><span className="suporte-icone"><Icone nome="suporte" /></span><h3>Precisa de ajuda?</h3><p>A nossa equipa está pronta para ajudar com as suas viagens, bilhetes ou pagamentos.</p><button className="botao-claro">Falar com o suporte <Icone nome="seta" /></button><div className="links-suporte"><button><Icone nome="ajuda" /> Perguntas frequentes</button><button><Icone nome="documento" /> Políticas e termos</button></div></aside>
+      <aside className="suporte"><span className="suporte-icone"><Icone nome="suporte" /></span><h3>Precisa de ajuda?</h3><p>A nossa equipa está pronta para ajudar com as suas viagens, bilhetes ou pagamentos.</p><button className="botao-claro" onClick={aoAbrirSuporte}>Falar com o suporte <Icone nome="seta" /></button><div className="links-suporte"><button onClick={aoAbrirSuporte}><Icone nome="ajuda" /> Perguntas frequentes</button><button><Icone nome="documento" /> Políticas e termos</button></div></aside>
     </section>
   </>;
 }

@@ -1,4 +1,5 @@
 const URL_API = import.meta.env.VITE_URL_API || 'http://localhost:3000/api';
+export const URL_SERVIDOR = URL_API.replace(/\/api\/?$/, '');
 const CHAVE_SESSAO = 'sessao_sistema_bilhetes';
 
 export function obterSessaoGuardada() {
@@ -112,4 +113,36 @@ export function actualizarUtilizadorAdministrativo(id, dados) {
 
 export function redefinirPalavraPasseAdministrativa(id, novaPalavraPasse) {
   return requisicao(`/gestao/utilizadores/${id}/palavra-passe`, { method: 'PUT', body: JSON.stringify({ novaPalavraPasse }) });
+}
+
+export function consultarAssistenteSuporte(mensagem) {
+  return requisicao('/suporte/assistente', { method: 'POST', body: JSON.stringify({ mensagem }) });
+}
+
+export function listarTicketsSuporte() {
+  return requisicao('/suporte/tickets');
+}
+
+export function criarTicketSuporte(dados) {
+  return requisicao('/suporte/tickets', { method: 'POST', body: JSON.stringify(dados) });
+}
+
+export function obterTicketSuporte(id) {
+  return requisicao(`/suporte/tickets/${id}`);
+}
+
+export function enviarMensagemSuporte(id, mensagem) {
+  return requisicao(`/suporte/tickets/${id}/mensagens`, { method: 'POST', body: JSON.stringify({ mensagem }) });
+}
+
+export function actualizarEstadoTicketSuporte(id, estado) {
+  return requisicao(`/suporte/tickets/${id}/estado`, { method: 'PATCH', body: JSON.stringify({ estado }) });
+}
+
+export function listarGestoresSuporte() {
+  return requisicao('/suporte/gestores');
+}
+
+export function atribuirTicketSuporte(id, gestorId) {
+  return requisicao(`/suporte/tickets/${id}/atribuir`, { method: 'PATCH', body: JSON.stringify({ gestorId }) });
 }

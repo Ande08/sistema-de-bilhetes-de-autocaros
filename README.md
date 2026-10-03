@@ -1,12 +1,13 @@
 # Sistema de Bilhetes de Autocarros
 
-Sistema web para consulta de viagens, seleção de assentos, pagamento simulado e emissão de bilhetes eletrónicos.
+Sistema web para consulta de viagens, seleção de assentos, pagamento simulado, emissão de bilhetes eletrónicos e suporte ao passageiro em tempo real.
 
 ## Tecnologias
 
 - Backend: Node.js, Express e Sequelize;
 - Base de dados: MySQL;
 - Frontend: React;
+- Comunicação em tempo real: Socket.IO;
 - Linguagem: JavaScript;
 - Pagamentos: simulação de M-Pesa, e-Mola e cartão.
 
@@ -64,7 +65,7 @@ Aplicado na seleção do método de pagamento. Serve para trocar o comportamento
 
 ### Observer
 
-Está previsto para notificações de pagamento aprovado e bilhete emitido. Serve para avisar vários componentes quando ocorre uma alteração importante.
+Utilizado no chat de suporte através do Socket.IO. Quando uma mensagem ou o estado de um ticket muda, o servidor publica o evento para todos os participantes autorizados na sala desse ticket. Serve para atualizar passageiro, gestor e administrador em tempo real sem consultas repetitivas.
 
 ### State
 
@@ -73,6 +74,7 @@ Utilizado nos estados de viagens, pagamentos e bilhetes. Serve para controlar co
 - Pagamento: `PENDENTE`, `APROVADO`, `REJEITADO`, `REEMBOLSADO`;
 - Bilhete: `RESERVADO`, `EMITIDO`, `CANCELADO`, `UTILIZADO`;
 - Viagem: `AGENDADA`, `EM_CURSO`, `CONCLUIDA`, `CANCELADA`.
+- Ticket de suporte: `ABERTO`, `EM_ATENDIMENTO`, `AGUARDA_UTILIZADOR`, `RESOLVIDO`, `ENCERRADO`.
 
 ### Command
 
@@ -81,6 +83,18 @@ Está previsto para operações administrativas como criar, cancelar e emitir. S
 ### Chain of Responsibility
 
 Utilizado nos middlewares de autenticação, autorização e auditoria em `backend/src/middlewares`. Cada pedido passa por uma sequência de verificações antes de chegar ao controller, permitindo acrescentar segurança e registo sem duplicar essa lógica nas rotas.
+
+### Publicação e subscrição
+
+Utilizado em `backend/src/realtime/suporte.socket.js`. Cada ticket possui uma sala privada, e apenas os participantes autorizados podem subscrever os seus eventos. Serve para isolar conversas e entregar mensagens imediatamente.
+
+## Perfis e suporte
+
+- `PASSAGEIRO`: utiliza o assistente virtual, abre tickets e acompanha apenas os próprios pedidos;
+- `GESTOR_SUPORTE`: recebe tickets atribuídos pelo administrador, conversa com o passageiro e atualiza o estado do atendimento;
+- `ADMIN`: cria gestores, consulta todos os tickets, atribui responsáveis e acompanha a auditoria.
+
+O assistente virtual utiliza inicialmente uma base de perguntas frequentes em `backend/src/services/suporte.service.js`. Esta implementação mantém a demonstração independente de serviços externos e pode ser substituída por um adaptador de IA sem alterar as telas ou o fluxo dos tickets. As conversas humanas, atribuições e mudanças de estado ficam persistidas para rastreio.
 
 ## Configuração
 
@@ -142,6 +156,14 @@ GET  /api/viagens
 GET  /api/viagens/:id
 POST /api/compras
 GET  /api/compras/bilhete/:codigo
+POST /api/suporte/assistente
+GET  /api/suporte/tickets
+POST /api/suporte/tickets
+GET  /api/suporte/tickets/:id
+POST /api/suporte/tickets/:id/mensagens
+PATCH /api/suporte/tickets/:id/estado
+GET  /api/suporte/gestores
+PATCH /api/suporte/tickets/:id/atribuir
 ```
 
 Exemplo de compra:

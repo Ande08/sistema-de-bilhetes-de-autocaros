@@ -8,6 +8,8 @@ import { Pagamento } from './pagamento.model.js';
 import { Reserva } from './reserva.model.js';
 import { Notificacao } from './notificacao.model.js';
 import { Auditoria } from './auditoria.model.js';
+import { TicketSuporte } from './ticket-suporte.model.js';
+import { MensagemSuporte } from './mensagem-suporte.model.js';
 
 // Os relacionamentos ficam centralizados para permitir consultas com include.
 Route.hasMany(Trip, { foreignKey: 'routeId' });
@@ -38,4 +40,13 @@ Notificacao.belongsTo(User, { foreignKey: 'utilizadorId' });
 User.hasMany(Auditoria, { foreignKey: 'utilizadorId' });
 Auditoria.belongsTo(User, { foreignKey: 'utilizadorId' });
 
-export { Assento, Auditoria, Bilhete, Notificacao, Pagamento, Reserva };
+// Os aliases distinguem o passageiro que abriu o ticket do gestor responsável.
+User.hasMany(TicketSuporte, { as: 'TicketsSuporte', foreignKey: 'utilizadorId' });
+TicketSuporte.belongsTo(User, { as: 'Passageiro', foreignKey: 'utilizadorId' });
+User.hasMany(TicketSuporte, { as: 'TicketsAtribuidos', foreignKey: 'gestorId' });
+TicketSuporte.belongsTo(User, { as: 'Gestor', foreignKey: 'gestorId' });
+TicketSuporte.hasMany(MensagemSuporte, { as: 'Mensagens', foreignKey: 'ticketId' });
+MensagemSuporte.belongsTo(TicketSuporte, { foreignKey: 'ticketId' });
+MensagemSuporte.belongsTo(User, { as: 'Remetente', foreignKey: 'remetenteId' });
+
+export { Assento, Auditoria, Bilhete, MensagemSuporte, Notificacao, Pagamento, Reserva, TicketSuporte };

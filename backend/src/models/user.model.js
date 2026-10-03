@@ -7,6 +7,6 @@ User.init({
   nome: { type: DataTypes.STRING(120), allowNull: false, field: 'nome' },
   email: { type: DataTypes.STRING(180), allowNull: false, unique: true, validate: { isEmail: true } },
   palavraPasseHash: { type: DataTypes.STRING(255), allowNull: false, field: 'password_hash' },
-  perfil: { type: DataTypes.ENUM('PASSAGEIRO', 'ADMIN'), allowNull: false, defaultValue: 'PASSAGEIRO', field: 'perfil' },
+  perfil: { type: DataTypes.ENUM('PASSAGEIRO', 'GESTOR_SUPORTE', 'ADMIN'), allowNull: false, defaultValue: 'PASSAGEIRO', field: 'perfil' },
   activo: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true }
 }, { sequelize, modelName: 'User', tableName: 'utilizadores' });

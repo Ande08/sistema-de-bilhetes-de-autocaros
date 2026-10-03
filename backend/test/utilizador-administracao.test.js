@@ -4,9 +4,10 @@ import { validarPerfil } from '../src/services/utilizador-administracao.service.
 
 test('aceita os perfis administrativos permitidos', () => {
   assert.equal(validarPerfil('passageiro'), 'PASSAGEIRO');
+  assert.equal(validarPerfil('gestor_suporte'), 'GESTOR_SUPORTE');
   assert.equal(validarPerfil('admin'), 'ADMIN');
 });
 
 test('rejeita perfil de utilizador desconhecido', () => {
-  assert.throws(() => validarPerfil('gestor'), /PASSAGEIRO ou ADMIN/);
+  assert.throws(() => validarPerfil('gestor'), /GESTOR_SUPORTE/);
 });
