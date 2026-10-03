@@ -21,3 +21,24 @@ export async function iniciarSessao(req, res, next) {
     return res.json({ sucesso: true, dados: resultado });
   } catch (erro) { return next(erro); }
 }
+
+export async function obterPerfil(req, res, next) {
+  try {
+    const utilizador = await servico.obterPerfil(req.utilizador.id);
+    return res.json({ sucesso: true, dados: utilizador });
+  } catch (erro) { return next(erro); }
+}
+
+export async function actualizarPerfil(req, res, next) {
+  try {
+    const utilizador = await servico.actualizarPerfil(req.utilizador.id, req.body);
+    return res.json({ sucesso: true, dados: utilizador });
+  } catch (erro) { return next(erro); }
+}
+
+export async function alterarPalavraPasse(req, res, next) {
+  try {
+    await servico.alterarPalavraPasse(req.utilizador.id, req.body);
+    return res.json({ sucesso: true, dados: { mensagem: 'Palavra-passe alterada com sucesso.' } });
+  } catch (erro) { return next(erro); }
+}

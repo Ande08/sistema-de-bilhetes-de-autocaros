@@ -70,8 +70,8 @@ Está previsto para notificações de pagamento aprovado e bilhete emitido. Serv
 
 Utilizado nos estados de viagens, pagamentos e bilhetes. Serve para controlar comportamentos de acordo com o estado atual de cada entidade.
 
-- Pagamento: `PENDENTE`, `APROVADO`, `REJEITADO`;
-- Bilhete: `RESERVADO`, `EMITIDO`, `CANCELADO`;
+- Pagamento: `PENDENTE`, `APROVADO`, `REJEITADO`, `REEMBOLSADO`;
+- Bilhete: `RESERVADO`, `EMITIDO`, `CANCELADO`, `UTILIZADO`;
 - Viagem: `AGENDADA`, `EM_CURSO`, `CONCLUIDA`, `CANCELADA`.
 
 ### Command
@@ -115,6 +115,9 @@ O backend está localizado em `backend/` e o frontend em `frontend/`.
 GET  /api/health
 POST /api/autenticacao/registar
 POST /api/autenticacao/iniciar-sessao
+GET  /api/autenticacao/perfil
+PUT  /api/autenticacao/perfil
+PUT  /api/autenticacao/palavra-passe
 POST /api/gestao/autocarros
 POST /api/gestao/rotas
 POST /api/gestao/viagens

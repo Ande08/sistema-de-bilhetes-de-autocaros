@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Icone from './componentes/Icone.jsx';
+import { guardarSessao, iniciarSessao, obterPerfil, obterSessaoGuardada, registarUtilizador, terminarSessao } from './servicos/api.js';
 
 const viagensRecentes = [
   { data: '10 Fev 2026', rota: 'Nampula → Tete', assento: 'B4' },
@@ -14,15 +15,55 @@ const itensMenu = [
 ];
 
 export default function App() {
+  const [sessao, setSessao] = useState(() => obterSessaoGuardada());
+  const [aVerificarSessao, setAVerificarSessao] = useState(Boolean(obterSessaoGuardada()));
   const [menuAberto, setMenuAberto] = useState(false);
   const [paginaAtiva, setPaginaAtiva] = useState('Início');
   const [novaViagemAberta, setNovaViagemAberta] = useState(false);
   const [mensagemPesquisa, setMensagemPesquisa] = useState('');
 
+  useEffect(() => {
+    if (!sessao?.token) return;
+    obterPerfil()
+      .then((utilizador) => {
+        const sessaoActualizada = { ...sessao, utilizador };
+        guardarSessao(sessaoActualizada);
+        setSessao(sessaoActualizada);
+      })
+      .catch(() => {
+        terminarSessao();
+        setSessao(null);
+      })
+      .finally(() => setAVerificarSessao(false));
+  }, [sessao?.token]);
+
   function selecionarPagina(nome) {
     setPaginaAtiva(nome);
     setMenuAberto(false);
   }
+
+  function concluirAutenticacao(novaSessao) {
+    guardarSessao(novaSessao);
+    setSessao(novaSessao);
+    setAVerificarSessao(false);
+  }
+
+  function sair() {
+    terminarSessao();
+    setSessao(null);
+    setPaginaAtiva('Início');
+  }
+
+  if (aVerificarSessao) {
+    return <div className="estado-carregamento"><span className="marca-carregamento"><Icone nome="autocarro" /></span><p>A preparar a sua conta...</p></div>;
+  }
+
+  if (!sessao) {
+    return <PaginaAutenticacao aoAutenticar={concluirAutenticacao} />;
+  }
+
+  const utilizador = sessao.utilizador;
+  const primeiroNome = utilizador.nome.split(' ')[0];
 
   return (
     <div className="aplicacao">
@@ -50,12 +91,12 @@ export default function App() {
           <label className="pesquisa vidro"><Icone nome="pesquisa" /><input placeholder="Pesquisar rotas, cidades ou viagens..." /></label>
           <div className="perfil-topo">
             <button className="botao-circular vidro" aria-label="Notificações"><Icone nome="sino" /></button>
-            <span className="avatar">I</span><strong>Ico</strong><Icone nome="baixo" />
+            <span className="avatar">{primeiroNome.charAt(0).toUpperCase()}</span><strong>{primeiroNome}</strong><button className="botao-sair" onClick={sair}>Sair</button>
           </div>
         </div>
 
         <header className="cabecalho-painel"><div className="cabecalho-principal"><div>
-          <p className="etiqueta">Painel do passageiro</p><h1>Minha Conta</h1><h2>Olá, Ico</h2>
+          <p className="etiqueta">Painel do passageiro</p><h1>Minha Conta</h1><h2>Olá, {primeiroNome}</h2>
           <p>Aqui pode gerir as suas viagens, bilhetes, pagamentos e dados pessoais.</p>
         </div><button className="botao-nova-viagem" onClick={() => setNovaViagemAberta(true)}><span>+</span> Nova viagem</button></div></header>
 
@@ -122,4 +163,67 @@ export default function App() {
 
 function CartaoResumo({ icone, titulo, valor, detalhe }) {
   return <article className="cartao-resumo vidro"><span className="resumo-icone"><Icone nome={icone} /></span><div><small>{titulo}</small><strong>{valor}</strong><p>{detalhe}</p></div><Icone nome="seta" /></article>;
+}
+
+function PaginaAutenticacao({ aoAutenticar }) {
+  const [modo, setModo] = useState('entrar');
+  const [aProcessar, setAProcessar] = useState(false);
+  const [mensagem, setMensagem] = useState('');
+  const [tipoMensagem, setTipoMensagem] = useState('erro');
+
+  async function submeter(evento) {
+    evento.preventDefault();
+    setAProcessar(true);
+    setMensagem('');
+    const dados = Object.fromEntries(new FormData(evento.currentTarget));
+
+    try {
+      if (modo === 'registar') {
+        await registarUtilizador(dados);
+        setModo('entrar');
+        setTipoMensagem('sucesso');
+        setMensagem('Conta criada com sucesso. Já pode iniciar sessão.');
+        evento.currentTarget.reset();
+      } else {
+        const novaSessao = await iniciarSessao(dados);
+        aoAutenticar(novaSessao);
+      }
+    } catch (erro) {
+      setTipoMensagem('erro');
+      setMensagem(erro.message);
+    } finally {
+      setAProcessar(false);
+    }
+  }
+
+  function mudarModo(novoModo) {
+    setModo(novoModo);
+    setMensagem('');
+  }
+
+  return <main className="pagina-autenticacao">
+    <div className="orbita orbita-um" /><div className="orbita orbita-dois" />
+    <section className="apresentacao-autenticacao">
+      <span className="marca-autenticacao"><Icone nome="autocarro" /></span>
+      <p className="etiqueta">Viagem Bus</p>
+      <h1>Mais destinos,<br />mais histórias.</h1>
+      <p>Compre o seu bilhete, escolha o assento e acompanhe todas as viagens num único lugar.</p>
+      <div className="vantagens-autenticacao"><span><Icone nome="escudo" /> Compra segura</span><span><Icone nome="bilhete" /> Bilhete eletrónico</span><span><Icone nome="confirmado" /> Confirmação imediata</span></div>
+    </section>
+    <section className="cartao-autenticacao vidro">
+      <div className="abas-autenticacao" role="tablist">
+        <button className={modo === 'entrar' ? 'ativa' : ''} onClick={() => mudarModo('entrar')}>Iniciar sessão</button>
+        <button className={modo === 'registar' ? 'ativa' : ''} onClick={() => mudarModo('registar')}>Criar conta</button>
+      </div>
+      <div className="titulo-autenticacao"><h2>{modo === 'entrar' ? 'Bem-vindo de volta' : 'Crie a sua conta'}</h2><p>{modo === 'entrar' ? 'Introduza os seus dados para continuar.' : 'Não é necessário apresentar documento pessoal.'}</p></div>
+      <form className="formulario-autenticacao" onSubmit={submeter}>
+        {modo === 'registar' && <label>Nome completo<input name="nome" autoComplete="name" minLength="3" maxLength="120" required /></label>}
+        <label>Email<input name="email" type="email" autoComplete="email" required /></label>
+        <label>Palavra-passe<input name="palavraPasse" type="password" minLength="8" autoComplete={modo === 'entrar' ? 'current-password' : 'new-password'} required /></label>
+        {mensagem && <p className={`mensagem-formulario ${tipoMensagem}`} role="status">{mensagem}</p>}
+        <button className="botao-autenticacao" disabled={aProcessar}>{aProcessar ? 'A processar...' : modo === 'entrar' ? 'Entrar na minha conta' : 'Criar conta'}</button>
+      </form>
+      <p className="nota-seguranca"><Icone nome="escudo" /> Os seus dados são protegidos e utilizados apenas para gerir as viagens.</p>
+    </section>
+  </main>;
 }
