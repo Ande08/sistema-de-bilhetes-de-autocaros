@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import Icone from './Icone.jsx';
-import { actualizarViagemAdministrativa, cancelarViagemAdministrativa, criarAutocarro, criarRota, criarViagem, definirEstadoAdministrativo, obterPainelAdministrativo } from '../servicos/api.js';
+import { actualizarUtilizadorAdministrativo, actualizarViagemAdministrativa, cancelarViagemAdministrativa, criarAutocarro, criarRota, criarUtilizadorAdministrativo, criarViagem, definirEstadoAdministrativo, obterPainelAdministrativo, redefinirPalavraPasseAdministrativa } from '../servicos/api.js';
 
-const secoes = ['Visão geral', 'Passageiros', 'Autocarros', 'Rotas', 'Viagens', 'Bilhetes', 'Auditoria'];
+const secoes = ['Visão geral', 'Utilizadores', 'Autocarros', 'Rotas', 'Viagens', 'Bilhetes', 'Auditoria'];
 
 export default function PainelAdministrador({ utilizador, aoSair }) {
   const [secao, setSecao] = useState('Visão geral');
@@ -46,7 +46,7 @@ export default function PainelAdministrador({ utilizador, aoSair }) {
 }
 
 function ConteudoAdministrativo({ secao, dados, executar, submeter }) {
-  if (secao === 'Passageiros') return <TabelaGestao titulo="Passageiros" colunas={['ID', 'Nome', 'Email', 'Perfil', 'Estado', 'Ação']} linhas={dados.passageiros.filter((item) => item.perfil === 'PASSAGEIRO').map((item) => [item.id, item.nome, item.email, item.perfil, item.activo ? 'Ativo' : 'Inativo', <BotaoEstado activo={item.activo} aoClicar={() => executar(() => definirEstadoAdministrativo('passageiros', item.id, !item.activo), 'Estado do passageiro atualizado.')} />])} />;
+  if (secao === 'Utilizadores') return <PaginaUtilizadores utilizadores={dados.passageiros} executar={executar} />;
   if (secao === 'Autocarros') return <><FormularioAutocarro aoSubmeter={(e) => submeter(e, criarAutocarro, 'Autocarro criado com sucesso.')} /><TabelaGestao titulo="Frota" colunas={['ID', 'Matrícula', 'Modelo', 'Capacidade', 'Estado', 'Criado em', 'Ação']} linhas={dados.autocarros.map((item) => [item.id, item.registration, item.model, item.capacity, item.active ? 'Ativo' : 'Inativo', formatarData(item.criado_em), <BotaoEstado activo={item.active} aoClicar={() => executar(() => definirEstadoAdministrativo('autocarros', item.id, !item.active), 'Estado do autocarro atualizado.')} />])} /></>;
   if (secao === 'Rotas') return <><FormularioRota aoSubmeter={(e) => submeter(e, criarRota, 'Rota criada com sucesso.')} /><TabelaGestao titulo="Rotas" colunas={['ID', 'Origem', 'Destino', 'Distância', 'Estado', 'Criada em', 'Ação']} linhas={dados.rotas.map((item) => [item.id, item.origin, item.destination, item.distanceKm ? `${item.distanceKm} km` : '—', item.active ? 'Ativa' : 'Inativa', formatarData(item.criado_em), <BotaoEstado activo={item.active} aoClicar={() => executar(() => definirEstadoAdministrativo('rotas', item.id, !item.active), 'Estado da rota atualizado.')} />])} /></>;
   if (secao === 'Viagens') return <><FormularioViagem rotas={dados.rotas.filter((item) => item.active)} autocarros={dados.autocarros.filter((item) => item.active)} aoSubmeter={(e) => submeter(e, criarViagem, 'Viagem criada com sucesso.')} /><TabelaGestao titulo="Viagens" colunas={['ID', 'Rota', 'Autocarro', 'Partida', 'Chegada', 'Preço', 'Estado', 'Ações']} linhas={dados.viagens.map((item) => [item.id, `${item.Route?.origin} → ${item.Route?.destination}`, `${item.Bus?.registration || '—'} · ${item.Bus?.model || ''}`, formatarData(item.departureAt), item.arrivalExpectedAt ? formatarData(item.arrivalExpectedAt) : '—', formatarValor(item.price), item.status, <AcoesViagem viagem={item} executar={executar} />])} /></>;
@@ -58,6 +58,39 @@ function ConteudoAdministrativo({ secao, dados, executar, submeter }) {
 function VisaoGeral({ dados }) {
   const itens = [['utilizador', 'Passageiros', dados.indicadores.passageiros], ['autocarro', 'Autocarros ativos', dados.indicadores.autocarrosActivos], ['viagens', 'Viagens agendadas', dados.indicadores.viagensAgendadas], ['bilhete', 'Bilhetes emitidos', dados.indicadores.bilhetesEmitidos], ['cartao', 'Receita aprovada', formatarValor(dados.indicadores.receitaAprovada)]];
   return <><section className="admin-indicadores">{itens.map(([icone, titulo, valor]) => <article className="vidro" key={titulo}><span className="resumo-icone"><Icone nome={icone} /></span><small>{titulo}</small><strong>{valor}</strong></article>)}</section><TabelaGestao titulo="Viagens recentes" colunas={['Rota', 'Partida', 'Preço', 'Estado']} linhas={dados.viagens.slice(0, 6).map((item) => [`${item.Route?.origin} → ${item.Route?.destination}`, formatarData(item.departureAt), formatarValor(item.price), item.status])} /></>;
+}
+
+function PaginaUtilizadores({ utilizadores, executar }) {
+  const [emEdicao, setEmEdicao] = useState(null);
+
+  async function guardar(evento) {
+    evento.preventDefault();
+    const formulario = evento.currentTarget;
+    const valores = Object.fromEntries(new FormData(formulario));
+    const concluido = emEdicao
+      ? await executar(() => actualizarUtilizadorAdministrativo(emEdicao.id, { nome: valores.nome, email: valores.email, perfil: valores.perfil }), 'Utilizador atualizado com sucesso.')
+      : await executar(() => criarUtilizadorAdministrativo(valores), 'Utilizador criado com sucesso.');
+    if (concluido) { formulario.reset(); setEmEdicao(null); }
+  }
+
+  function redefinir(utilizador) {
+    const nova = window.prompt(`Nova palavra-passe para ${utilizador.nome}:`);
+    if (!nova) return;
+    executar(() => redefinirPalavraPasseAdministrativa(utilizador.id, nova), 'Palavra-passe redefinida com sucesso.');
+  }
+
+  return <>
+    <form className="admin-formulario admin-formulario-utilizador vidro" onSubmit={guardar} key={emEdicao?.id || 'novo'}>
+      <h3>{emEdicao ? 'Editar utilizador' : 'Novo utilizador'}</h3>
+      <label>Nome<input name="nome" defaultValue={emEdicao?.nome || ''} required minLength="3" /></label>
+      <label>Email<input name="email" type="email" defaultValue={emEdicao?.email || ''} required /></label>
+      <label>Perfil<select name="perfil" defaultValue={emEdicao?.perfil || 'PASSAGEIRO'}><option value="PASSAGEIRO">Passageiro</option><option value="ADMIN">Administrador</option></select></label>
+      {!emEdicao && <label>Palavra-passe<input name="palavraPasse" type="password" minLength="8" required /></label>}
+      <button>{emEdicao ? 'Guardar alterações' : 'Criar utilizador'}</button>
+      {emEdicao && <button type="button" className="botao-voltar" onClick={() => setEmEdicao(null)}>Cancelar edição</button>}
+    </form>
+    <TabelaGestao titulo="Utilizadores" colunas={['ID', 'Nome', 'Email', 'Perfil', 'Estado', 'Ações']} linhas={utilizadores.map((item) => [item.id, item.nome, item.email, item.perfil === 'ADMIN' ? 'Administrador' : 'Passageiro', item.activo ? 'Ativo' : 'Inativo', <span className="admin-acoes"><button onClick={() => setEmEdicao(item)}>Editar</button><button onClick={() => redefinir(item)}>Redefinir senha</button><BotaoEstado activo={item.activo} aoClicar={() => executar(() => definirEstadoAdministrativo('utilizadores', item.id, !item.activo), 'Estado do utilizador atualizado.')} /></span>])} />
+  </>;
 }
 
 function FormularioAutocarro({ aoSubmeter }) { return <form className="admin-formulario vidro" onSubmit={aoSubmeter}><h3>Novo autocarro</h3><label>Matrícula<input name="matricula" required /></label><label>Modelo<input name="modelo" required /></label><label>Capacidade<input name="capacidade" type="number" min="1" required /></label><button>Adicionar autocarro</button></form>; }

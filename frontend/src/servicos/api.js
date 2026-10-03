@@ -101,3 +101,15 @@ export function actualizarViagemAdministrativa(id, dados) {
 export function cancelarViagemAdministrativa(id) {
   return requisicao(`/viagens/${id}/cancelar`, { method: 'PATCH' });
 }
+
+export function criarUtilizadorAdministrativo(dados) {
+  return requisicao('/gestao/utilizadores', { method: 'POST', body: JSON.stringify(dados) });
+}
+
+export function actualizarUtilizadorAdministrativo(id, dados) {
+  return requisicao(`/gestao/utilizadores/${id}`, { method: 'PUT', body: JSON.stringify(dados) });
+}
+
+export function redefinirPalavraPasseAdministrativa(id, novaPalavraPasse) {
+  return requisicao(`/gestao/utilizadores/${id}/palavra-passe`, { method: 'PUT', body: JSON.stringify({ novaPalavraPasse }) });
+}

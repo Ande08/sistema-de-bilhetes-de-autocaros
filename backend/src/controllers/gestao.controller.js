@@ -1,7 +1,8 @@
-import { Bus, Route, Trip, User } from '../models/index.js';
+import { Bus, Route, Trip } from '../models/index.js';
 import { criarAssentosDoAutocarro } from '../services/assento.service.js';
 import { definirEstadoEntidade, obterPainelAdministrativo } from '../services/administracao.service.js';
 import { sequelize } from '../config/database.js';
+import { actualizarUtilizadorAdministrativo, criarUtilizadorAdministrativo, definirEstadoUtilizador, redefinirPalavraPasse } from '../services/utilizador-administracao.service.js';
 
 export async function obterPainel(req, res, next) {
   try { return res.json({ sucesso: true, dados: await obterPainelAdministrativo() }); }
@@ -69,13 +70,29 @@ export async function criarViagem(req, res, next) {
 
 export async function definirEstadoPassageiro(req, res, next) {
   try {
-    const utilizador = await User.findByPk(req.params.id);
-    if (!utilizador || utilizador.perfil !== 'PASSAGEIRO') {
-      const erro = new Error('Passageiro não encontrado.'); erro.statusCode = 404; throw erro;
-    }
-    await utilizador.update({ activo: Boolean(req.body.activo) });
-    return res.json({ sucesso: true, dados: utilizador });
+    const utilizador = await definirEstadoUtilizador(req.params.id, req.body.activo, req.utilizador.id);
+    return res.json({ sucesso: true, dados: dadosPublicosUtilizador(utilizador) });
   } catch (erro) { return next(erro); }
+}
+
+export async function criarUtilizador(req, res, next) {
+  try { return res.status(201).json({ sucesso: true, dados: dadosPublicosUtilizador(await criarUtilizadorAdministrativo(req.body)) }); }
+  catch (erro) { return next(erro); }
+}
+
+export async function actualizarUtilizador(req, res, next) {
+  try { return res.json({ sucesso: true, dados: dadosPublicosUtilizador(await actualizarUtilizadorAdministrativo(req.params.id, req.body, req.utilizador.id)) }); }
+  catch (erro) { return next(erro); }
+}
+
+export async function redefinirSenhaUtilizador(req, res, next) {
+  try { await redefinirPalavraPasse(req.params.id, req.body.novaPalavraPasse); return res.json({ sucesso: true, dados: { mensagem: 'Palavra-passe redefinida com sucesso.' } }); }
+  catch (erro) { return next(erro); }
+}
+
+function dadosPublicosUtilizador(utilizador) {
+  const { palavraPasseHash: _segredo, ...dados } = utilizador.toJSON();
+  return dados;
 }
 
 export async function definirEstadoAutocarro(req, res, next) {

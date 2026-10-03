@@ -131,6 +131,10 @@ PATCH /api/gestao/rotas/:id/estado
 POST /api/gestao/viagens
 PUT  /api/gestao/viagens/:id
 PATCH /api/gestao/passageiros/:id/estado
+POST /api/gestao/utilizadores
+PUT  /api/gestao/utilizadores/:id
+PUT  /api/gestao/utilizadores/:id/palavra-passe
+PATCH /api/gestao/utilizadores/:id/estado
 GET  /api/viagens/:viagemId/assentos
 PATCH /api/bilhetes/:codigo/cancelar
 PATCH /api/viagens/:id/cancelar
