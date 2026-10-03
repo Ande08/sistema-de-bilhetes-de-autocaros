@@ -5,6 +5,8 @@ import { Assento, Bilhete, Bus, MensagemSuporte, Pagamento, Route, TicketSuporte
 test('modelos usam os mesmos nomes de colunas das migrations', () => {
   const casos = [
     [User, 'palavraPasseHash', 'password_hash'],
+    [User, 'telefone', 'telefone'],
+    [User, 'apelido', 'apelido'],
     [Bus, 'registration', 'matricula'],
     [Route, 'origin', 'origem'],
     [Trip, 'routeId', 'rota_id'],

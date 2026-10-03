@@ -91,8 +91,8 @@ export async function redefinirSenhaUtilizador(req, res, next) {
 }
 
 function dadosPublicosUtilizador(utilizador) {
-  const { palavraPasseHash: _segredo, ...dados } = utilizador.toJSON();
-  return dados;
+  const { palavraPasseHash: _segredo, email: _emailAntigo, ...dados } = utilizador.toJSON();
+  return { ...dados, nomeCompleto: `${dados.nome} ${dados.apelido}` };
 }
 
 export async function definirEstadoAutocarro(req, res, next) {

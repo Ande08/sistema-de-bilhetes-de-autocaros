@@ -3,7 +3,7 @@ import Icone from './componentes/Icone.jsx';
 import PainelAdministrador from './componentes/PainelAdministrador.jsx';
 import PainelSuporte from './componentes/PainelSuporte.jsx';
 import PaginaSuportePassageiro from './componentes/PaginaSuportePassageiro.jsx';
-import { actualizarPerfil, alterarPalavraPasse, cancelarBilhete, comprarBilhete, guardarSessao, iniciarSessao, listarAssentos, obterPerfil, obterResumoConta, obterSessaoGuardada, pesquisarViagens, registarUtilizador, terminarSessao } from './servicos/api.js';
+import { actualizarPerfil, alterarPalavraPasse, cancelarBilhete, comprarBilhete, confirmarRegistoUtilizador, guardarSessao, iniciarSessao, listarAssentos, obterPerfil, obterResumoConta, obterSessaoGuardada, pesquisarViagens, registarUtilizador, terminarSessao } from './servicos/api.js';
 
 const itensMenu = [
   ['inicio', 'Início'], ['viagens', 'Minhas Viagens'], ['bilhete', 'Bilhetes'],
@@ -21,7 +21,7 @@ export default function App() {
   const [versaoConta, setVersaoConta] = useState(0);
 
   useEffect(() => {
-    if (!sessao?.token || sessao.utilizador?.perfil !== 'PASSAGEIRO') { setAVerificarSessao(false); return; }
+    if (!sessao?.token) { setAVerificarSessao(false); return; }
     obterPerfil()
       .then((utilizador) => {
         const sessaoActualizada = { ...sessao, utilizador };
@@ -217,7 +217,7 @@ function PaginaPerfil({ utilizador, aoActualizarUtilizador }) {
     catch (falha) { setErro(falha.message); }
   }
 
-  return <section className="grelha-perfil"><form className="pagina-dados vidro formulario-perfil" onSubmit={guardarPerfil}><p className="etiqueta">Dados pessoais</p><h3>Informações da conta</h3><label>Nome completo<input name="nome" defaultValue={utilizador.nome} required minLength="3" /></label><label>Email<input name="email" type="email" defaultValue={utilizador.email} required /></label><button className="botao-pesquisar">Guardar alterações</button></form><form className="pagina-dados vidro formulario-perfil" onSubmit={guardarPalavraPasse}><p className="etiqueta">Segurança</p><h3>Alterar palavra-passe</h3><label>Palavra-passe atual<input name="palavraPasseActual" type="password" required /></label><label>Nova palavra-passe<input name="novaPalavraPasse" type="password" minLength="8" required /></label><button className="botao-pesquisar">Alterar palavra-passe</button></form>{mensagem && <p className="mensagem-formulario sucesso mensagem-perfil">{mensagem}</p>}{erro && <p className="mensagem-formulario erro mensagem-perfil">{erro}</p>}</section>;
+  return <section className="grelha-perfil"><form className="pagina-dados vidro formulario-perfil" onSubmit={guardarPerfil}><p className="etiqueta">Dados pessoais</p><h3>Informações da conta</h3><label>Nome<input name="nome" defaultValue={utilizador.nome} required minLength="2" /></label><label>Apelido<input name="apelido" defaultValue={utilizador.apelido} required minLength="2" /></label><label>Número de telefone<input value={utilizador.telefone} readOnly /></label><small>O telefone identifica a conta e só pode ser alterado através de verificação.</small><button className="botao-pesquisar">Guardar alterações</button></form><form className="pagina-dados vidro formulario-perfil" onSubmit={guardarPalavraPasse}><p className="etiqueta">Segurança</p><h3>Alterar palavra-passe</h3><label>Palavra-passe atual<input name="palavraPasseActual" type="password" required /></label><label>Nova palavra-passe<input name="novaPalavraPasse" type="password" minLength="8" required /></label><button className="botao-pesquisar">Alterar palavra-passe</button></form>{mensagem && <p className="mensagem-formulario sucesso mensagem-perfil">{mensagem}</p>}{erro && <p className="mensagem-formulario erro mensagem-perfil">{erro}</p>}</section>;
 }
 
 function EstadoVazio({ texto }) {
@@ -230,6 +230,8 @@ function CartaoResumo({ icone, titulo, valor, detalhe }) {
 
 function PaginaAutenticacao({ aoAutenticar }) {
   const [modo, setModo] = useState('entrar');
+  const [etapaRegisto, setEtapaRegisto] = useState('dados');
+  const [registoPendente, setRegistoPendente] = useState(null);
   const [mostrarPalavraPasse, setMostrarPalavraPasse] = useState(false);
   const [aProcessar, setAProcessar] = useState(false);
   const [mensagem, setMensagem] = useState('');
@@ -242,12 +244,16 @@ function PaginaAutenticacao({ aoAutenticar }) {
     const dados = Object.fromEntries(new FormData(evento.currentTarget));
 
     try {
-      if (modo === 'registar') {
-        await registarUtilizador(dados);
-        setModo('entrar');
+      if (modo === 'registar' && etapaRegisto === 'dados') {
+        const pendente = await registarUtilizador(dados);
+        setRegistoPendente({ ...pendente, dadosOriginais: dados });
+        setEtapaRegisto('otp');
         setTipoMensagem('sucesso');
-        setMensagem('Conta criada com sucesso. Já pode iniciar sessão.');
-        evento.currentTarget.reset();
+        setMensagem(`Código enviado por ${pendente.canal === 'WHATSAPP' ? 'WhatsApp' : 'SMS'} para ${pendente.telefone}.`);
+      } else if (modo === 'registar') {
+        await confirmarRegistoUtilizador({ telefone: registoPendente.telefone, codigo: dados.codigo });
+        setModo('entrar'); setEtapaRegisto('dados'); setRegistoPendente(null);
+        setTipoMensagem('sucesso'); setMensagem('Número confirmado e conta criada. Já pode iniciar sessão.');
       } else {
         const novaSessao = await iniciarSessao(dados);
         aoAutenticar(novaSessao);
@@ -264,6 +270,18 @@ function PaginaAutenticacao({ aoAutenticar }) {
     setModo(novoModo);
     setMensagem('');
     setMostrarPalavraPasse(false);
+    setEtapaRegisto('dados');
+    setRegistoPendente(null);
+  }
+
+  async function reenviarCodigo() {
+    setAProcessar(true); setMensagem('');
+    try {
+      const pendente = await registarUtilizador(registoPendente.dadosOriginais);
+      setRegistoPendente((actual) => ({ ...actual, ...pendente }));
+      setTipoMensagem('sucesso'); setMensagem('Foi enviado um novo código de confirmação.');
+    } catch (erro) { setTipoMensagem('erro'); setMensagem(erro.message); }
+    finally { setAProcessar(false); }
   }
 
   return <main className="pagina-autenticacao">
@@ -280,13 +298,16 @@ function PaginaAutenticacao({ aoAutenticar }) {
         <button className={modo === 'entrar' ? 'ativa' : ''} onClick={() => mudarModo('entrar')}>Iniciar sessão</button>
         <button className={modo === 'registar' ? 'ativa' : ''} onClick={() => mudarModo('registar')}>Criar conta</button>
       </div>
-      <div className="titulo-autenticacao"><h2>{modo === 'entrar' ? 'Bem-vindo de volta' : 'Crie a sua conta'}</h2><p>{modo === 'entrar' ? 'Introduza os seus dados para continuar.' : 'Não é necessário apresentar documento pessoal.'}</p></div>
+      <div className="titulo-autenticacao"><h2>{modo === 'entrar' ? 'Bem-vindo de volta' : etapaRegisto === 'otp' ? 'Confirme o seu número' : 'Crie a sua conta'}</h2><p>{modo === 'entrar' ? 'Introduza o telefone e a palavra-passe.' : etapaRegisto === 'otp' ? `Introduza o código de 6 dígitos enviado para ${registoPendente?.telefone}.` : 'Não é necessário apresentar documento pessoal.'}</p></div>
       <form className="formulario-autenticacao" onSubmit={submeter}>
-        {modo === 'registar' && <label>Nome completo<input name="nome" autoComplete="name" minLength="3" maxLength="120" required /></label>}
-        <label>Email<input name="email" type="email" autoComplete="email" required /></label>
-        <label>Palavra-passe<div className="campo-palavra-passe"><input name="palavraPasse" type={mostrarPalavraPasse ? 'text' : 'password'} minLength="8" autoComplete={modo === 'entrar' ? 'current-password' : 'new-password'} required /><button type="button" onClick={() => setMostrarPalavraPasse((visivel) => !visivel)} aria-label={mostrarPalavraPasse ? 'Ocultar palavra-passe' : 'Mostrar palavra-passe'} title={mostrarPalavraPasse ? 'Ocultar palavra-passe' : 'Mostrar palavra-passe'}><Icone nome={mostrarPalavraPasse ? 'olhoFechado' : 'olho'} /></button></div></label>
+        {modo === 'registar' && etapaRegisto === 'dados' && <><div className="linha-nome-registo"><label>Nome<input name="nome" autoComplete="given-name" minLength="2" maxLength="80" required /></label><label>Apelido<input name="apelido" autoComplete="family-name" minLength="2" maxLength="120" required /></label></div></>}
+        {etapaRegisto === 'dados' && <label>Número de telefone<input name="telefone" type="tel" inputMode="tel" autoComplete="tel" placeholder="84 000 0000" required /></label>}
+        {modo === 'registar' && etapaRegisto === 'dados' && <label>Receber código por<select name="canal" defaultValue="WHATSAPP"><option value="WHATSAPP">WhatsApp</option><option value="SMS">SMS</option></select></label>}
+        {etapaRegisto === 'dados' && <label>Palavra-passe<div className="campo-palavra-passe"><input name="palavraPasse" type={mostrarPalavraPasse ? 'text' : 'password'} minLength="8" autoComplete={modo === 'entrar' ? 'current-password' : 'new-password'} required /><button type="button" onClick={() => setMostrarPalavraPasse((visivel) => !visivel)} aria-label={mostrarPalavraPasse ? 'Ocultar palavra-passe' : 'Mostrar palavra-passe'} title={mostrarPalavraPasse ? 'Ocultar palavra-passe' : 'Mostrar palavra-passe'}><Icone nome={mostrarPalavraPasse ? 'olhoFechado' : 'olho'} /></button></div></label>}
+        {modo === 'registar' && etapaRegisto === 'otp' && <><label>Código de confirmação<input className="campo-otp" name="codigo" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength="6" placeholder="000000" required /></label>{registoPendente?.codigoDemonstracao && <p className="codigo-demonstracao">Código de demonstração: <strong>{registoPendente.codigoDemonstracao}</strong></p>}</>}
         {mensagem && <p className={`mensagem-formulario ${tipoMensagem}`} role="status">{mensagem}</p>}
-        <button className="botao-autenticacao" disabled={aProcessar}>{aProcessar ? 'A processar...' : modo === 'entrar' ? 'Entrar na minha conta' : 'Criar conta'}</button>
+        <button className="botao-autenticacao" disabled={aProcessar}>{aProcessar ? 'A processar...' : modo === 'entrar' ? 'Entrar na minha conta' : etapaRegisto === 'otp' ? 'Confirmar e criar conta' : 'Enviar código de confirmação'}</button>
+        {modo === 'registar' && etapaRegisto === 'otp' && <div className="acoes-otp"><button type="button" onClick={() => { setEtapaRegisto('dados'); setMensagem(''); }}>Corrigir dados</button><button type="button" onClick={reenviarCodigo} disabled={aProcessar}>Reenviar código</button></div>}
       </form>
       <p className="nota-seguranca"><Icone nome="escudo" /> Os seus dados são protegidos e utilizados apenas para gerir as viagens.</p>
     </section>

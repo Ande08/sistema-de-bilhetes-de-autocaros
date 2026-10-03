@@ -53,9 +53,9 @@ export default function ChatTicketSuporte({ ticketId, perfil, aoActualizar }) {
   if (!ticket) return <div className="chat-ticket vazio-chat">{erro || 'A carregar conversa...'}</div>;
   const encerrado = ['RESOLVIDO', 'ENCERRADO'].includes(ticket.estado);
   return <section className="chat-ticket">
-    <header className="chat-ticket-topo"><div><small>{ticket.codigo}</small><h3>{ticket.assunto}</h3><span>{traduzirCategoria(ticket.categoria)} · {ticket.Passageiro?.nome}</span></div><b className={`estado-suporte estado-${ticket.estado.toLowerCase()}`}>{traduzirEstado(ticket.estado)}</b></header>
+    <header className="chat-ticket-topo"><div><small>{ticket.codigo}</small><h3>{ticket.assunto}</h3><span>{traduzirCategoria(ticket.categoria)} · {`${ticket.Passageiro?.nome || ''} ${ticket.Passageiro?.apelido || ''}`.trim()}</span></div><b className={`estado-suporte estado-${ticket.estado.toLowerCase()}`}>{traduzirEstado(ticket.estado)}</b></header>
     <div className="mensagens-suporte">
-      {ticket.Mensagens.map((mensagem) => <article key={mensagem.id} className={`mensagem-suporte mensagem-${mensagem.autorTipo.toLowerCase()}`}><strong>{mensagem.Remetente?.nome || (mensagem.autorTipo === 'SISTEMA' ? 'Sistema' : 'Assistente virtual')}</strong><p>{mensagem.conteudo}</p><time>{formatarDataHora(mensagem.criado_em)}</time></article>)}
+      {ticket.Mensagens.map((mensagem) => <article key={mensagem.id} className={`mensagem-suporte mensagem-${mensagem.autorTipo.toLowerCase()}`}><strong>{mensagem.Remetente ? `${mensagem.Remetente.nome} ${mensagem.Remetente.apelido || ''}`.trim() : (mensagem.autorTipo === 'SISTEMA' ? 'Sistema' : 'Assistente virtual')}</strong><p>{mensagem.conteudo}</p><time>{formatarDataHora(mensagem.criado_em)}</time></article>)}
       <span ref={fimMensagens} />
     </div>
     {erro && <p className="mensagem-formulario erro">{erro}</p>}

@@ -39,7 +39,7 @@ export default function PainelAdministrador({ utilizador, aoSair }) {
       <button className="admin-sair" onClick={aoSair}>Terminar sessão</button>
     </aside>
     <main className="admin-conteudo">
-      <header className="admin-topo"><div><p>Painel administrativo</p><h1>{secao}</h1></div><div className="perfil-topo"><span className="avatar">{utilizador.nome.charAt(0)}</span><div><strong>{utilizador.nome}</strong><small>Administrador</small></div></div></header>
+      <header className="admin-topo"><div><p>Painel administrativo</p><h1>{secao}</h1></div><div className="perfil-topo"><span className="avatar">{utilizador.nome.charAt(0)}</span><div><strong>{nomePessoa(utilizador)}</strong><small>Administrador</small></div></div></header>
       {mensagem && <p className="mensagem-formulario sucesso">{mensagem}</p>}{erro && <p className="mensagem-formulario erro">{erro}</p>}
       {!dados ? <div className="painel-carregando vidro">A carregar informações administrativas...</div> : <ConteudoAdministrativo secao={secao} dados={dados} executar={executar} submeter={submeter} />}
     </main>
@@ -51,7 +51,7 @@ function ConteudoAdministrativo({ secao, dados, executar, submeter }) {
   if (secao === 'Autocarros') return <><FormularioAutocarro aoSubmeter={(e) => submeter(e, criarAutocarro, 'Autocarro criado com sucesso.')} /><TabelaGestao titulo="Frota" colunas={['ID', 'Matrícula', 'Modelo', 'Capacidade', 'Estado', 'Criado em', 'Ação']} linhas={dados.autocarros.map((item) => [item.id, item.registration, item.model, item.capacity, item.active ? 'Ativo' : 'Inativo', formatarData(item.criado_em), <BotaoEstado activo={item.active} aoClicar={() => executar(() => definirEstadoAdministrativo('autocarros', item.id, !item.active), 'Estado do autocarro atualizado.')} />])} /></>;
   if (secao === 'Rotas') return <><FormularioRota aoSubmeter={(e) => submeter(e, criarRota, 'Rota criada com sucesso.')} /><TabelaGestao titulo="Rotas" colunas={['ID', 'Origem', 'Destino', 'Distância', 'Estado', 'Criada em', 'Ação']} linhas={dados.rotas.map((item) => [item.id, item.origin, item.destination, item.distanceKm ? `${item.distanceKm} km` : '—', item.active ? 'Ativa' : 'Inativa', formatarData(item.criado_em), <BotaoEstado activo={item.active} aoClicar={() => executar(() => definirEstadoAdministrativo('rotas', item.id, !item.active), 'Estado da rota atualizado.')} />])} /></>;
   if (secao === 'Viagens') return <><FormularioViagem rotas={dados.rotas.filter((item) => item.active)} autocarros={dados.autocarros.filter((item) => item.active)} aoSubmeter={(e) => submeter(e, criarViagem, 'Viagem criada com sucesso.')} /><TabelaGestao titulo="Viagens" colunas={['ID', 'Rota', 'Autocarro', 'Partida', 'Chegada', 'Preço', 'Estado', 'Ações']} linhas={dados.viagens.map((item) => [item.id, `${item.Route?.origin} → ${item.Route?.destination}`, `${item.Bus?.registration || '—'} · ${item.Bus?.model || ''}`, formatarData(item.departureAt), item.arrivalExpectedAt ? formatarData(item.arrivalExpectedAt) : '—', formatarValor(item.price), item.status, <AcoesViagem viagem={item} executar={executar} />])} /></>;
-  if (secao === 'Bilhetes') return <TabelaGestao titulo="Bilhetes emitidos" colunas={['Código', 'Passageiro', 'Rota', 'Autocarro', 'Assento', 'Pagamento', 'Referência', 'Preço', 'Estado', 'Emitido em']} linhas={dados.bilhetes.map((item) => [item.codigo, item.User?.nome || item.nomePassageiro, `${item.Trip?.Route?.origin || ''} → ${item.Trip?.Route?.destination || ''}`, item.Trip?.Bus?.registration || '—', item.Assento?.numero || '—', item.Pagamento?.metodo || '—', item.Pagamento?.referencia || '—', formatarValor(item.preco), item.estado, formatarData(item.criado_em)])} />;
+  if (secao === 'Bilhetes') return <TabelaGestao titulo="Bilhetes emitidos" colunas={['Código', 'Passageiro', 'Rota', 'Autocarro', 'Assento', 'Pagamento', 'Referência', 'Preço', 'Estado', 'Emitido em']} linhas={dados.bilhetes.map((item) => [item.codigo, item.User ? nomePessoa(item.User) : item.nomePassageiro, `${item.Trip?.Route?.origin || ''} → ${item.Trip?.Route?.destination || ''}`, item.Trip?.Bus?.registration || '—', item.Assento?.numero || '—', item.Pagamento?.metodo || '—', item.Pagamento?.referencia || '—', formatarValor(item.preco), item.estado, formatarData(item.criado_em)])} />;
   if (secao === 'Suporte') return <PaginaGestaoSuporte />;
   if (secao === 'Auditoria') return <PaginaAuditoria auditorias={dados.auditorias} />;
   return <VisaoGeral dados={dados} />;
@@ -70,13 +70,13 @@ function PaginaUtilizadores({ utilizadores, executar }) {
     const formulario = evento.currentTarget;
     const valores = Object.fromEntries(new FormData(formulario));
     const concluido = emEdicao
-      ? await executar(() => actualizarUtilizadorAdministrativo(emEdicao.id, { nome: valores.nome, email: valores.email, perfil: valores.perfil }), 'Utilizador atualizado com sucesso.')
+      ? await executar(() => actualizarUtilizadorAdministrativo(emEdicao.id, { nome: valores.nome, apelido: valores.apelido, telefone: valores.telefone, perfil: valores.perfil }), 'Utilizador atualizado com sucesso.')
       : await executar(() => criarUtilizadorAdministrativo(valores), 'Utilizador criado com sucesso.');
     if (concluido) { formulario.reset(); setEmEdicao(null); }
   }
 
   function redefinir(utilizador) {
-    const nova = window.prompt(`Nova palavra-passe para ${utilizador.nome}:`);
+    const nova = window.prompt(`Nova palavra-passe para ${nomePessoa(utilizador)}:`);
     if (!nova) return;
     executar(() => redefinirPalavraPasseAdministrativa(utilizador.id, nova), 'Palavra-passe redefinida com sucesso.');
   }
@@ -85,13 +85,14 @@ function PaginaUtilizadores({ utilizadores, executar }) {
     <form className="admin-formulario admin-formulario-utilizador vidro" onSubmit={guardar} key={emEdicao?.id || 'novo'}>
       <h3>{emEdicao ? 'Editar utilizador' : 'Novo utilizador'}</h3>
       <label>Nome<input name="nome" defaultValue={emEdicao?.nome || ''} required minLength="3" /></label>
-      <label>Email<input name="email" type="email" defaultValue={emEdicao?.email || ''} required /></label>
+      <label>Apelido<input name="apelido" defaultValue={emEdicao?.apelido || ''} required minLength="2" /></label>
+      <label>Telefone<input name="telefone" type="tel" defaultValue={emEdicao?.telefone || ''} placeholder="+258840000000" required /></label>
       <label>Perfil<select name="perfil" defaultValue={emEdicao?.perfil || 'PASSAGEIRO'}><option value="PASSAGEIRO">Passageiro</option><option value="GESTOR_SUPORTE">Gestor de suporte</option><option value="ADMIN">Administrador</option></select></label>
       {!emEdicao && <label>Palavra-passe<input name="palavraPasse" type="password" minLength="8" required /></label>}
       <button>{emEdicao ? 'Guardar alterações' : 'Criar utilizador'}</button>
       {emEdicao && <button type="button" className="botao-voltar" onClick={() => setEmEdicao(null)}>Cancelar edição</button>}
     </form>
-    <TabelaGestao titulo="Utilizadores" colunas={['ID', 'Nome', 'Email', 'Perfil', 'Estado', 'Ações']} linhas={utilizadores.map((item) => [item.id, item.nome, item.email, nomePerfil(item.perfil), item.activo ? 'Ativo' : 'Inativo', <span className="admin-acoes"><button onClick={() => setEmEdicao(item)}>Editar</button><button onClick={() => redefinir(item)}>Redefinir senha</button><BotaoEstado activo={item.activo} aoClicar={() => executar(() => definirEstadoAdministrativo('utilizadores', item.id, !item.activo), 'Estado do utilizador atualizado.')} /></span>])} />
+    <TabelaGestao titulo="Utilizadores" colunas={['ID', 'Nome', 'Apelido', 'Telefone', 'Perfil', 'Estado', 'Ações']} linhas={utilizadores.map((item) => [item.id, item.nome, item.apelido, item.telefone, nomePerfil(item.perfil), item.activo ? 'Ativo' : 'Inativo', <span className="admin-acoes"><button onClick={() => setEmEdicao(item)}>Editar</button><button onClick={() => redefinir(item)}>Redefinir senha</button><BotaoEstado activo={item.activo} aoClicar={() => executar(() => definirEstadoAdministrativo('utilizadores', item.id, !item.activo), 'Estado do utilizador atualizado.')} /></span>])} />
   </>;
 }
 
@@ -114,14 +115,14 @@ function PaginaGestaoSuporte() {
   }
 
   if (ticketActivo) return <><button className="botao-voltar-suporte" onClick={() => { setTicketActivo(null); carregar(); }}>Voltar aos tickets</button><ChatTicketSuporte ticketId={ticketActivo} perfil="ADMIN" aoActualizar={carregar} /></>;
-  return <section className="admin-tabela vidro"><div className="titulo-secao"><div><h3>Gestão de suporte</h3><p>Atribua os pedidos à equipa e acompanhe os atendimentos.</p></div><span>{tickets.length} tickets</span></div>{erro && <p className="mensagem-formulario erro">{erro}</p>}<div className="admin-tabela-scroll"><table><thead><tr><th>Código</th><th>Passageiro</th><th>Assunto</th><th>Prioridade</th><th>Estado</th><th>Gestor responsável</th><th>Ação</th></tr></thead><tbody>{tickets.map((ticket) => <tr key={ticket.id}><td>{ticket.codigo}</td><td>{ticket.Passageiro?.nome}</td><td>{ticket.assunto}</td><td>{ticket.prioridade}</td><td><b className={`estado-suporte estado-${ticket.estado.toLowerCase()}`}>{traduzirEstado(ticket.estado)}</b></td><td><select value={ticket.gestorId || ''} onChange={(evento) => atribuir(evento, ticket.id)}><option value="">Não atribuído</option>{gestores.map((gestor) => <option key={gestor.id} value={gestor.id}>{gestor.nome}</option>)}</select></td><td><button className="admin-activar" onClick={() => setTicketActivo(ticket.id)}>Abrir</button></td></tr>)}</tbody></table></div></section>;
+  return <section className="admin-tabela vidro"><div className="titulo-secao"><div><h3>Gestão de suporte</h3><p>Atribua os pedidos à equipa e acompanhe os atendimentos.</p></div><span>{tickets.length} tickets</span></div>{erro && <p className="mensagem-formulario erro">{erro}</p>}<div className="admin-tabela-scroll"><table><thead><tr><th>Código</th><th>Passageiro</th><th>Assunto</th><th>Prioridade</th><th>Estado</th><th>Gestor responsável</th><th>Ação</th></tr></thead><tbody>{tickets.map((ticket) => <tr key={ticket.id}><td>{ticket.codigo}</td><td>{nomePessoa(ticket.Passageiro)}</td><td>{ticket.assunto}</td><td>{ticket.prioridade}</td><td><b className={`estado-suporte estado-${ticket.estado.toLowerCase()}`}>{traduzirEstado(ticket.estado)}</b></td><td><select value={ticket.gestorId || ''} onChange={(evento) => atribuir(evento, ticket.id)}><option value="">Não atribuído</option>{gestores.map((gestor) => <option key={gestor.id} value={gestor.id}>{nomePessoa(gestor)}</option>)}</select></td><td><button className="admin-activar" onClick={() => setTicketActivo(ticket.id)}>Abrir</button></td></tr>)}</tbody></table></div></section>;
 }
 
 function PaginaAuditoria({ auditorias }) {
   const [filtros, setFiltros] = useState({ utilizador: '', operacao: '', entidade: '', dataInicio: '', dataFim: '' });
 
   // As opções são obtidas dos próprios registos para evitar filtros sem resultados.
-  const administradores = Array.from(new Map(auditorias.filter((item) => item.User).map((item) => [String(item.User.id), item.User.nome])).entries()).sort((a, b) => a[1].localeCompare(b[1], 'pt'));
+  const administradores = Array.from(new Map(auditorias.filter((item) => item.User).map((item) => [String(item.User.id), nomePessoa(item.User)])).entries()).sort((a, b) => a[1].localeCompare(b[1], 'pt'));
   const operacoes = [...new Set(auditorias.map((item) => item.operacao).filter(Boolean))].sort();
   const entidades = [...new Set(auditorias.map((item) => item.entidade).filter(Boolean))].sort();
 
@@ -158,7 +159,7 @@ function PaginaAuditoria({ auditorias }) {
         <button type="button" onClick={limparFiltros} disabled={!Object.values(filtros).some(Boolean)}>Limpar filtros</button>
       </div>
     </section>
-    <TabelaGestao key={JSON.stringify(filtros)} titulo="Registo de auditoria" colunas={['Data', 'Administrador', 'Operação', 'Entidade', 'Identificador', 'Endereço IP', 'Valores']} linhas={auditoriasFiltradas.map((item) => [formatarData(item.criado_em), item.User?.nome || 'Sistema', item.operacao, item.entidade, item.entidadeId || '—', item.enderecoIp || '—', JSON.stringify(item.valoresNovos || {})])} />
+    <TabelaGestao key={JSON.stringify(filtros)} titulo="Registo de auditoria" colunas={['Data', 'Administrador', 'Operação', 'Entidade', 'Identificador', 'Endereço IP', 'Valores']} linhas={auditoriasFiltradas.map((item) => [formatarData(item.criado_em), item.User ? nomePessoa(item.User) : 'Sistema', item.operacao, item.entidade, item.entidadeId || '—', item.enderecoIp || '—', JSON.stringify(item.valoresNovos || {})])} />
   </>;
 }
 
@@ -192,3 +193,4 @@ function BotaoEstado({ activo, aoClicar }) { return <button className={activo ? 
 function formatarValor(valor) { return new Intl.NumberFormat('pt-MZ', { style: 'currency', currency: 'MZN' }).format(Number(valor)); }
 function formatarData(valor) { return new Intl.DateTimeFormat('pt-MZ', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(valor)); }
 function nomePerfil(perfil) { return { PASSAGEIRO: 'Passageiro', GESTOR_SUPORTE: 'Gestor de suporte', ADMIN: 'Administrador' }[perfil] || perfil; }
+function nomePessoa(pessoa) { return pessoa ? `${pessoa.nome || ''} ${pessoa.apelido || ''}`.trim() : '—'; }

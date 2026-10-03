@@ -1,34 +1,15 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { User } from '../models/index.js';
-import { normalizarEmail, validarEmail, validarNome, validarPalavraPasse } from '../validacoes/utilizador.validacao.js';
+import { normalizarTelefone, validarApelido, validarNome, validarPalavraPasse } from '../validacoes/utilizador.validacao.js';
 
 export class ServicoAutenticacao {
-  async registar({ nome, email, palavraPasse }) {
-    const nomeValidado = validarNome(nome);
-    const emailValidado = validarEmail(email);
-    validarPalavraPasse(palavraPasse);
-
-    // O email é único para impedir contas duplicadas.
-    const utilizadorExistente = await User.findOne({ where: { email: emailValidado } });
-    if (utilizadorExistente) {
-      const erro = new Error('Este email já está registado.');
-      erro.statusCode = 409;
-      throw erro;
-    }
-
-    // Nunca guardamos a palavra-passe original na base de dados.
-    const palavraPasseHash = await bcrypt.hash(palavraPasse, 12);
-    const utilizador = await User.create({ nome: nomeValidado, email: emailValidado, palavraPasseHash });
-    return this._dadosPublicos(utilizador);
-  }
-
-  async iniciarSessao({ email, palavraPasse }) {
-    const utilizador = await User.findOne({ where: { email: normalizarEmail(email) } });
+  async iniciarSessao({ telefone, palavraPasse }) {
+    const utilizador = await User.findOne({ where: { telefone: normalizarTelefone(telefone) } });
     const palavraPasseValida = utilizador && typeof palavraPasse === 'string'
       && await bcrypt.compare(palavraPasse, utilizador.palavraPasseHash);
     if (!palavraPasseValida) {
-      const erro = new Error('Email ou palavra-passe inválidos.');
+      const erro = new Error('Número de telefone ou palavra-passe inválidos.');
       erro.statusCode = 401;
       throw erro;
     }
@@ -53,19 +34,11 @@ export class ServicoAutenticacao {
     return this._dadosPublicos(utilizador);
   }
 
-  async actualizarPerfil(utilizadorId, { nome, email }) {
+  async actualizarPerfil(utilizadorId, { nome, apelido }) {
     const utilizador = await this._obterUtilizadorActivo(utilizadorId);
     const nomeValidado = validarNome(nome);
-    const emailValidado = validarEmail(email);
-    const emailEmUso = await User.findOne({ where: { email: emailValidado } });
-
-    if (emailEmUso && String(emailEmUso.id) !== String(utilizador.id)) {
-      const erro = new Error('Este email já está registado.');
-      erro.statusCode = 409;
-      throw erro;
-    }
-
-    await utilizador.update({ nome: nomeValidado, email: emailValidado });
+    const apelidoValidado = validarApelido(apelido);
+    await utilizador.update({ nome: nomeValidado, apelido: apelidoValidado });
     return this._dadosPublicos(utilizador);
   }
 
@@ -93,6 +66,6 @@ export class ServicoAutenticacao {
   }
 
   _dadosPublicos(utilizador) {
-    return { id: utilizador.id, nome: utilizador.nome, email: utilizador.email, perfil: utilizador.perfil, activo: utilizador.activo };
+    return { id: utilizador.id, nome: utilizador.nome, apelido: utilizador.apelido, nomeCompleto: `${utilizador.nome} ${utilizador.apelido}`, telefone: utilizador.telefone, perfil: utilizador.perfil, activo: utilizador.activo };
   }
 }

@@ -10,6 +10,7 @@ import { Notificacao } from './notificacao.model.js';
 import { Auditoria } from './auditoria.model.js';
 import { TicketSuporte } from './ticket-suporte.model.js';
 import { MensagemSuporte } from './mensagem-suporte.model.js';
+import { VerificacaoOtp } from './verificacao-otp.model.js';
 
 // Os relacionamentos ficam centralizados para permitir consultas com include.
 Route.hasMany(Trip, { foreignKey: 'routeId' });
@@ -49,4 +50,4 @@ TicketSuporte.hasMany(MensagemSuporte, { as: 'Mensagens', foreignKey: 'ticketId'
 MensagemSuporte.belongsTo(TicketSuporte, { foreignKey: 'ticketId' });
 MensagemSuporte.belongsTo(User, { as: 'Remetente', foreignKey: 'remetenteId' });
 
-export { Assento, Auditoria, Bilhete, MensagemSuporte, Notificacao, Pagamento, Reserva, TicketSuporte };
+export { Assento, Auditoria, Bilhete, MensagemSuporte, Notificacao, Pagamento, Reserva, TicketSuporte, VerificacaoOtp };

@@ -43,8 +43,9 @@ export class ServicoCompra {
         throw erro;
       }
 
+      const nomeCompleto = `${utilizador.nome} ${utilizador.apelido}`;
       const bilheteConstruido = this.servicoBilhete.emitir({
-        passageiro: { nome: utilizador.nome },
+        passageiro: { nome: nomeCompleto },
         viagem: { id: viagem.id, origem: viagem.Route.origin, destino: viagem.Route.destination, partidaEm: viagem.departureAt },
         assento: { id: assento.id, numero: assento.numero },
         pagamento: pagamentoProcessado,
@@ -56,7 +57,7 @@ export class ServicoCompra {
         utilizadorId: utilizador.id,
         viagemId: viagem.id,
         assentoId: assento.id,
-        nomePassageiro: utilizador.nome,
+        nomePassageiro: nomeCompleto,
         preco: viagem.price,
         estado: 'EMITIDO'
       }, { transaction: transacao });

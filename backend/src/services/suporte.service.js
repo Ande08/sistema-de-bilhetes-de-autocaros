@@ -4,8 +4,8 @@ import { sequelize } from '../config/database.js';
 import { MensagemSuporte, TicketSuporte, User } from '../models/index.js';
 
 const inclusoesTicket = [
-  { model: User, as: 'Passageiro', attributes: ['id', 'nome', 'email'] },
-  { model: User, as: 'Gestor', attributes: ['id', 'nome', 'email'] }
+  { model: User, as: 'Passageiro', attributes: ['id', 'nome', 'apelido', 'telefone'] },
+  { model: User, as: 'Gestor', attributes: ['id', 'nome', 'apelido', 'telefone'] }
 ];
 
 const respostasFrequentes = [
@@ -15,7 +15,7 @@ const respostasFrequentes = [
   { termos: ['bilhete', 'imprimir', 'codigo'], resposta: 'Depois da compra, o bilhete eletrónico aparece em “Bilhetes”. Pode abri-lo, consultar o código e imprimir uma cópia.' },
   { termos: ['horario', 'atraso', 'partida', 'chegada'], resposta: 'O horário de partida e a previsão de chegada aparecem no bilhete e em “Minhas viagens”. Se houver uma alteração operacional, a equipa de suporte poderá confirmar os detalhes.' },
   { termos: ['documento', 'identidade', 'bi'], resposta: 'Não é necessário enviar documento pessoal para criar conta ou comprar um bilhete neste sistema.' },
-  { termos: ['senha', 'palavra-passe', 'conta', 'email'], resposta: 'Pode atualizar o nome, email e palavra-passe na página “Perfil”. Se perdeu o acesso à conta, peça atendimento humano.' }
+  { termos: ['senha', 'palavra-passe', 'conta', 'telefone'], resposta: 'Pode atualizar o nome, apelido e palavra-passe na página “Perfil”. Se perdeu o acesso ao número associado à conta, peça atendimento humano.' }
 ];
 
 function textoNormalizado(valor) {
@@ -63,7 +63,7 @@ export async function obterTicketPorId(id, utilizador, transaction) {
     include: [...inclusoesTicket, {
       model: MensagemSuporte,
       as: 'Mensagens',
-      include: [{ model: User, as: 'Remetente', attributes: ['id', 'nome', 'perfil'] }]
+      include: [{ model: User, as: 'Remetente', attributes: ['id', 'nome', 'apelido', 'perfil'] }]
     }],
     order: [[{ model: MensagemSuporte, as: 'Mensagens' }, 'criado_em', 'ASC']],
     transaction
@@ -84,7 +84,7 @@ export async function adicionarMensagem(id, utilizador, conteudo) {
   const mensagem = await MensagemSuporte.create({ ticketId: ticket.id, remetenteId: utilizador.id, autorTipo, conteudo: conteudo.trim() });
   if (utilizador.perfil !== 'PASSAGEIRO' && ticket.estado === 'ABERTO') await ticket.update({ estado: 'EM_ATENDIMENTO' });
   if (utilizador.perfil === 'PASSAGEIRO' && ticket.estado === 'AGUARDA_UTILIZADOR') await ticket.update({ estado: 'EM_ATENDIMENTO' });
-  return MensagemSuporte.findByPk(mensagem.id, { include: [{ model: User, as: 'Remetente', attributes: ['id', 'nome', 'perfil'] }] });
+  return MensagemSuporte.findByPk(mensagem.id, { include: [{ model: User, as: 'Remetente', attributes: ['id', 'nome', 'apelido', 'perfil'] }] });
 }
 
 export async function atribuirTicket(id, gestorId, administrador) {
@@ -93,7 +93,7 @@ export async function atribuirTicket(id, gestorId, administrador) {
   if (!ticket) throw erroNaoEncontrado();
   if (!gestor || gestor.perfil !== 'GESTOR_SUPORTE' || !gestor.activo) throw erroValidacao('Selecione um gestor de suporte ativo.');
   await ticket.update({ gestorId: gestor.id, estado: ticket.estado === 'ABERTO' ? 'EM_ATENDIMENTO' : ticket.estado });
-  await MensagemSuporte.create({ ticketId: ticket.id, autorTipo: 'SISTEMA', conteudo: `Ticket atribuído a ${gestor.nome}.` });
+  await MensagemSuporte.create({ ticketId: ticket.id, autorTipo: 'SISTEMA', conteudo: `Ticket atribuído a ${gestor.nome} ${gestor.apelido}.` });
   return obterTicketPorId(ticket.id, administrador);
 }
 
@@ -111,7 +111,7 @@ export async function actualizarEstadoTicket(id, estado, utilizador) {
 }
 
 export async function listarGestoresSuporte() {
-  return User.findAll({ where: { perfil: 'GESTOR_SUPORTE', activo: true }, attributes: ['id', 'nome', 'email'], order: [['nome', 'ASC']] });
+  return User.findAll({ where: { perfil: 'GESTOR_SUPORTE', activo: true }, attributes: ['id', 'nome', 'apelido', 'telefone'], order: [['nome', 'ASC'], ['apelido', 'ASC']] });
 }
 
 export function garantirAcesso(ticket, utilizador) {

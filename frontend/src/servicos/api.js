@@ -35,7 +35,11 @@ async function requisicao(caminho, opcoes = {}) {
 }
 
 export function registarUtilizador(dados) {
-  return requisicao('/autenticacao/registar', { method: 'POST', body: JSON.stringify(dados) });
+  return requisicao('/autenticacao/solicitar-registo', { method: 'POST', body: JSON.stringify(dados) });
+}
+
+export function confirmarRegistoUtilizador(dados) {
+  return requisicao('/autenticacao/confirmar-registo', { method: 'POST', body: JSON.stringify(dados) });
 }
 
 export function iniciarSessao(dados) {

@@ -5,8 +5,8 @@ export async function executar({ transaction }) {
   if (process.env.CRIAR_DADOS_DEMO !== 'true') return;
 
   const [passageiro] = await User.findOrCreate({
-    where: { email: 'passageiro@viagembus.test' },
-    defaults: { nome: 'Passageiro de Testes', palavraPasseHash: await bcrypt.hash('Passageiro@123', 12), perfil: 'PASSAGEIRO', activo: true },
+    where: { telefone: '+258840000002' },
+    defaults: { nome: 'Passageiro', apelido: 'de Testes', telefone: '+258840000002', palavraPasseHash: await bcrypt.hash('Passageiro@123', 12), perfil: 'PASSAGEIRO', activo: true },
     transaction
   });
   const [autocarro] = await Bus.findOrCreate({ where: { registration: 'TST-01-26' }, defaults: { model: 'Yutong Interprovincial', capacity: 32, active: true }, transaction });
@@ -23,7 +23,7 @@ export async function executar({ transaction }) {
 
   const [bilhete] = await Bilhete.findOrCreate({
     where: { codigo: 'BIL-DEMO-001' },
-    defaults: { utilizadorId: passageiro.id, viagemId: viagem.id, assentoId: assentos[0].id, nomePassageiro: passageiro.nome, preco: viagem.price, estado: 'EMITIDO' },
+    defaults: { utilizadorId: passageiro.id, viagemId: viagem.id, assentoId: assentos[0].id, nomePassageiro: `${passageiro.nome} ${passageiro.apelido}`, preco: viagem.price, estado: 'EMITIDO' },
     transaction
   });
   await Pagamento.findOrCreate({ where: { referencia: 'PAG-DEMO-001' }, defaults: { bilheteId: bilhete.id, metodo: 'MPESA', valor: viagem.price, estado: 'APROVADO' }, transaction });

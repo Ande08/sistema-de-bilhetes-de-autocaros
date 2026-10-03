@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { User } from '../models/index.js';
-import { validarEmail, validarNome, validarPalavraPasse } from '../validacoes/utilizador.validacao.js';
+import { normalizarTelefone, validarApelido, validarNome, validarPalavraPasse } from '../validacoes/utilizador.validacao.js';
 
 function validarPerfil(perfil) {
   const normalizado = String(perfil || '').toUpperCase();
@@ -12,25 +12,26 @@ function validarPerfil(perfil) {
   return normalizado;
 }
 
-export async function criarUtilizadorAdministrativo({ nome, email, palavraPasse, perfil = 'PASSAGEIRO' }) {
-  const dados = { nome: validarNome(nome), email: validarEmail(email), perfil: validarPerfil(perfil) };
+export async function criarUtilizadorAdministrativo({ nome, apelido, telefone, palavraPasse, perfil = 'PASSAGEIRO' }) {
+  const dados = { nome: validarNome(nome), apelido: validarApelido(apelido), telefone: normalizarTelefone(telefone), perfil: validarPerfil(perfil) };
   validarPalavraPasse(palavraPasse);
-  if (await User.findOne({ where: { email: dados.email } })) {
-    const erro = new Error('Este email já está registado.'); erro.statusCode = 409; throw erro;
+  if (await User.findOne({ where: { telefone: dados.telefone } })) {
+    const erro = new Error('Este número de telefone já está registado.'); erro.statusCode = 409; throw erro;
   }
   dados.palavraPasseHash = await bcrypt.hash(palavraPasse, 12);
   return User.create(dados);
 }
 
-export async function actualizarUtilizadorAdministrativo(id, { nome, email, perfil }, administradorId) {
+export async function actualizarUtilizadorAdministrativo(id, { nome, apelido, telefone, perfil }, administradorId) {
   const utilizador = await obterUtilizador(id);
   const alteracoes = {};
   if (nome !== undefined) alteracoes.nome = validarNome(nome);
-  if (email !== undefined) {
-    alteracoes.email = validarEmail(email);
-    const existente = await User.findOne({ where: { email: alteracoes.email } });
+  if (apelido !== undefined) alteracoes.apelido = validarApelido(apelido);
+  if (telefone !== undefined) {
+    alteracoes.telefone = normalizarTelefone(telefone);
+    const existente = await User.findOne({ where: { telefone: alteracoes.telefone } });
     if (existente && String(existente.id) !== String(id)) {
-      const erro = new Error('Este email já está registado.'); erro.statusCode = 409; throw erro;
+      const erro = new Error('Este número de telefone já está registado.'); erro.statusCode = 409; throw erro;
     }
   }
   if (perfil !== undefined) {

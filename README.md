@@ -2,6 +2,8 @@
 
 Sistema web para consulta de viagens, seleção de assentos, pagamento simulado, emissão de bilhetes eletrónicos e suporte ao passageiro em tempo real.
 
+O cadastro de passageiros utiliza nome, apelido e número de telefone. A conta só é criada depois da confirmação de um código OTP enviado por WhatsApp ou SMS. Em desenvolvimento, o envio é simulado e o código aparece na tela para permitir testes sem um fornecedor externo.
+
 ## Tecnologias
 
 - Backend: Node.js, Express e Sequelize;
@@ -55,7 +57,7 @@ Representado por `ServicoCompra`, `ServicoPagamento` e `ServicoBilhete`, que coo
 
 ### Adapter
 
-Está previsto para a integração futura com APIs reais de M-Pesa e e-Mola. Servirá para adaptar interfaces externas ao formato de pagamento do sistema.
+Utilizado em `backend/src/adapters/otp.adapter.js` para isolar o envio de códigos OTP. Atualmente existe o fornecedor simulado; uma API real de WhatsApp ou SMS pode ser adicionada sem alterar o serviço de cadastro. O mesmo padrão está previsto para integrações reais de M-Pesa e e-Mola.
 
 ## Padrões comportamentais
 
@@ -123,7 +125,9 @@ npm run db:migrate:undo
 npm run db:seed
 ```
 
-Antes de executar os seeders, configure `ADMIN_NOME`, `ADMIN_EMAIL` e `ADMIN_PASSWORD` no `.env`. Defina `CRIAR_DADOS_DEMO=true` apenas quando desejar criar uma viagem de demonstração.
+Antes de executar os seeders, configure `ADMIN_NOME`, `ADMIN_APELIDO`, `ADMIN_TELEFONE` e `ADMIN_PASSWORD` no `.env`. Defina `CRIAR_DADOS_DEMO=true` apenas quando desejar criar uma viagem de demonstração.
+
+O modo de desenvolvimento usa `OTP_FORNECEDOR=SIMULADO`. As opções `OTP_VALIDADE_MINUTOS`, `OTP_REENVIO_SEGUNDOS` e `OTP_EXIBIR_CODIGO` controlam a validade, o intervalo de reenvio e a apresentação do código de teste. Em produção, `OTP_EXIBIR_CODIGO` deve ser `false` e o adaptador deve ser ligado a um fornecedor real.
 
 O backend está localizado em `backend/` e o frontend em `frontend/`.
 
@@ -131,7 +135,8 @@ O backend está localizado em `backend/` e o frontend em `frontend/`.
 
 ```text
 GET  /api/health
-POST /api/autenticacao/registar
+POST /api/autenticacao/solicitar-registo
+POST /api/autenticacao/confirmar-registo
 POST /api/autenticacao/iniciar-sessao
 GET  /api/autenticacao/perfil
 PUT  /api/autenticacao/perfil

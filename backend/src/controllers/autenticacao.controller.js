@@ -1,17 +1,19 @@
 import { ServicoAutenticacao } from '../services/autenticacao.service.js';
+import { ServicoOtp } from '../services/otp.service.js';
 
 const servico = new ServicoAutenticacao();
+const servicoOtp = new ServicoOtp();
 
-export async function registar(req, res, next) {
+export async function solicitarRegisto(req, res, next) {
   try {
-    const { nome, email, palavraPasse } = req.body;
-    if (!nome || !email || !palavraPasse) {
-      const erro = new Error('Nome, email e palavra-passe são obrigatórios.');
-      erro.statusCode = 400;
-      throw erro;
-    }
-    const utilizador = await servico.registar({ nome, email, palavraPasse });
-    return res.status(201).json({ sucesso: true, dados: utilizador });
+    return res.json({ sucesso: true, dados: await servicoOtp.solicitarCriacaoConta(req.body) });
+  } catch (erro) { return next(erro); }
+}
+
+export async function confirmarRegisto(req, res, next) {
+  try {
+    const utilizador = await servicoOtp.confirmarCriacaoConta(req.body);
+    return res.status(201).json({ sucesso: true, dados: servico._dadosPublicos(utilizador) });
   } catch (erro) { return next(erro); }
 }
 

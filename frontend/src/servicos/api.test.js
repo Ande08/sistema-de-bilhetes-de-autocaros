@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { comprarBilhete, guardarSessao, obterResumoConta, obterSessaoGuardada, terminarSessao } from './api.js';
+import { comprarBilhete, confirmarRegistoUtilizador, guardarSessao, obterResumoConta, obterSessaoGuardada, registarUtilizador, terminarSessao } from './api.js';
 
 describe('sessão do passageiro', () => {
   beforeEach(() => {
@@ -46,5 +46,18 @@ describe('sessão do passageiro', () => {
 
     expect(resumo.totalBilhetesActivos).toBe(2);
     expect(fetchSimulado).toHaveBeenCalledWith(expect.stringContaining('/conta/resumo'), expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer token-resumo' }) }));
+  });
+
+  it('solicita e confirma o cadastro através de OTP', async () => {
+    const fetchSimulado = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ dados: { telefone: '+258841234567' } }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ dados: { id: 5 } }) });
+    vi.stubGlobal('fetch', fetchSimulado);
+
+    await registarUtilizador({ nome: 'Ico', apelido: 'Tiago', telefone: '841234567', palavraPasse: 'segura123', canal: 'WHATSAPP' });
+    await confirmarRegistoUtilizador({ telefone: '+258841234567', codigo: '123456' });
+
+    expect(fetchSimulado.mock.calls[0][0]).toContain('/autenticacao/solicitar-registo');
+    expect(fetchSimulado.mock.calls[1][0]).toContain('/autenticacao/confirmar-registo');
   });
 });
