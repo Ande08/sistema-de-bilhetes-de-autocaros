@@ -1,3 +1,4 @@
+import { Op } from 'sequelize';
 import { Bilhete, Pagamento, Trip } from '../models/index.js';
 
 export async function cancelarBilhete(codigo, utilizadorAutenticado, transacao) {
@@ -31,8 +32,8 @@ export async function cancelarBilhete(codigo, utilizadorAutenticado, transacao) 
   return bilhete;
 }
 
-export async function cancelarViagem(id) {
-  const viagem = await Trip.findByPk(id);
+export async function cancelarViagem(id, transacao) {
+  const viagem = await Trip.findByPk(id, { transaction: transacao, lock: transacao.LOCK.UPDATE });
   if (!viagem) {
     const erro = new Error('Viagem não encontrada.');
     erro.statusCode = 404;
@@ -43,6 +44,11 @@ export async function cancelarViagem(id) {
     erro.statusCode = 409;
     throw erro;
   }
-  await viagem.update({ status: 'CANCELADA' });
+  const bilhetes = await Bilhete.findAll({ where: { viagemId: id, estado: { [Op.in]: ['RESERVADO', 'EMITIDO'] } }, include: [Pagamento], transaction: transacao, lock: transacao.LOCK.UPDATE });
+  for (const bilhete of bilhetes) {
+    await bilhete.update({ estado: 'CANCELADO' }, { transaction: transacao });
+    if (bilhete.Pagamento?.estado === 'APROVADO') await bilhete.Pagamento.update({ estado: 'REEMBOLSADO' }, { transaction: transacao });
+  }
+  await viagem.update({ status: 'CANCELADA' }, { transaction: transacao });
   return viagem;
 }

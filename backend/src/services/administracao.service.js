@@ -1,4 +1,4 @@
-import { Bilhete, Bus, Pagamento, Route, Trip, User } from '../models/index.js';
+import { Auditoria, Bilhete, Bus, Pagamento, Route, Trip, User } from '../models/index.js';
 
 export function construirIndicadores({ passageiros, autocarros, viagens, bilhetes, receitaAprovada }) {
   return {
@@ -11,12 +11,13 @@ export function construirIndicadores({ passageiros, autocarros, viagens, bilhete
 }
 
 export async function obterPainelAdministrativo() {
-  const [passageiros, autocarros, rotas, viagens, bilhetes, receitaAprovada] = await Promise.all([
+  const [passageiros, autocarros, rotas, viagens, bilhetes, auditorias, receitaAprovada] = await Promise.all([
     User.findAll({ attributes: ['id', 'nome', 'email', 'perfil', 'activo'], order: [['id', 'DESC']], limit: 100 }),
     Bus.findAll({ order: [['id', 'DESC']], limit: 100 }),
     Route.findAll({ order: [['id', 'DESC']], limit: 100 }),
     Trip.findAll({ include: [Route, Bus], order: [['departureAt', 'DESC']], limit: 100 }),
     Bilhete.findAll({ include: [{ model: User, attributes: ['id', 'nome', 'email'] }, { model: Trip, include: [Route] }, Pagamento], order: [['id', 'DESC']], limit: 100 }),
+    Auditoria.findAll({ include: [{ model: User, attributes: ['id', 'nome', 'email'] }], order: [['id', 'DESC']], limit: 100 }),
     Pagamento.sum('valor', { where: { estado: 'APROVADO' } })
   ]);
 
@@ -26,7 +27,8 @@ export async function obterPainelAdministrativo() {
     autocarros,
     rotas,
     viagens,
-    bilhetes
+    bilhetes,
+    auditorias
   };
 }
 

@@ -78,6 +78,10 @@ Utilizado nos estados de viagens, pagamentos e bilhetes. Serve para controlar co
 
 Está previsto para operações administrativas como criar, cancelar e emitir. Servirá para transformar cada operação numa ação independente.
 
+### Chain of Responsibility
+
+Utilizado nos middlewares de autenticação, autorização e auditoria em `backend/src/middlewares`. Cada pedido passa por uma sequência de verificações antes de chegar ao controller, permitindo acrescentar segurança e registo sem duplicar essa lógica nas rotas.
+
 ## Configuração
 
 ```bash

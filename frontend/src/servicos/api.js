@@ -93,3 +93,11 @@ export function criarViagem(dados) {
 export function definirEstadoAdministrativo(tipo, id, activo) {
   return requisicao(`/gestao/${tipo}/${id}/estado`, { method: 'PATCH', body: JSON.stringify({ activo }) });
 }
+
+export function actualizarViagemAdministrativa(id, dados) {
+  return requisicao(`/gestao/viagens/${id}`, { method: 'PUT', body: JSON.stringify(dados) });
+}
+
+export function cancelarViagemAdministrativa(id) {
+  return requisicao(`/viagens/${id}/cancelar`, { method: 'PATCH' });
+}
