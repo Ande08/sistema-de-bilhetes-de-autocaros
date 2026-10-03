@@ -16,6 +16,8 @@ const itensMenu = [
 export default function App() {
   const [menuAberto, setMenuAberto] = useState(false);
   const [paginaAtiva, setPaginaAtiva] = useState('Início');
+  const [novaViagemAberta, setNovaViagemAberta] = useState(false);
+  const [mensagemPesquisa, setMensagemPesquisa] = useState('');
 
   function selecionarPagina(nome) {
     setPaginaAtiva(nome);
@@ -52,10 +54,10 @@ export default function App() {
           </div>
         </div>
 
-        <header className="cabecalho-painel">
+        <header className="cabecalho-painel"><div className="cabecalho-principal"><div>
           <p className="etiqueta">Painel do passageiro</p><h1>Minha Conta</h1><h2>Olá, Ico</h2>
           <p>Aqui pode gerir as suas viagens, bilhetes, pagamentos e dados pessoais.</p>
-        </header>
+        </div><button className="botao-nova-viagem" onClick={() => setNovaViagemAberta(true)}><span>+</span> Nova viagem</button></div></header>
 
         <section className="proxima-viagem" aria-label="Próxima viagem">
           <div className="viagem-conteudo">
@@ -66,7 +68,7 @@ export default function App() {
               <div><Icone nome="relogio" /><span><strong>08:00</strong><small>Partida</small></span></div>
               <div><Icone nome="assento" /><span><strong>Assento A1</strong><small>Classe normal</small></span></div>
             </div>
-            <button className="botao-claro">Ver bilhete <Icone nome="seta" /></button>
+            <div className="acoes-viagem"><button className="botao-claro">Ver bilhete <Icone nome="seta" /></button><button className="botao-secundario" onClick={() => setNovaViagemAberta(true)}>Comprar outro bilhete</button></div>
           </div>
           <div className="arte-autocarro" aria-hidden="true"><Icone nome="autocarroGrande" /></div>
         </section>
@@ -100,6 +102,20 @@ export default function App() {
           </aside>
         </section>
       </main>
+      <button className="botao-flutuante" onClick={() => setNovaViagemAberta(true)} aria-label="Comprar bilhete para uma nova viagem">+</button>
+      {novaViagemAberta && <div className="modal-fundo" onMouseDown={(evento) => evento.target === evento.currentTarget && setNovaViagemAberta(false)}>
+        <section className="modal-nova-viagem vidro" role="dialog" aria-modal="true" aria-labelledby="titulo-nova-viagem">
+          <div className="modal-topo"><div><p className="etiqueta">Comprar bilhete</p><h2 id="titulo-nova-viagem">Para onde deseja viajar?</h2><p>Pesquise uma rota e escolha a melhor viagem para si.</p></div><button className="fechar-modal" onClick={() => setNovaViagemAberta(false)} aria-label="Fechar">×</button></div>
+          <form className="formulario-nova-viagem" onSubmit={(evento) => { evento.preventDefault(); setMensagemPesquisa('A procurar viagens disponíveis para a data selecionada.'); }}>
+            <label>Origem<input name="origem" placeholder="Ex.: Tete" required /></label><button type="button" className="trocar-rota" aria-label="Trocar origem e destino">⇄</button>
+            <label>Destino<input name="destino" placeholder="Ex.: Maputo" required /></label><label>Data da viagem<input name="data" type="date" required /></label>
+            <label>Passageiros<select name="passageiros" defaultValue="1"><option value="1">1 passageiro</option><option value="2">2 passageiros</option><option value="3">3 passageiros</option></select></label>
+            <button type="submit" className="botao-pesquisar"><Icone nome="pesquisa" /> Pesquisar viagens</button>
+          </form>
+          {mensagemPesquisa && <p className="mensagem-pesquisa" role="status">{mensagemPesquisa}</p>}
+          <div className="vantagens-compra"><span><Icone nome="escudo" /> Pagamento seguro</span><span><Icone nome="bilhete" /> Bilhete eletrónico</span><span><Icone nome="confirmado" /> Confirmação imediata</span></div>
+        </section>
+      </div>}
     </div>
   );
 }
