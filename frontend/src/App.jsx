@@ -224,6 +224,7 @@ function CartaoResumo({ icone, titulo, valor, detalhe }) {
 
 function PaginaAutenticacao({ aoAutenticar }) {
   const [modo, setModo] = useState('entrar');
+  const [mostrarPalavraPasse, setMostrarPalavraPasse] = useState(false);
   const [aProcessar, setAProcessar] = useState(false);
   const [mensagem, setMensagem] = useState('');
   const [tipoMensagem, setTipoMensagem] = useState('erro');
@@ -256,6 +257,7 @@ function PaginaAutenticacao({ aoAutenticar }) {
   function mudarModo(novoModo) {
     setModo(novoModo);
     setMensagem('');
+    setMostrarPalavraPasse(false);
   }
 
   return <main className="pagina-autenticacao">
@@ -276,7 +278,7 @@ function PaginaAutenticacao({ aoAutenticar }) {
       <form className="formulario-autenticacao" onSubmit={submeter}>
         {modo === 'registar' && <label>Nome completo<input name="nome" autoComplete="name" minLength="3" maxLength="120" required /></label>}
         <label>Email<input name="email" type="email" autoComplete="email" required /></label>
-        <label>Palavra-passe<input name="palavraPasse" type="password" minLength="8" autoComplete={modo === 'entrar' ? 'current-password' : 'new-password'} required /></label>
+        <label>Palavra-passe<div className="campo-palavra-passe"><input name="palavraPasse" type={mostrarPalavraPasse ? 'text' : 'password'} minLength="8" autoComplete={modo === 'entrar' ? 'current-password' : 'new-password'} required /><button type="button" onClick={() => setMostrarPalavraPasse((visivel) => !visivel)} aria-label={mostrarPalavraPasse ? 'Ocultar palavra-passe' : 'Mostrar palavra-passe'} title={mostrarPalavraPasse ? 'Ocultar palavra-passe' : 'Mostrar palavra-passe'}><Icone nome={mostrarPalavraPasse ? 'olhoFechado' : 'olho'} /></button></div></label>
         {mensagem && <p className={`mensagem-formulario ${tipoMensagem}`} role="status">{mensagem}</p>}
         <button className="botao-autenticacao" disabled={aProcessar}>{aProcessar ? 'A processar...' : modo === 'entrar' ? 'Entrar na minha conta' : 'Criar conta'}</button>
       </form>
