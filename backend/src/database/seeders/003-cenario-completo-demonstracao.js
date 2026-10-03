@@ -1,0 +1,33 @@
+import bcrypt from 'bcryptjs';
+import { Assento, Auditoria, Bilhete, Bus, Notificacao, Pagamento, Reserva, Route, Trip, User } from '../../models/index.js';
+
+export async function executar({ transaction }) {
+  if (process.env.CRIAR_DADOS_DEMO !== 'true') return;
+
+  const [passageiro] = await User.findOrCreate({
+    where: { email: 'passageiro@viagembus.test' },
+    defaults: { nome: 'Passageiro de Testes', palavraPasseHash: await bcrypt.hash('Passageiro@123', 12), perfil: 'PASSAGEIRO', activo: true },
+    transaction
+  });
+  const [autocarro] = await Bus.findOrCreate({ where: { registration: 'TST-01-26' }, defaults: { model: 'Yutong Interprovincial', capacity: 32, active: true }, transaction });
+  const [rota] = await Route.findOrCreate({ where: { origin: 'Tete', destination: 'Maputo' }, defaults: { distanceKm: 1500, active: true }, transaction });
+
+  await Assento.bulkCreate(Array.from({ length: autocarro.capacity }, (_, indice) => ({ autocarroId: autocarro.id, numero: String(indice + 1) })), { ignoreDuplicates: true, transaction });
+  const assentos = await Assento.findAll({ where: { autocarroId: autocarro.id }, order: [['id', 'ASC']], transaction });
+  const partida = new Date();
+  partida.setDate(partida.getDate() + 20);
+  partida.setHours(8, 0, 0, 0);
+  const chegada = new Date(partida);
+  chegada.setHours(chegada.getHours() + 18);
+  const [viagem] = await Trip.findOrCreate({ where: { routeId: rota.id, busId: autocarro.id, departureAt: partida }, defaults: { arrivalExpectedAt: chegada, price: 1500, status: 'AGENDADA' }, transaction });
+
+  const [bilhete] = await Bilhete.findOrCreate({
+    where: { codigo: 'BIL-DEMO-001' },
+    defaults: { utilizadorId: passageiro.id, viagemId: viagem.id, assentoId: assentos[0].id, nomePassageiro: passageiro.nome, preco: viagem.price, estado: 'EMITIDO' },
+    transaction
+  });
+  await Pagamento.findOrCreate({ where: { referencia: 'PAG-DEMO-001' }, defaults: { bilheteId: bilhete.id, metodo: 'MPESA', valor: viagem.price, estado: 'APROVADO' }, transaction });
+  await Reserva.findOrCreate({ where: { utilizadorId: passageiro.id, viagemId: viagem.id, assentoId: assentos[1].id }, defaults: { estado: 'PENDENTE', expiraEm: new Date(Date.now() + 15 * 60 * 1000) }, transaction });
+  await Notificacao.findOrCreate({ where: { utilizadorId: passageiro.id, titulo: 'Bilhete emitido' }, defaults: { mensagem: 'O seu bilhete de demonstração foi emitido com sucesso.', tipo: 'BILHETE' }, transaction });
+  await Auditoria.findOrCreate({ where: { operacao: 'CRIAR_DEMONSTRACAO', entidade: 'sistema', entidadeId: 'BIL-DEMO-001' }, defaults: { valoresNovos: { viagemId: viagem.id, bilheteId: bilhete.id }, enderecoIp: '127.0.0.1' }, transaction });
+}

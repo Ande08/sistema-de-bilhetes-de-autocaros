@@ -1,4 +1,4 @@
-import { Auditoria, Bilhete, Bus, Pagamento, Route, Trip, User } from '../models/index.js';
+import { Assento, Auditoria, Bilhete, Bus, Pagamento, Route, Trip, User } from '../models/index.js';
 
 export function construirIndicadores({ passageiros, autocarros, viagens, bilhetes, receitaAprovada }) {
   return {
@@ -16,7 +16,7 @@ export async function obterPainelAdministrativo() {
     Bus.findAll({ order: [['id', 'DESC']], limit: 100 }),
     Route.findAll({ order: [['id', 'DESC']], limit: 100 }),
     Trip.findAll({ include: [Route, Bus], order: [['departureAt', 'DESC']], limit: 100 }),
-    Bilhete.findAll({ include: [{ model: User, attributes: ['id', 'nome', 'email'] }, { model: Trip, include: [Route] }, Pagamento], order: [['id', 'DESC']], limit: 100 }),
+    Bilhete.findAll({ include: [{ model: User, attributes: ['id', 'nome', 'email'] }, Assento, { model: Trip, include: [Route, Bus] }, Pagamento], order: [['id', 'DESC']], limit: 100 }),
     Auditoria.findAll({ include: [{ model: User, attributes: ['id', 'nome', 'email'] }], order: [['id', 'DESC']], limit: 100 }),
     Pagamento.sum('valor', { where: { estado: 'APROVADO' } })
   ]);
