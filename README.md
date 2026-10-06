@@ -10,6 +10,7 @@ O cadastro de passageiros utiliza nome, apelido e número de telefone. A conta s
 - Base de dados: MySQL;
 - Frontend: React;
 - Comunicação em tempo real: Socket.IO;
+- Envio de OTP por WhatsApp: Baileys com sessão de dispositivo ligado;
 - Linguagem: JavaScript;
 - Pagamentos: simulação de M-Pesa, e-Mola e cartão.
 
@@ -35,7 +36,7 @@ Utilizado em `src/builders/ticket.builder.js` para construir bilhetes com passag
 
 ### Singleton
 
-Utilizado pela instância única do Sequelize exportada em `src/config/database.js`. Serve para manter uma única configuração e ligação à base de dados durante a execução.
+Utilizado pela instância única do Sequelize exportada em `src/config/database.js` e pela instância `servicoWhatsApp` em `backend/src/integrations/whatsapp/whatsapp.service.js`. Serve para manter uma única ligação à base de dados e uma única sessão WhatsApp durante a execução.
 
 ### Prototype
 
@@ -57,7 +58,7 @@ Representado por `ServicoCompra`, `ServicoPagamento` e `ServicoBilhete`, que coo
 
 ### Adapter
 
-Utilizado em `backend/src/adapters/otp.adapter.js` para isolar o envio de códigos OTP. Atualmente existe o fornecedor simulado; uma API real de WhatsApp ou SMS pode ser adicionada sem alterar o serviço de cadastro. O mesmo padrão está previsto para integrações reais de M-Pesa e e-Mola.
+Utilizado em `backend/src/adapters/otp.adapter.js` para isolar o envio de códigos OTP. Estão disponíveis o fornecedor simulado e `WHATSAPP_BAILEYS`; uma API oficial de WhatsApp ou SMS pode ser adicionada sem alterar o serviço de cadastro. O mesmo padrão está previsto para integrações reais de M-Pesa e e-Mola.
 
 ## Padrões comportamentais
 
@@ -129,6 +130,18 @@ Antes de executar os seeders, configure `ADMIN_NOME`, `ADMIN_APELIDO`, `ADMIN_TE
 
 O modo de desenvolvimento usa `OTP_FORNECEDOR=SIMULADO`. As opções `OTP_VALIDADE_MINUTOS`, `OTP_REENVIO_SEGUNDOS` e `OTP_EXIBIR_CODIGO` controlam a validade, o intervalo de reenvio e a apresentação do código de teste. Em produção, `OTP_EXIBIR_CODIGO` deve ser `false` e o adaptador deve ser ligado a um fornecedor real.
 
+### Ligar o WhatsApp para OTP
+
+1. Configure `OTP_FORNECEDOR=WHATSAPP_BAILEYS` no `backend/.env`;
+2. Configure `WHATSAPP_INICIAR_AUTOMATICAMENTE=true` ou abra a seção **WhatsApp** no painel administrativo e clique em **Iniciar ligação**;
+3. No telemóvel que enviará os códigos, abra **WhatsApp > Dispositivos ligados > Ligar dispositivo**;
+4. Leia o QR Code apresentado no painel administrativo;
+5. Confirme no painel que o estado passou para **Ligado**.
+
+A sessão autenticada é guardada em `backend/.dados/whatsapp` quando a API é iniciada dentro da pasta `backend`. Essa pasta está ignorada pelo Git e não deve ser copiada, publicada ou partilhada. O bot adaptado não processa mensagens recebidas, grupos, comandos, ficheiros multimédia, IA ou transferências; ele apenas envia os códigos OTP gerados pelo backend.
+
+Esta integração usa um dispositivo ligado por Baileys e não a API oficial da Meta. Para produção com maior estabilidade, conformidade e volume, o adaptador deve futuramente ser substituído pela WhatsApp Cloud API sem alterar o fluxo de OTP existente.
+
 O backend está localizado em `backend/` e o frontend em `frontend/`.
 
 ## Endpoints atuais
@@ -143,6 +156,8 @@ PUT  /api/autenticacao/perfil
 PUT  /api/autenticacao/palavra-passe
 GET  /api/conta/resumo
 GET  /api/gestao/painel
+GET  /api/gestao/whatsapp/estado
+POST /api/gestao/whatsapp/iniciar
 POST /api/gestao/autocarros
 PATCH /api/gestao/autocarros/:id/estado
 POST /api/gestao/rotas

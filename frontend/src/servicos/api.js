@@ -119,6 +119,14 @@ export function redefinirPalavraPasseAdministrativa(id, novaPalavraPasse) {
   return requisicao(`/gestao/utilizadores/${id}/palavra-passe`, { method: 'PUT', body: JSON.stringify({ novaPalavraPasse }) });
 }
 
+export function obterEstadoWhatsApp() {
+  return requisicao('/gestao/whatsapp/estado');
+}
+
+export function iniciarWhatsApp(limparSessao = false) {
+  return requisicao('/gestao/whatsapp/iniciar', { method: 'POST', body: JSON.stringify({ limparSessao }) });
+}
+
 export function consultarAssistenteSuporte(mensagem) {
   return requisicao('/suporte/assistente', { method: 'POST', body: JSON.stringify({ mensagem }) });
 }

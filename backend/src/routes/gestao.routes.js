@@ -3,11 +3,14 @@ import { actualizarUtilizador, actualizarViagem, criarAutocarro, criarRota, cria
 import { exigirAutenticacao } from '../middlewares/autenticacao.middleware.js';
 import { exigirAdministrador } from '../middlewares/autorizacao.middleware.js';
 import { auditarOperacaoAdministrativa } from '../middlewares/auditoria.middleware.js';
+import { iniciarWhatsApp, obterEstadoWhatsApp } from '../controllers/whatsapp.controller.js';
 
 const router = Router();
 router.use(exigirAutenticacao, exigirAdministrador);
 router.use(auditarOperacaoAdministrativa);
 router.get('/painel', obterPainel);
+router.get('/whatsapp/estado', obterEstadoWhatsApp);
+router.post('/whatsapp/iniciar', iniciarWhatsApp);
 router.post('/autocarros', criarAutocarro);
 router.patch('/autocarros/:id/estado', definirEstadoAutocarro);
 router.post('/rotas', criarRota);

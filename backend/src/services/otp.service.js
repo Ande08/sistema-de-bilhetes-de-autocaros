@@ -50,7 +50,10 @@ export class ServicoOtp {
       telefone: dados.telefone,
       canal: dados.canal,
       expiraEm: verificacao.expiraEm,
-      ...(process.env.NODE_ENV !== 'production' && process.env.OTP_EXIBIR_CODIGO !== 'false' && { codigoDemonstracao: codigo })
+      ...((process.env.OTP_FORNECEDOR || 'SIMULADO') === 'SIMULADO'
+        && process.env.NODE_ENV !== 'production'
+        && process.env.OTP_EXIBIR_CODIGO !== 'false'
+        && { codigoDemonstracao: codigo })
     };
   }
 
