@@ -14,8 +14,27 @@ import pagamentoSimuladoRoutes from './routes/pagamento-simulado.routes.js';
 
 const app = express();
 
+const origensPermitidas = new Set(
+  (process.env.CLIENT_URL || 'http://localhost:5173')
+    .split(',')
+    .map((origem) => origem.trim())
+    .filter(Boolean)
+);
+// Durante o desenvolvimento, Vite pode ser aberto por localhost ou 127.0.0.1.
+if (process.env.NODE_ENV !== 'production') {
+  origensPermitidas.add('http://localhost:5173');
+  origensPermitidas.add('http://127.0.0.1:5173');
+}
+
 app.use(helmet());
-app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173' }));
+app.use(cors({
+  origin(origem, concluir) {
+    if (!origem || origensPermitidas.has(origem)) return concluir(null, true);
+    const erro = new Error('A origem desta aplicação não está autorizada.');
+    erro.statusCode = 403;
+    return concluir(erro);
+  }
+}));
 app.use(express.json());
 app.use(morgan('dev'));
 

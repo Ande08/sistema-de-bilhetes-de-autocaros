@@ -24,7 +24,8 @@ export async function listarAssentosDaViagem(viagemId) {
     throw erro;
   }
 
-  const assentos = await Assento.findAll({ where: { autocarroId: viagem.busId }, order: [['numero', 'ASC']] });
+  const assentosEncontrados = await Assento.findAll({ where: { autocarroId: viagem.busId } });
+  const assentos = ordenarAssentosNumericamente(assentosEncontrados);
   const bilhetes = await Bilhete.findAll({ where: { viagemId, estado: { [Op.in]: ['RESERVADO', 'EMITIDO'] } } });
   const ocupados = new Set(bilhetes.map((bilhete) => String(bilhete.assentoId)));
 
@@ -33,4 +34,12 @@ export async function listarAssentosDaViagem(viagemId) {
     numero: assento.numero,
     disponivel: !ocupados.has(String(assento.id))
   }));
+}
+
+// A coluna é textual para aceitar futuras marcações como 1A, mas a apresentação
+// deve manter a ordem humana: 1, 2, 3 ... 10, 11, em vez da ordem alfabética.
+export function ordenarAssentosNumericamente(assentos) {
+  return [...assentos].sort((primeiro, segundo) => String(primeiro.numero).localeCompare(
+    String(segundo.numero), 'pt', { numeric: true, sensitivity: 'base' }
+  ));
 }

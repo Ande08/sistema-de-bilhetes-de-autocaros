@@ -116,6 +116,14 @@ Executar os testes unitários:
 npm test
 ```
 
+Com o backend em execução, o fluxo completo pode ser validado contra o MySQL:
+
+```bash
+npm run test:integracao
+```
+
+Este teste verifica CORS local, autenticação administrativa, cadastro por telefone, OTP incorreto e correto, duplicação de conta, permissões, criação de autocarro, rota e viagem, pesquisa, assentos, pagamento simulado, emissão do bilhete e bloqueio da reutilização da referência. O executor cria registos identificados como dados de integração na base de dados local.
+
 As migrations Sequelize são a fonte principal da estrutura da base de dados. O ficheiro `backend/database/schema.sql` é mantido apenas como referência histórica.
 
 Comandos da base de dados:
