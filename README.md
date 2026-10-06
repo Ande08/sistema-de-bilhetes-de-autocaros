@@ -136,6 +136,20 @@ npm run db:seed
 
 Antes de executar os seeders, configure `ADMIN_NOME`, `ADMIN_APELIDO`, `ADMIN_TELEFONE` e `ADMIN_PASSWORD` no `.env`. Defina `CRIAR_DADOS_DEMO=true` apenas quando desejar criar uma viagem de demonstração.
 
+### Dados locais para testes
+
+Com `CRIAR_DADOS_DEMO=true`, o comando `npm run db:seed` cria contas, autocarros, rotas, viagens, bilhetes, pagamentos, reservas, notificações, auditorias e tickets de suporte. A carga é controlada pelo Sequelize e não volta a duplicar os registos depois de executada.
+
+| Perfil | Telefone | Palavra-passe | Utilização |
+| --- | --- | --- | --- |
+| Administrador | `+258840000009` | `Administrador@123` | Painel administrativo e atribuição de suporte |
+| Gestor de suporte | `+258840000010` | `Suporte@123` | Atendimento dos tickets atribuídos |
+| Passageiro principal | `+258840000002` | `Passageiro@123` | Bilhete emitido, reserva e tickets |
+| Passageiro secundário | `+258840000003` | `Passageiro@123` | Bilhete cancelado, reembolso e suporte |
+| Passageiro inactivo | `+258840000004` | `Passageiro@123` | Teste de bloqueio de acesso |
+
+Para testar uma compra nova, use a viagem **Maputo–Xai-Xai**, criada sem bilhetes e com todos os assentos disponíveis. Os pagamentos são simulados e não movimentam dinheiro real.
+
 O modo de desenvolvimento usa `OTP_FORNECEDOR=SIMULADO`. As opções `OTP_VALIDADE_MINUTOS`, `OTP_REENVIO_SEGUNDOS` e `OTP_EXIBIR_CODIGO` controlam a validade, o intervalo de reenvio e a apresentação do código de teste. Em produção, `OTP_EXIBIR_CODIGO` deve ser `false` e o adaptador deve ser ligado a um fornecedor real.
 
 ### Ligar o WhatsApp para OTP
