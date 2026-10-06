@@ -9,7 +9,8 @@ export async function criarCompra(req, res, next) {
       utilizadorId: req.utilizador.id,
       viagemId: req.body.viagemId,
       assentoId: req.body.assentoId,
-      metodoPagamento: req.body.metodoPagamento
+      metodoPagamento: req.body.metodoPagamento,
+      referenciaPagamento: req.body.referenciaPagamento
     });
     return res.status(201).json({ sucesso: true, dados: compra });
   } catch (erro) { return next(erro); }

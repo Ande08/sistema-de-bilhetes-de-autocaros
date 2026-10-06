@@ -10,6 +10,7 @@ import assentoRoutes from './routes/assento.routes.js';
 import cancelamentoRoutes from './routes/cancelamento.routes.js';
 import contaRoutes from './routes/conta.routes.js';
 import suporteRoutes from './routes/suporte.routes.js';
+import pagamentoSimuladoRoutes from './routes/pagamento-simulado.routes.js';
 
 const app = express();
 
@@ -34,6 +35,7 @@ app.use('/api/gestao', gestaoRoutes);
 app.use('/api', assentoRoutes);
 app.use('/api', cancelamentoRoutes);
 app.use('/api/suporte', suporteRoutes);
+app.use('/api/pagamentos-simulados', pagamentoSimuladoRoutes);
 
 app.use((_req, _res, next) => {
   const error = new Error('Rota não encontrada');

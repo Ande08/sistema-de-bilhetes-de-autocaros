@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import Icone from './Icone.jsx';
 import ChatTicketSuporte, { traduzirEstado } from './ChatTicketSuporte.jsx';
+import { ModalCampo, ModalConfirmacao } from './Modal.jsx';
 import { actualizarUtilizadorAdministrativo, actualizarViagemAdministrativa, atribuirTicketSuporte, cancelarViagemAdministrativa, criarAutocarro, criarRota, criarUtilizadorAdministrativo, criarViagem, definirEstadoAdministrativo, iniciarWhatsApp, listarGestoresSuporte, listarTicketsSuporte, obterEstadoWhatsApp, obterPainelAdministrativo, redefinirPalavraPasseAdministrativa } from '../servicos/api.js';
 
 const secoes = ['Visão geral', 'Utilizadores', 'Autocarros', 'Rotas', 'Viagens', 'Bilhetes', 'Suporte', 'WhatsApp', 'Auditoria'];
@@ -65,6 +66,8 @@ function VisaoGeral({ dados }) {
 
 function PaginaUtilizadores({ utilizadores, executar }) {
   const [emEdicao, setEmEdicao] = useState(null);
+  const [utilizadorRedefinir, setUtilizadorRedefinir] = useState(null);
+  const [aRedefinir, setARedefinir] = useState(false);
 
   async function guardar(evento) {
     evento.preventDefault();
@@ -76,10 +79,11 @@ function PaginaUtilizadores({ utilizadores, executar }) {
     if (concluido) { formulario.reset(); setEmEdicao(null); }
   }
 
-  function redefinir(utilizador) {
-    const nova = window.prompt(`Nova palavra-passe para ${nomePessoa(utilizador)}:`);
-    if (!nova) return;
-    executar(() => redefinirPalavraPasseAdministrativa(utilizador.id, nova), 'Palavra-passe redefinida com sucesso.');
+  async function redefinir(novaPalavraPasse) {
+    setARedefinir(true);
+    const concluido = await executar(() => redefinirPalavraPasseAdministrativa(utilizadorRedefinir.id, novaPalavraPasse), 'Palavra-passe redefinida com sucesso.');
+    if (concluido) setUtilizadorRedefinir(null);
+    setARedefinir(false);
   }
 
   return <>
@@ -93,7 +97,8 @@ function PaginaUtilizadores({ utilizadores, executar }) {
       <button>{emEdicao ? 'Guardar alterações' : 'Criar utilizador'}</button>
       {emEdicao && <button type="button" className="botao-voltar" onClick={() => setEmEdicao(null)}>Cancelar edição</button>}
     </form>
-    <TabelaGestao titulo="Utilizadores" colunas={['ID', 'Nome', 'Apelido', 'Telefone', 'Perfil', 'Estado', 'Ações']} linhas={utilizadores.map((item) => [item.id, item.nome, item.apelido, item.telefone, nomePerfil(item.perfil), item.activo ? 'Ativo' : 'Inativo', <span className="admin-acoes"><button onClick={() => setEmEdicao(item)}>Editar</button><button onClick={() => redefinir(item)}>Redefinir senha</button><BotaoEstado activo={item.activo} aoClicar={() => executar(() => definirEstadoAdministrativo('utilizadores', item.id, !item.activo), 'Estado do utilizador atualizado.')} /></span>])} />
+    <TabelaGestao titulo="Utilizadores" colunas={['ID', 'Nome', 'Apelido', 'Telefone', 'Perfil', 'Estado', 'Ações']} linhas={utilizadores.map((item) => [item.id, item.nome, item.apelido, item.telefone, nomePerfil(item.perfil), item.activo ? 'Ativo' : 'Inativo', <span className="admin-acoes"><button onClick={() => setEmEdicao(item)}>Editar</button><button onClick={() => setUtilizadorRedefinir(item)}>Redefinir senha</button><BotaoEstado activo={item.activo} aoClicar={() => executar(() => definirEstadoAdministrativo('utilizadores', item.id, !item.activo), 'Estado do utilizador atualizado.')} /></span>])} />
+    {utilizadorRedefinir && <ModalCampo titulo="Redefinir palavra-passe" texto={`Defina uma nova palavra-passe para ${nomePessoa(utilizadorRedefinir)}.`} etiquetaCampo="Nova palavra-passe" tipo="password" minLength={8} textoConfirmar="Redefinir" aProcessar={aRedefinir} aoConfirmar={redefinir} aoFechar={() => setUtilizadorRedefinir(null)} />}
   </>;
 }
 
@@ -123,6 +128,7 @@ function PaginaWhatsApp() {
   const [estado, setEstado] = useState(null);
   const [erro, setErro] = useState('');
   const [aProcessar, setAProcessar] = useState(false);
+  const [confirmarRenovacao, setConfirmarRenovacao] = useState(false);
 
   function carregar() {
     obterEstadoWhatsApp().then(setEstado).catch((falha) => setErro(falha.message));
@@ -135,9 +141,8 @@ function PaginaWhatsApp() {
   }, []);
 
   async function ligar(limparSessao = false) {
-    if (limparSessao && !window.confirm('Deseja terminar a sessão guardada e gerar um novo QR Code?')) return;
     setAProcessar(true); setErro('');
-    try { setEstado(await iniciarWhatsApp(limparSessao)); }
+    try { setEstado(await iniciarWhatsApp(limparSessao)); if (limparSessao) setConfirmarRenovacao(false); }
     catch (falha) { setErro(falha.message); }
     finally { setAProcessar(false); }
   }
@@ -149,10 +154,11 @@ function PaginaWhatsApp() {
       <div className="detalhes-whatsapp">
         <dl><div><dt>Número ligado</dt><dd>{estado.numero ? `+${estado.numero}` : 'Nenhum'}</dd></div><div><dt>Fornecedor OTP</dt><dd>{estado.fornecedorOtp}</dd></div><div><dt>Última alteração</dt><dd>{formatarData(estado.ultimaAlteracao)}</dd></div></dl>
         {estado.fornecedorOtp !== 'WHATSAPP_BAILEYS' && <p className="aviso-whatsapp">A ligação pode ser preparada agora, mas os OTPs continuarão simulados até definir <code>OTP_FORNECEDOR=WHATSAPP_BAILEYS</code> no ficheiro <code>.env</code>.</p>}
-        <div className="acoes-whatsapp"><button disabled={aProcessar} onClick={() => ligar(false)}>{aProcessar ? 'A processar...' : estado.estado === 'NAO_INICIADO' ? 'Iniciar ligação' : 'Tentar ligar novamente'}</button><button className="botao-renovar-whatsapp" disabled={aProcessar} onClick={() => ligar(true)}>Gerar novo QR Code</button></div>
+        <div className="acoes-whatsapp"><button disabled={aProcessar} onClick={() => ligar(false)}>{aProcessar ? 'A processar...' : estado.estado === 'NAO_INICIADO' ? 'Iniciar ligação' : 'Tentar ligar novamente'}</button><button className="botao-renovar-whatsapp" disabled={aProcessar} onClick={() => setConfirmarRenovacao(true)}>Gerar novo QR Code</button></div>
       </div>
       <div className="qr-whatsapp">{estado.qrCodeDataUrl ? <><img src={estado.qrCodeDataUrl} alt="QR Code para ligar o WhatsApp" /><p>No WhatsApp, abra Dispositivos ligados e leia este código.</p></> : estado.ligado ? <><span className="marca-whatsapp-ligado">Ligado</span><p>O número está pronto para enviar códigos OTP.</p></> : <><span className="marca-whatsapp-espera">Sem QR Code</span><p>Inicie ou renove a ligação para gerar o código.</p></>}</div>
     </div>}
+    {confirmarRenovacao && <ModalConfirmacao titulo="Gerar novo QR Code" texto="A sessão guardada será terminada e será necessário ligar novamente o telefone ao sistema." textoConfirmar="Gerar novo código" perigo aProcessar={aProcessar} aoConfirmar={() => ligar(true)} aoFechar={() => setConfirmarRenovacao(false)} />}
   </section>;
 }
 
@@ -206,16 +212,23 @@ function FormularioRota({ aoSubmeter }) { return <form className="admin-formular
 function FormularioViagem({ rotas, autocarros, aoSubmeter }) { return <form className="admin-formulario admin-formulario-viagem vidro" onSubmit={aoSubmeter}><h3>Nova viagem</h3><label>Rota<select name="rotaId" required><option value="">Selecionar</option>{rotas.map((item) => <option key={item.id} value={item.id}>{item.origin} → {item.destination}</option>)}</select></label><label>Autocarro<select name="autocarroId" required><option value="">Selecionar</option>{autocarros.map((item) => <option key={item.id} value={item.id}>{item.registration} · {item.model}</option>)}</select></label><label>Partida<input name="partidaEm" type="datetime-local" required /></label><label>Chegada prevista<input name="chegadaPrevistaEm" type="datetime-local" /></label><label>Preço<input name="preco" type="number" min="1" required /></label><button>Agendar viagem</button></form>; }
 
 function AcoesViagem({ viagem, executar }) {
-  function editar() {
-    const preco = window.prompt('Novo preço da viagem:', viagem.price);
-    if (!preco) return;
-    executar(() => actualizarViagemAdministrativa(viagem.id, { preco: Number(preco) }), 'Preço da viagem atualizado.');
+  const [editarPreco, setEditarPreco] = useState(false);
+  const [confirmarCancelamento, setConfirmarCancelamento] = useState(false);
+  const [aProcessar, setAProcessar] = useState(false);
+
+  async function editar(preco) {
+    setAProcessar(true);
+    const concluido = await executar(() => actualizarViagemAdministrativa(viagem.id, { preco: Number(preco) }), 'Preço da viagem atualizado.');
+    if (concluido) setEditarPreco(false);
+    setAProcessar(false);
   }
-  function cancelar() {
-    if (!window.confirm('Deseja cancelar esta viagem?')) return;
-    executar(() => cancelarViagemAdministrativa(viagem.id), 'Viagem cancelada com sucesso.');
+  async function cancelar() {
+    setAProcessar(true);
+    const concluido = await executar(() => cancelarViagemAdministrativa(viagem.id), 'Viagem cancelada com sucesso.');
+    if (concluido) setConfirmarCancelamento(false);
+    setAProcessar(false);
   }
-  return <span className="admin-acoes"><button onClick={editar}>Editar preço</button>{viagem.status === 'AGENDADA' && <button className="admin-desactivar" onClick={cancelar}>Cancelar</button>}</span>;
+  return <><span className="admin-acoes"><button onClick={() => setEditarPreco(true)}>Editar preço</button>{viagem.status === 'AGENDADA' && <button className="admin-desactivar" onClick={() => setConfirmarCancelamento(true)}>Cancelar</button>}</span>{editarPreco && <ModalCampo titulo="Editar preço da viagem" texto="O novo preço será utilizado nas próximas compras desta viagem." etiquetaCampo="Novo preço" tipo="number" min="1" step="0.01" valorInicial={String(viagem.price)} textoConfirmar="Guardar preço" aProcessar={aProcessar} aoConfirmar={editar} aoFechar={() => setEditarPreco(false)} />}{confirmarCancelamento && <ModalConfirmacao titulo="Cancelar viagem" texto="Os bilhetes ativos serão cancelados e os pagamentos ficarão marcados como reembolsados na simulação." textoConfirmar="Cancelar viagem" perigo aProcessar={aProcessar} aoConfirmar={cancelar} aoFechar={() => setConfirmarCancelamento(false)} />}</>;
 }
 
 function TabelaGestao({ titulo, colunas, linhas }) {

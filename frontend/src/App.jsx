@@ -3,7 +3,8 @@ import Icone from './componentes/Icone.jsx';
 import PainelAdministrador from './componentes/PainelAdministrador.jsx';
 import PainelSuporte from './componentes/PainelSuporte.jsx';
 import PaginaSuportePassageiro from './componentes/PaginaSuportePassageiro.jsx';
-import { actualizarPerfil, alterarPalavraPasse, cancelarBilhete, comprarBilhete, confirmarRegistoUtilizador, guardarSessao, iniciarSessao, listarAssentos, obterPerfil, obterResumoConta, obterSessaoGuardada, pesquisarViagens, registarUtilizador, terminarSessao } from './servicos/api.js';
+import { ModalConfirmacao } from './componentes/Modal.jsx';
+import { actualizarPerfil, alterarPalavraPasse, cancelarBilhete, comprarBilhete, confirmarRegistoUtilizador, guardarSessao, iniciarPagamentoSimulado, iniciarSessao, listarAssentos, obterPerfil, obterResumoConta, obterSessaoGuardada, pesquisarViagens, processarPagamentoSimulado, registarUtilizador, terminarSessao } from './servicos/api.js';
 
 const itensMenu = [
   ['inicio', 'Início'], ['viagens', 'Minhas Viagens'], ['bilhete', 'Bilhetes'],
@@ -124,7 +125,7 @@ export default function App() {
           }} />}
       </main>
       <button className="botao-flutuante" onClick={() => setNovaViagemAberta(true)} aria-label="Comprar bilhete para uma nova viagem">+</button>
-      {novaViagemAberta && <FluxoCompra aoFechar={() => setNovaViagemAberta(false)} aoComprar={actualizarConta} />}
+      {novaViagemAberta && <FluxoCompra utilizador={utilizador} aoFechar={() => setNovaViagemAberta(false)} aoComprar={actualizarConta} />}
     </div>
   );
 }
@@ -177,12 +178,13 @@ function PaginaBilhetes({ bilhetes, aoActualizar }) {
 function TabelaBilhetes({ titulo, bilhetes, aoActualizar, semMoldura = false }) {
   const [codigoEmCurso, setCodigoEmCurso] = useState('');
   const [erro, setErro] = useState('');
+  const [bilheteACancelar, setBilheteACancelar] = useState(null);
 
-  async function cancelar(item) {
-    if (!window.confirm(`Deseja cancelar o bilhete ${item.codigo}?`)) return;
-    setCodigoEmCurso(item.codigo);
+  async function cancelar() {
+    if (!bilheteACancelar) return;
+    setCodigoEmCurso(bilheteACancelar.codigo);
     setErro('');
-    try { await cancelarBilhete(item.codigo); aoActualizar(); }
+    try { await cancelarBilhete(bilheteACancelar.codigo); setBilheteACancelar(null); aoActualizar(); }
     catch (falha) { setErro(falha.message); }
     finally { setCodigoEmCurso(''); }
   }
@@ -191,8 +193,9 @@ function TabelaBilhetes({ titulo, bilhetes, aoActualizar, semMoldura = false }) 
     {titulo && <div className="titulo-secao"><h3>{titulo}</h3></div>}
     <div className="tabela-cabecalho"><span>Data</span><span>Origem → Destino</span><span>Assento</span><span>Estado</span><span>Ações</span></div>
     <div className="linhas-viagem">{bilhetes.length === 0 ? <EstadoVazio texto="Ainda não existem viagens nesta conta." /> : bilhetes.map((item) => <div className="linha-viagem" key={item.codigo}>
-      <span data-label="Data">{item.viagem ? formatarData(item.viagem.partidaEm) : '—'}</span><span data-label="Rota">{item.viagem ? `${item.viagem.origem} → ${item.viagem.destino}` : '—'}</span><span data-label="Assento">{item.assento?.numero || '—'}</span><span data-label="Estado"><b className={`estado-bilhete estado-${item.estado.toLowerCase()}`}>{traduzirEstado(item.estado)}</b></span><span data-label="Ação" className="acoes-linha"><button className="botao-contorno" onClick={() => imprimirBilhete(item)}>Ver</button>{['EMITIDO', 'RESERVADO'].includes(item.estado) && item.viagem && new Date(item.viagem.partidaEm) > new Date() && <button className="botao-cancelar" disabled={codigoEmCurso === item.codigo} onClick={() => cancelar(item)}>Cancelar</button>}</span>
+      <span data-label="Data">{item.viagem ? formatarData(item.viagem.partidaEm) : '—'}</span><span data-label="Rota">{item.viagem ? `${item.viagem.origem} → ${item.viagem.destino}` : '—'}</span><span data-label="Assento">{item.assento?.numero || '—'}</span><span data-label="Estado"><b className={`estado-bilhete estado-${item.estado.toLowerCase()}`}>{traduzirEstado(item.estado)}</b></span><span data-label="Ação" className="acoes-linha"><button className="botao-contorno" onClick={() => imprimirBilhete(item)}>Ver</button>{['EMITIDO', 'RESERVADO'].includes(item.estado) && item.viagem && new Date(item.viagem.partidaEm) > new Date() && <button className="botao-cancelar" disabled={codigoEmCurso === item.codigo} onClick={() => setBilheteACancelar(item)}>Cancelar</button>}</span>
     </div>)}</div>{erro && <p className="mensagem-formulario erro">{erro}</p>}
+    {bilheteACancelar && <ModalConfirmacao titulo="Cancelar bilhete" texto={`Deseja cancelar o bilhete ${bilheteACancelar.codigo}? O pagamento ficará marcado como reembolsado nesta simulação.`} textoConfirmar="Cancelar bilhete" perigo aProcessar={Boolean(codigoEmCurso)} aoConfirmar={cancelar} aoFechar={() => setBilheteACancelar(null)} />}
   </>;
   return semMoldura ? conteudo : <div className="historico vidro">{conteudo}</div>;
 }
@@ -314,7 +317,7 @@ function PaginaAutenticacao({ aoAutenticar }) {
   </main>;
 }
 
-function FluxoCompra({ aoFechar, aoComprar }) {
+function FluxoCompra({ utilizador, aoFechar, aoComprar }) {
   const [etapa, setEtapa] = useState('pesquisa');
   const [viagens, setViagens] = useState([]);
   const [viagem, setViagem] = useState(null);
@@ -324,6 +327,8 @@ function FluxoCompra({ aoFechar, aoComprar }) {
   const [bilhete, setBilhete] = useState(null);
   const [aProcessar, setAProcessar] = useState(false);
   const [erro, setErro] = useState('');
+  const [transacaoPagamento, setTransacaoPagamento] = useState(null);
+  const [mensagemProcessamento, setMensagemProcessamento] = useState('A contactar o serviço de pagamento...');
 
   async function pesquisar(evento) {
     evento.preventDefault();
@@ -348,23 +353,36 @@ function FluxoCompra({ aoFechar, aoComprar }) {
     finally { setAProcessar(false); }
   }
 
-  async function concluirCompra() {
+  async function concluirCompra(evento) {
+    evento.preventDefault();
     if (!assentoId) return setErro('Selecione um assento disponível.');
     setAProcessar(true);
     setErro('');
+    setEtapa('processando');
     try {
-      const compra = await comprarBilhete({ viagemId: viagem.id, assentoId, metodoPagamento });
+      const formulario = Object.fromEntries(new FormData(evento.currentTarget));
+      const dadosPagamento = metodoPagamento === 'CARTAO'
+        ? { numeroCartao: formulario.numeroCartao, validade: formulario.validade, cvv: formulario.cvv }
+        : { telefone: formulario.telefone };
+      setMensagemProcessamento(`A enviar o pedido para a API falsa ${nomeMetodoPagamento(metodoPagamento)}...`);
+      const iniciada = await iniciarPagamentoSimulado({ viagemId: viagem.id, metodo: metodoPagamento, dadosPagamento });
+      setTransacaoPagamento(iniciada);
+      setMensagemProcessamento('Pedido recebido. A aguardar a confirmação simulada...');
+      const aprovada = await processarPagamentoSimulado(iniciada.referencia);
+      setTransacaoPagamento(aprovada);
+      setMensagemProcessamento('Pagamento aprovado. A emitir o bilhete eletrónico...');
+      const compra = await comprarBilhete({ viagemId: viagem.id, assentoId, metodoPagamento, referenciaPagamento: aprovada.referencia });
       setBilhete(compra.bilhete);
       setEtapa('concluida');
       aoComprar();
-    } catch (falha) { setErro(falha.message); }
+    } catch (falha) { setErro(falha.message); setEtapa('pagamento'); }
     finally { setAProcessar(false); }
   }
 
   const rota = viagem?.Route;
-  return <div className="modal-fundo" onMouseDown={(evento) => evento.target === evento.currentTarget && aoFechar()}>
+  return <div className="modal-fundo" onMouseDown={(evento) => evento.target === evento.currentTarget && !aProcessar && aoFechar()}>
     <section className="modal-nova-viagem vidro" role="dialog" aria-modal="true" aria-labelledby="titulo-nova-viagem">
-      <div className="modal-topo"><div><p className="etiqueta">Comprar bilhete</p><h2 id="titulo-nova-viagem">{tituloEtapa(etapa)}</h2><p>{descricaoEtapa(etapa)}</p></div><button className="fechar-modal" onClick={aoFechar} aria-label="Fechar">×</button></div>
+      <div className="modal-topo"><div><p className="etiqueta">Comprar bilhete</p><h2 id="titulo-nova-viagem">{tituloEtapa(etapa)}</h2><p>{descricaoEtapa(etapa)}</p></div><button className="fechar-modal" disabled={aProcessar} onClick={aoFechar} aria-label="Fechar">×</button></div>
 
       {etapa === 'pesquisa' && <form className="formulario-nova-viagem pesquisa-compra" onSubmit={pesquisar}>
         <label>Origem<input name="origem" placeholder="Ex.: Tete" required /></label>
@@ -389,17 +407,20 @@ function FluxoCompra({ aoFechar, aoComprar }) {
         <div className="rodape-etapa"><button className="botao-voltar" onClick={() => setEtapa('resultados')}>Voltar</button><button className="botao-pesquisar" onClick={() => assentoId ? setEtapa('pagamento') : setErro('Selecione um assento disponível.')}>Continuar para pagamento</button></div>
       </div>}
 
-      {etapa === 'pagamento' && <div className="etapa-pagamento">
+      {etapa === 'pagamento' && <form className="etapa-pagamento" onSubmit={concluirCompra}>
         <ResumoViagem viagem={viagem} assento={assentos.find((item) => String(item.id) === String(assentoId))} />
         <div className="metodos-pagamento">{[['MPESA', 'M-Pesa'], ['EMOLA', 'e-Mola'], ['CARTAO', 'Cartão']].map(([valor, nome]) => <label className={metodoPagamento === valor ? 'seleccionado' : ''} key={valor}><input type="radio" name="pagamento" value={valor} checked={metodoPagamento === valor} onChange={() => setMetodoPagamento(valor)} /><span>{nome}</span><small>Pagamento simulado</small></label>)}</div>
-        <p className="aviso-simulacao">Esta demonstração não movimenta dinheiro real. O pagamento será confirmado automaticamente.</p>
-        <div className="rodape-etapa"><button className="botao-voltar" onClick={() => setEtapa('assentos')}>Voltar</button><button className="botao-pesquisar" disabled={aProcessar} onClick={concluirCompra}>{aProcessar ? 'A confirmar...' : `Pagar ${formatarMeticais(viagem.price)}`}</button></div>
-      </div>}
+        {metodoPagamento === 'CARTAO' ? <div className="dados-pagamento-simulado dados-cartao"><label>Número do cartão de demonstração<input name="numeroCartao" inputMode="numeric" placeholder="4242 4242 4242 4242" pattern="[0-9 ]{16,19}" required /></label><label>Validade<input name="validade" placeholder="12/30" pattern="[0-9]{2}/[0-9]{2}" required /></label><label>CVV<input name="cvv" type="password" inputMode="numeric" placeholder="123" pattern="[0-9]{3,4}" required /></label></div> : <div className="dados-pagamento-simulado"><label>Número associado ao {nomeMetodoPagamento(metodoPagamento)}<input name="telefone" type="tel" defaultValue={utilizador.telefone} placeholder="84 000 0000" required /></label></div>}
+        <p className="aviso-simulacao">Ambiente académico: utilize dados fictícios. A API é simulada e não movimenta dinheiro real.</p>
+        <div className="rodape-etapa"><button type="button" className="botao-voltar" onClick={() => setEtapa('assentos')}>Voltar</button><button type="submit" className="botao-pesquisar">Simular pagamento de {formatarMeticais(viagem.price)}</button></div>
+      </form>}
+
+      {etapa === 'processando' && <div className="pagamento-processando" role="status" aria-live="polite"><span className="animacao-pagamento"><i /><i /><i /></span><h3>Pagamento em processamento</h3><p>{mensagemProcessamento}</p><div className="detalhes-processamento"><span><small>Método</small><strong>{nomeMetodoPagamento(metodoPagamento)}</strong></span><span><small>Valor</small><strong>{formatarMeticais(viagem.price)}</strong></span>{transacaoPagamento && <span><small>Referência</small><strong>{transacaoPagamento.referencia}</strong></span>}</div><small>Não feche esta tela durante a simulação.</small></div>}
 
       {etapa === 'concluida' && <div className="compra-concluida"><span className="icone-sucesso"><Icone nome="confirmado" /></span><h3>Bilhete emitido com sucesso</h3><p>O pagamento foi aprovado e o seu assento está confirmado.</p><div className="bilhete-resumo"><small>Código do bilhete</small><strong>{bilhete.codigo}</strong><span>{rota?.origin} → {rota?.destination}</span><span>Assento {bilhete.assento.numero} · {formatarMeticais(bilhete.preco)}</span></div><button className="botao-pesquisar" onClick={aoFechar}>Concluir</button></div>}
 
       {erro && <p className="mensagem-formulario erro" role="alert">{erro}</p>}
-      {etapa !== 'concluida' && <div className="vantagens-compra"><span><Icone nome="escudo" /> Pagamento seguro</span><span><Icone nome="bilhete" /> Bilhete eletrónico</span><span><Icone nome="confirmado" /> Confirmação imediata</span></div>}
+      {!['concluida', 'processando'].includes(etapa) && <div className="vantagens-compra"><span><Icone nome="escudo" /> Pagamento seguro</span><span><Icone nome="bilhete" /> Bilhete eletrónico</span><span><Icone nome="confirmado" /> Confirmação imediata</span></div>}
     </section>
   </div>;
 }
@@ -409,11 +430,11 @@ function ResumoViagem({ viagem, assento }) {
 }
 
 function tituloEtapa(etapa) {
-  return { pesquisa: 'Para onde deseja viajar?', resultados: 'Escolha a sua viagem', assentos: 'Selecione o assento', pagamento: 'Confirme o pagamento', concluida: 'Compra concluída' }[etapa];
+  return { pesquisa: 'Para onde deseja viajar?', resultados: 'Escolha a sua viagem', assentos: 'Selecione o assento', pagamento: 'Confirme o pagamento', processando: 'A processar pagamento', concluida: 'Compra concluída' }[etapa];
 }
 
 function descricaoEtapa(etapa) {
-  return { pesquisa: 'Pesquise uma rota e encontre a melhor viagem para si.', resultados: 'Compare os horários e preços disponíveis.', assentos: 'Os assentos ocupados não podem ser selecionados.', pagamento: 'Escolha como deseja realizar o pagamento simulado.', concluida: 'O bilhete já está disponível na sua conta.' }[etapa];
+  return { pesquisa: 'Pesquise uma rota e encontre a melhor viagem para si.', resultados: 'Compare os horários e preços disponíveis.', assentos: 'Os assentos ocupados não podem ser selecionados.', pagamento: 'Escolha como deseja realizar o pagamento simulado.', processando: 'A API falsa está a validar e confirmar a operação.', concluida: 'O bilhete já está disponível na sua conta.' }[etapa];
 }
 
 function formatarMeticais(valor) {

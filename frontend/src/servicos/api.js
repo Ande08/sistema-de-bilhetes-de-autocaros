@@ -71,6 +71,14 @@ export function comprarBilhete(dados) {
   return requisicao('/compras', { method: 'POST', body: JSON.stringify(dados) });
 }
 
+export function iniciarPagamentoSimulado(dados) {
+  return requisicao('/pagamentos-simulados', { method: 'POST', body: JSON.stringify(dados) });
+}
+
+export function processarPagamentoSimulado(referencia) {
+  return requisicao(`/pagamentos-simulados/${encodeURIComponent(referencia)}/processar`, { method: 'POST' });
+}
+
 export function obterResumoConta() {
   return requisicao('/conta/resumo');
 }

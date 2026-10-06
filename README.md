@@ -12,7 +12,7 @@ O cadastro de passageiros utiliza nome, apelido e número de telefone. A conta s
 - Comunicação em tempo real: Socket.IO;
 - Envio de OTP por WhatsApp: Baileys com sessão de dispositivo ligado;
 - Linguagem: JavaScript;
-- Pagamentos: simulação de M-Pesa, e-Mola e cartão.
+- Pagamentos: APIs falsas de M-Pesa, e-Mola e cartão, com transação pendente, processamento visual e aprovação simulada.
 
 ## Arquitetura e padrões utilizados
 
@@ -28,7 +28,7 @@ Organiza o sistema em rotas, controladores, serviços, modelos Sequelize e base 
 
 ### Factory Method
 
-Utilizado em `src/factories/payment.factory.js` para criar pagamentos M-Pesa, e-Mola e cartão. Serve para adicionar métodos de pagamento sem alterar diretamente o serviço principal.
+Utilizado em `src/factories/payment.factory.js` para criar pagamentos M-Pesa, e-Mola e cartão. Serve para adicionar métodos de pagamento sem alterar diretamente o serviço principal. O ciclo académico das APIs falsas é coordenado por `backend/src/services/gateway-pagamento-simulado.service.js`: a transação começa como `PENDENTE`, é processada pelo serviço falso, passa a `APROVADO` e a referência só pode ser usada uma vez na emissão do bilhete.
 
 ### Builder
 
@@ -176,6 +176,8 @@ GET  /api/viagens
 GET  /api/viagens/:id
 POST /api/compras
 GET  /api/compras/bilhete/:codigo
+POST /api/pagamentos-simulados
+POST /api/pagamentos-simulados/:referencia/processar
 POST /api/suporte/assistente
 GET  /api/suporte/tickets
 POST /api/suporte/tickets

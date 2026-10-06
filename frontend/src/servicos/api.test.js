@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { comprarBilhete, confirmarRegistoUtilizador, guardarSessao, obterResumoConta, obterSessaoGuardada, registarUtilizador, terminarSessao } from './api.js';
+import { comprarBilhete, confirmarRegistoUtilizador, guardarSessao, iniciarPagamentoSimulado, obterResumoConta, obterSessaoGuardada, processarPagamentoSimulado, registarUtilizador, terminarSessao } from './api.js';
 
 describe('sessão do passageiro', () => {
   beforeEach(() => {
@@ -46,6 +46,21 @@ describe('sessão do passageiro', () => {
 
     expect(resumo.totalBilhetesActivos).toBe(2);
     expect(fetchSimulado).toHaveBeenCalledWith(expect.stringContaining('/conta/resumo'), expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer token-resumo' }) }));
+  });
+
+  it('inicia e processa uma transação na API falsa de pagamentos', async () => {
+    guardarSessao({ token: 'token-pagamento' });
+    const fetchSimulado = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ dados: { referencia: 'SIM-MPESA-1', estado: 'PENDENTE' } }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ dados: { referencia: 'SIM-MPESA-1', estado: 'APROVADO' } }) });
+    vi.stubGlobal('fetch', fetchSimulado);
+
+    const iniciada = await iniciarPagamentoSimulado({ viagemId: 1, metodo: 'MPESA', dadosPagamento: { telefone: '841234567' } });
+    const aprovada = await processarPagamentoSimulado(iniciada.referencia);
+
+    expect(iniciada.estado).toBe('PENDENTE');
+    expect(aprovada.estado).toBe('APROVADO');
+    expect(fetchSimulado.mock.calls[1][0]).toContain('/pagamentos-simulados/SIM-MPESA-1/processar');
   });
 
   it('solicita e confirma o cadastro através de OTP', async () => {
