@@ -1,5 +1,6 @@
 import { adicionarMensagem, atribuirTicket, actualizarEstadoTicket, criarTicket, listarGestoresSuporte, listarTickets, obterTicketPorId, responderAssistente } from '../services/suporte.service.js';
 import { registarAuditoria } from '../services/auditoria.service.js';
+import { guardarImagemSuporte, removerImagemSuporte } from '../services/anexo-suporte.service.js';
 
 export function consultarAssistente(req, res, next) {
   try {
@@ -28,11 +29,13 @@ export async function obterTicket(req, res, next) {
 }
 
 export async function enviarMensagem(req, res, next) {
+  let anexo;
   try {
-    const mensagem = await adicionarMensagem(req.params.id, req.utilizador, req.body.mensagem);
+    anexo = await guardarImagemSuporte(req.body.imagem);
+    const mensagem = await adicionarMensagem(req.params.id, req.utilizador, req.body.mensagem, anexo || {});
     req.app.get('io')?.to(`suporte:${req.params.id}`).emit('suporte:mensagem', mensagem);
     return res.status(201).json({ sucesso: true, dados: mensagem });
-  } catch (erro) { return next(erro); }
+  } catch (erro) { await removerImagemSuporte(anexo?.caminho); return next(erro); }
 }
 
 export async function atribuir(req, res, next) {

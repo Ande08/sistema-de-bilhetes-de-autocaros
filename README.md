@@ -99,6 +99,8 @@ Utilizado em `backend/src/realtime/suporte.socket.js`. Cada ticket possui uma sa
 
 O assistente virtual utiliza inicialmente uma base de perguntas frequentes em `backend/src/services/suporte.service.js`. Esta implementação mantém a demonstração independente de serviços externos e pode ser substituída por um adaptador de IA sem alterar as telas ou o fluxo dos tickets. As conversas humanas, atribuições e mudanças de estado ficam persistidas para rastreio.
 
+No chat de suporte, cada participante vê as próprias mensagens em azul e alinhadas à direita; as mensagens recebidas aparecem à esquerda. Passageiros, atendentes e administradores podem anexar imagens JPEG, PNG ou WebP de até 2 MB, com pré-visualização antes do envio. Os anexos são guardados localmente em `backend/.dados/suporte`, uma pasta ignorada pelo Git e servida apenas para visualização no chat.
+
 ## Configuração
 
 ```bash

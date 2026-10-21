@@ -12,6 +12,7 @@ import contaRoutes from './routes/conta.routes.js';
 import suporteRoutes from './routes/suporte.routes.js';
 import pagamentoSimuladoRoutes from './routes/pagamento-simulado.routes.js';
 import atendimentoRoutes from './routes/atendimento.routes.js';
+import { directorioAnexosSuporte } from './services/anexo-suporte.service.js';
 
 const app = express();
 
@@ -36,8 +37,13 @@ app.use(cors({
     return concluir(erro);
   }
 }));
-app.use(express.json());
+// O limite comporta imagens de suporte de até 2 MB codificadas em Base64.
+app.use(express.json({ limit: '3mb' }));
 app.use(morgan('dev'));
+app.use('/ficheiros/suporte', express.static(directorioAnexosSuporte, {
+  dotfiles: 'deny', index: false,
+  setHeaders(resposta) { resposta.setHeader('Cross-Origin-Resource-Policy', 'cross-origin'); }
+}));
 
 app.get('/api/health', (_req, res) => {
   res.json({

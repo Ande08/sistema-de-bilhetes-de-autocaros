@@ -73,15 +73,19 @@ export async function obterTicketPorId(id, utilizador, transaction) {
   return ticket;
 }
 
-export async function adicionarMensagem(id, utilizador, conteudo) {
-  if (!conteudo?.trim() || conteudo.trim().length > 4000) throw erroValidacao('A mensagem deve ter entre 1 e 4000 caracteres.');
+export async function adicionarMensagem(id, utilizador, conteudo, anexo = {}) {
+  const texto = String(conteudo || '').trim();
+  if ((!texto && !anexo.imagemUrl) || texto.length > 4000) throw erroValidacao('Escreva uma mensagem ou anexe uma imagem. O texto pode ter até 4000 caracteres.');
   const ticket = await TicketSuporte.findByPk(id);
   if (!ticket) throw erroNaoEncontrado();
   garantirAcesso(ticket, utilizador);
   if (['RESOLVIDO', 'ENCERRADO'].includes(ticket.estado)) throw erroConflito('Este ticket já não aceita novas mensagens.');
 
   const autorTipo = utilizador.perfil;
-  const mensagem = await MensagemSuporte.create({ ticketId: ticket.id, remetenteId: utilizador.id, autorTipo, conteudo: conteudo.trim() });
+  const mensagem = await MensagemSuporte.create({
+    ticketId: ticket.id, remetenteId: utilizador.id, autorTipo,
+    conteudo: texto, imagemUrl: anexo.imagemUrl || null, imagemNome: anexo.imagemNome || null
+  });
   if (utilizador.perfil !== 'PASSAGEIRO' && ticket.estado === 'ABERTO') await ticket.update({ estado: 'EM_ATENDIMENTO' });
   if (utilizador.perfil === 'PASSAGEIRO' && ticket.estado === 'AGUARDA_UTILIZADOR') await ticket.update({ estado: 'EM_ATENDIMENTO' });
   return MensagemSuporte.findByPk(mensagem.id, { include: [{ model: User, as: 'Remetente', attributes: ['id', 'nome', 'apelido', 'perfil'] }] });

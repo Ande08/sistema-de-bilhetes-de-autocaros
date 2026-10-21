@@ -151,8 +151,8 @@ export function obterTicketSuporte(id) {
   return requisicao(`/suporte/tickets/${id}`);
 }
 
-export function enviarMensagemSuporte(id, mensagem) {
-  return requisicao(`/suporte/tickets/${id}/mensagens`, { method: 'POST', body: JSON.stringify({ mensagem }) });
+export function enviarMensagemSuporte(id, mensagem, imagem = null) {
+  return requisicao(`/suporte/tickets/${id}/mensagens`, { method: 'POST', body: JSON.stringify({ mensagem, imagem }) });
 }
 
 export function actualizarEstadoTicketSuporte(id, estado) {

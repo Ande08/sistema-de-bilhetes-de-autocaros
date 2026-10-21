@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { comprarBilhete, confirmarRegistoUtilizador, guardarSessao, iniciarPagamentoSimulado, listarClientesAtendimento, obterResumoConta, obterSessaoGuardada, processarPagamentoSimulado, registarUtilizador, terminarSessao } from './api.js';
+import { comprarBilhete, confirmarRegistoUtilizador, enviarMensagemSuporte, guardarSessao, iniciarPagamentoSimulado, listarClientesAtendimento, obterResumoConta, obterSessaoGuardada, processarPagamentoSimulado, registarUtilizador, terminarSessao } from './api.js';
 
 describe('sessão do passageiro', () => {
   beforeEach(() => {
@@ -85,5 +85,17 @@ describe('sessão do passageiro', () => {
 
     expect(clientes).toHaveLength(1);
     expect(fetchSimulado.mock.calls[0][0]).toContain('/atendimento/clientes?pesquisa=Cliente');
+  });
+
+  it('envia texto e imagem numa mensagem de suporte', async () => {
+    guardarSessao({ token: 'token-suporte' });
+    const fetchSimulado = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ dados: { id: 8, imagemUrl: '/ficheiros/suporte/imagem.png' } }) });
+    vi.stubGlobal('fetch', fetchSimulado);
+
+    await enviarMensagemSuporte(3, 'Imagem do problema', { nome: 'problema.png', dados: 'data:image/png;base64,AA==' });
+
+    const opcoes = fetchSimulado.mock.calls[0][1];
+    expect(fetchSimulado.mock.calls[0][0]).toContain('/suporte/tickets/3/mensagens');
+    expect(JSON.parse(opcoes.body)).toEqual({ mensagem: 'Imagem do problema', imagem: { nome: 'problema.png', dados: 'data:image/png;base64,AA==' } });
   });
 });
