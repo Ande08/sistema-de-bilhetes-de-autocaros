@@ -6,7 +6,7 @@ import { responderAssistenteComIa } from '../services/assistente-ia.service.js';
 export async function consultarAssistente(req, res, next) {
   try {
     if (!req.body.mensagem?.trim() || req.body.mensagem.trim().length > 2000) { const erro = new Error('Escreva uma pergunta com até 2000 caracteres para o assistente.'); erro.statusCode = 400; throw erro; }
-    return res.json({ sucesso: true, dados: await responderAssistenteComIa(req.body.mensagem.trim()) });
+    return res.json({ sucesso: true, dados: await responderAssistenteComIa(req.body.mensagem.trim(), req.utilizador.id) });
   } catch (erro) { return next(erro); }
 }
 

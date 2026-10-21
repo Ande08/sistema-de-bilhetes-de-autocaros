@@ -104,6 +104,16 @@ No chat de suporte, cada participante vê as próprias mensagens em azul e alinh
 
 O painel administrativo possui a secção **Inteligência artificial**, onde é possível ativar o assistente, guardar uma chave da OpenRouter, escolher o modelo e testar a ligação. A chave é cifrada com AES-256-GCM antes de ser persistida, nunca volta a ser enviada ao navegador e é removida dos registos de auditoria. O modelo inicial é `deepseek/deepseek-chat`; a versão gratuita anterior foi retirada pela OpenRouter. Se a integração estiver inativa ou indisponível, o sistema utiliza automaticamente as respostas frequentes locais.
 
+### Segurança e respostas confirmadas da IA
+
+- Preços, horários, lugares disponíveis, bilhetes e pagamentos são consultados no MySQL pelo backend e respondidos sem delegar os dados ao modelo externo;
+- Dados de conta são sempre filtrados pelo identificador do utilizador autenticado;
+- Referências completas de pagamento e códigos privados não são enviados à OpenRouter;
+- Perguntas que contenham telefone, e-mail, nome completo identificado, documento, endereço, cartão, CVV, palavra-passe, token ou chave são bloqueadas antes de qualquer pedido externo;
+- Respostas da IA que contenham preços, datas, horários, referências ou contactos sem fonte confirmada são bloqueadas;
+- A IA não possui acesso ao Sequelize, não executa compras, não cancela bilhetes e não altera pagamentos;
+- Quando os dados não podem ser confirmados, o sistema encaminha o utilizador para a pesquisa de viagens ou para o atendimento humano.
+
 ## Configuração
 
 ```bash
