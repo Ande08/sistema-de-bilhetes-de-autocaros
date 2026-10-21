@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import '../config/carregar-ambiente.js';
 import { readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';

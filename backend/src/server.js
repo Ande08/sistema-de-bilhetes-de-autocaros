@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import './config/carregar-ambiente.js';
 import { createServer } from 'node:http';
 import { Server } from 'socket.io';
 import app from './app.js';

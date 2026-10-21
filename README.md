@@ -110,6 +110,8 @@ npm run db:seed
 npm run dev
 ```
 
+O backend procura sempre o ficheiro `backend/.env`, independentemente da pasta actual do terminal. Portanto, também pode ser iniciado dentro de `backend/src` com `node server.js`. Se aparecer uma mensagem de variáveis obrigatórias ausentes, confirme que o ficheiro se chama exactamente `.env`, está dentro de `backend/` e não apenas em `backend/src/`.
+
 Executar os testes unitários:
 
 ```bash

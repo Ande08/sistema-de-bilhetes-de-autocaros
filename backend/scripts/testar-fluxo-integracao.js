@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import '../src/config/carregar-ambiente.js';
 import bcrypt from 'bcryptjs';
 import { sequelize } from '../src/config/database.js';
 import { User } from '../src/models/index.js';
