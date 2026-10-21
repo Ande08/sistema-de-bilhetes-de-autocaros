@@ -13,7 +13,7 @@ O cadastro de passageiros utiliza nome, apelido e número de telefone. A conta s
 - Frontend: React;
 - Comunicação em tempo real: Socket.IO;
 - Assistente de IA: OpenRouter, com escolha administrativa do modelo;
-- Envio de OTP por WhatsApp: Baileys com sessão de dispositivo ligado;
+- Envio de OTP e avisos por WhatsApp: Baileys com sessão de dispositivo ligado e processo isolado no PM2;
 - Linguagem: JavaScript;
 - Pagamentos: APIs falsas de M-Pesa, e-Mola e cartão, com transação pendente, processamento visual e aprovação simulada.
 
@@ -39,7 +39,7 @@ Utilizado em `src/builders/ticket.builder.js` para construir bilhetes com passag
 
 ### Singleton
 
-Utilizado pela instância única do Sequelize exportada em `src/config/database.js` e pela instância `servicoWhatsApp` em `backend/src/integrations/whatsapp/whatsapp.service.js`. Serve para manter uma única ligação à base de dados e uma única sessão WhatsApp durante a execução.
+Utilizado pela instância única do Sequelize exportada em `src/config/database.js` e pela instância `servicoWhatsApp` executada exclusivamente no trabalhador `backend/src/workers/whatsapp.worker.js`. Serve para manter uma única ligação lógica à base de dados e uma única sessão WhatsApp durante a execução.
 
 ### Prototype
 
@@ -195,13 +195,15 @@ O modo de desenvolvimento usa `OTP_FORNECEDOR=SIMULADO`. As opções `OTP_VALIDA
 
 ### Ligar o WhatsApp para OTP e avisos de viagem
 
-1. Configure `OTP_FORNECEDOR=WHATSAPP_BAILEYS` no `backend/.env`;
-2. Configure `WHATSAPP_INICIAR_AUTOMATICAMENTE=true` ou abra a seção **WhatsApp** no painel administrativo e clique em **Iniciar ligação**;
-3. No telemóvel que enviará os códigos, abra **WhatsApp > Dispositivos ligados > Ligar dispositivo**;
-4. Leia o QR Code apresentado no painel administrativo;
-5. Confirme no painel que o estado passou para **Ligado**.
+1. Instale o gestor de processos uma única vez com `npm install -g pm2`;
+2. Configure `OTP_FORNECEDOR=WHATSAPP_BAILEYS` no `backend/.env`;
+3. Configure `WHATSAPP_INICIAR_AUTOMATICAMENTE=true` ou abra a seção **WhatsApp** no painel administrativo e clique em **Iniciar bot**;
+4. O backend consulta o PM2. Se `viagem-bus-whatsapp` não existir, cria e guarda a instância; se existir mas estiver parada, reinicia-a; se já estiver online, não cria duplicados;
+5. No telemóvel que enviará os códigos, abra **WhatsApp > Dispositivos ligados > Ligar dispositivo**;
+6. Leia o QR Code apresentado no painel administrativo;
+7. Confirme no painel que o estado passou para **Ligado**.
 
-A sessão autenticada é guardada em `backend/.dados/whatsapp` quando a API é iniciada dentro da pasta `backend`. Essa pasta está ignorada pelo Git e não deve ser copiada, publicada ou partilhada. O bot adaptado não processa mensagens recebidas, grupos, comandos, ficheiros multimédia, IA ou transferências. Ele apenas entrega códigos OTP e avisos operacionais de viagens.
+A sessão autenticada é guardada em `backend/.dados/whatsapp` e o estado apresentado no painel fica em `backend/.dados/whatsapp-estado.json`. Essa pasta está ignorada pelo Git e não deve ser copiada, publicada ou partilhada. O processo PM2 executa somente o trabalhador WhatsApp; a API não abre uma segunda sessão Baileys. O bot adaptado não processa mensagens recebidas, grupos, comandos, ficheiros multimédia, IA ou transferências. Ele apenas entrega códigos OTP e avisos operacionais de viagens.
 
 Os envios são guardados primeiro na tabela `envios_whatsapp`. A fila dá prioridade aos OTPs, envia uma mensagem de cada vez, repete falhas com intervalos progressivos, recupera itens que ficaram em processamento após um encerramento inesperado e evita duplicações através de uma chave de idempotência. Se o WhatsApp estiver desligado, os avisos permanecem pendentes até a ligação ser restabelecida. O painel mostra o estado da fila e permite repetir avisos falhados. Ao cancelar uma viagem, todos os passageiros com bilhete ativo recebem uma notificação interna e um aviso WhatsApp; o administrador também pode enviar um aviso manual pela área **Viagens**.
 

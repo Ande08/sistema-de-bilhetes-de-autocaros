@@ -1,11 +1,13 @@
 import { rm } from 'node:fs/promises';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import makeWASocket, { DisconnectReason, fetchLatestBaileysVersion, useMultiFileAuthState } from '@whiskeysockets/baileys';
 import pino from 'pino';
 import QRCode from 'qrcode';
 import qrcodeTerminal from 'qrcode-terminal';
 
-const raizDadosPadrao = path.resolve(process.cwd(), '.dados');
+const raizBackend = fileURLToPath(new URL('../../../', import.meta.url));
+const raizDadosPadrao = path.join(raizBackend, '.dados');
 const pastaPadrao = path.join(raizDadosPadrao, 'whatsapp');
 
 class ServicoWhatsApp {
@@ -19,10 +21,12 @@ class ServicoWhatsApp {
     this.temporizadorReconexao = null;
     this.aIniciar = null;
     this.reinicioManual = false;
+    this.ouvintesEstado = new Set();
   }
 
   get pastaSessao() {
-    return path.resolve(process.env.WHATSAPP_SESSION_PATH || pastaPadrao);
+    const configurada = process.env.WHATSAPP_SESSION_PATH;
+    return configurada ? (path.isAbsolute(configurada) ? configurada : path.resolve(raizBackend, configurada)) : pastaPadrao;
   }
 
   async iniciar() {
@@ -152,9 +156,16 @@ class ServicoWhatsApp {
     };
   }
 
+  adicionarOuvinteEstado(ouvinte) {
+    this.ouvintesEstado.add(ouvinte);
+    return () => this.ouvintesEstado.delete(ouvinte);
+  }
+
   _actualizarEstado(estado) {
     this.estado = estado;
     this.ultimaAlteracao = new Date();
+    const actual = this.obterEstado();
+    this.ouvintesEstado.forEach((ouvinte) => Promise.resolve(ouvinte(actual)).catch((erro) => console.error('Falha ao guardar estado WhatsApp:', erro.message)));
   }
 }
 
