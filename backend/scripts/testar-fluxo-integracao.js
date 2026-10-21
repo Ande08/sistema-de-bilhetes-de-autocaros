@@ -201,6 +201,28 @@ async function executar() {
   garantir(painel.bilhetes.some((item) => item.codigo === compra.bilhete.codigo), 'O bilhete não apareceu no painel administrativo.');
   console.log('11. Conta do passageiro e painel administrativo verificados');
 
+  const avisoManual = await requisicao(`/gestao/viagens/${viagem.id}/avisos-whatsapp`, {
+    token: sessaoAdmin.token,
+    method: 'POST',
+    body: corpo({ mensagem: 'Aviso de teste: apresente-se no terminal com trinta minutos de antecedência.' })
+  });
+  garantir(avisoManual.totalDestinatarios === 1, 'O aviso manual não foi preparado para o passageiro da viagem.');
+  let estadoWhatsapp = await requisicao('/gestao/whatsapp/estado', { token: sessaoAdmin.token });
+  garantir(estadoWhatsapp.fila.recentes.some((item) => item.tipo === 'AVISO_VIAGEM' && String(item.viagemId) === String(viagem.id)), 'O aviso manual não entrou na fila persistente.');
+  console.log('12. Aviso manual aos passageiros colocado na fila persistente');
+
+  const cancelamento = await requisicao(`/viagens/${viagem.id}/cancelar`, {
+    token: sessaoAdmin.token,
+    method: 'PATCH',
+    body: corpo({ motivo: 'Cancelamento criado pelo teste automatizado de integração.' })
+  });
+  garantir(cancelamento.status === 'CANCELADA', 'A viagem não foi cancelada.');
+  garantir(Number(cancelamento.avisosWhatsapp) === 1, 'O cancelamento não criou o aviso automático esperado.');
+  estadoWhatsapp = await requisicao('/gestao/whatsapp/estado', { token: sessaoAdmin.token });
+  const avisosDaViagem = estadoWhatsapp.fila.recentes.filter((item) => item.tipo === 'AVISO_VIAGEM' && String(item.viagemId) === String(viagem.id));
+  garantir(avisosDaViagem.length === 2, 'A fila não contém exatamente o aviso manual e o aviso de cancelamento.');
+  console.log('13. Cancelamento e aviso automático aos compradores verificados');
+
   console.log(JSON.stringify({
     sucesso: true,
     passageiro: telefonePassageiro,
@@ -208,7 +230,8 @@ async function executar() {
     rotaId: rota.id,
     viagemId: viagem.id,
     bilhete: compra.bilhete.codigo,
-    pagamento: pagamentoAprovado.referencia
+    pagamento: pagamentoAprovado.referencia,
+    avisosWhatsapp: avisosDaViagem.length
   }, null, 2));
 }
 

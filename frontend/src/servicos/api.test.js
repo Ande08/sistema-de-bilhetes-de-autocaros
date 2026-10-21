@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { comprarBilhete, confirmarRegistoUtilizador, enviarMensagemSuporte, guardarConfiguracaoIa, guardarSessao, iniciarPagamentoSimulado, listarClientesAtendimento, obterResumoConta, obterSessaoGuardada, processarPagamentoSimulado, registarUtilizador, terminarSessao } from './api.js';
+import { comprarBilhete, confirmarRegistoUtilizador, enviarAvisoViagemAdministrativa, enviarMensagemSuporte, guardarConfiguracaoIa, guardarSessao, iniciarPagamentoSimulado, listarClientesAtendimento, obterResumoConta, obterSessaoGuardada, processarPagamentoSimulado, registarUtilizador, terminarSessao } from './api.js';
 
 describe('sessão do passageiro', () => {
   beforeEach(() => {
@@ -108,5 +108,19 @@ describe('sessão do passageiro', () => {
 
     expect(fetchSimulado.mock.calls[0][0]).toContain('/gestao/ia/configuracao');
     expect(fetchSimulado.mock.calls[0][1]).toEqual(expect.objectContaining({ method: 'PUT', headers: expect.objectContaining({ Authorization: 'Bearer token-administrador' }) }));
+  });
+
+  it('envia um aviso administrativo para os passageiros da viagem', async () => {
+    guardarSessao({ token: 'token-administrador' });
+    const fetchSimulado = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ dados: { totalDestinatarios: 3 } }) });
+    vi.stubGlobal('fetch', fetchSimulado);
+
+    const resultado = await enviarAvisoViagemAdministrativa(17, 'A partida terá um atraso de vinte minutos.');
+
+    expect(resultado.totalDestinatarios).toBe(3);
+    expect(fetchSimulado).toHaveBeenCalledWith(expect.stringContaining('/gestao/viagens/17/avisos-whatsapp'), expect.objectContaining({
+      method: 'POST',
+      headers: expect.objectContaining({ Authorization: 'Bearer token-administrador' })
+    }));
   });
 });

@@ -1,4 +1,4 @@
-import { servicoWhatsApp } from '../integrations/whatsapp/whatsapp.service.js';
+import { enfileirarOtpWhatsapp } from '../services/fila-whatsapp.service.js';
 
 // Contrato isolado para permitir trocar o modo simulado por WhatsApp ou SMS
 // sem alterar o serviço responsável pelo cadastro.
@@ -10,17 +10,14 @@ class AdaptadorOtpSimulado {
 }
 
 class AdaptadorOtpWhatsApp {
-  async enviar({ telefone, codigo, canal }) {
+  async enviar({ telefone, codigo, canal, verificacaoId, expiraEm }) {
     if (canal !== 'WHATSAPP') {
       const erro = new Error('O envio por SMS ainda não está configurado. Selecione WhatsApp.');
       erro.statusCode = 503;
       throw erro;
     }
-    return servicoWhatsApp.enviarOtp({
-      telefone,
-      codigo,
-      validadeMinutos: Number(process.env.OTP_VALIDADE_MINUTOS) || 10
-    });
+    return enfileirarOtpWhatsapp({ telefone, codigo, verificacaoId, expiraEm,
+      validadeMinutos: Number(process.env.OTP_VALIDADE_MINUTOS) || 10 });
   }
 }
 

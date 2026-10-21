@@ -40,7 +40,7 @@ export class ServicoOtp {
     });
 
     try {
-      await obterAdaptadorOtp().enviar({ telefone: dados.telefone, codigo, canal: dados.canal });
+      await obterAdaptadorOtp().enviar({ telefone: dados.telefone, codigo, canal: dados.canal, verificacaoId: verificacao.id, expiraEm: verificacao.expiraEm });
     } catch (erro) {
       await verificacao.update({ consumidoEm: new Date() });
       throw erro;

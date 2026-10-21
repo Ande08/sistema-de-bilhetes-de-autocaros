@@ -6,6 +6,7 @@ import { verificarLigacaoBaseDados } from './config/inicializar-base-dados.js';
 import { validarVariaveisAmbiente } from './config/validar-ambiente.js';
 import { configurarSuporteEmTempoReal } from './realtime/suporte.socket.js';
 import { servicoWhatsApp } from './integrations/whatsapp/whatsapp.service.js';
+import { processadorFilaWhatsapp } from './services/fila-whatsapp.service.js';
 
 const port = Number(process.env.PORT) || 3000;
 
@@ -20,6 +21,7 @@ verificarLigacaoBaseDados()
   .then(() => {
     servidorHttp.listen(port, () => {
       console.log(`API executando em http://localhost:${port}`);
+      processadorFilaWhatsapp.iniciar().catch((erro) => console.error('Não foi possível iniciar a fila WhatsApp:', erro.message));
       const iniciarWhatsApp = process.env.WHATSAPP_INICIAR_AUTOMATICAMENTE === 'true'
         || process.env.OTP_FORNECEDOR === 'WHATSAPP_BAILEYS';
       if (iniciarWhatsApp) {

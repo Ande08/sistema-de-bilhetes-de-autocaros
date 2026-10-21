@@ -135,6 +135,14 @@ export function iniciarWhatsApp(limparSessao = false) {
   return requisicao('/gestao/whatsapp/iniciar', { method: 'POST', body: JSON.stringify({ limparSessao }) });
 }
 
+export function repetirEnvioWhatsapp(id) {
+  return requisicao(`/gestao/whatsapp/envios/${id}/repetir`, { method: 'POST' });
+}
+
+export function enviarAvisoViagemAdministrativa(id, mensagem) {
+  return requisicao(`/gestao/viagens/${id}/avisos-whatsapp`, { method: 'POST', body: JSON.stringify({ mensagem }) });
+}
+
 export function obterConfiguracaoIa() {
   return requisicao('/gestao/ia/configuracao');
 }

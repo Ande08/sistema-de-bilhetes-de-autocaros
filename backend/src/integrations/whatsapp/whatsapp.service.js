@@ -42,7 +42,7 @@ class ServicoWhatsApp {
       auth: state,
       logger: pino({ level: process.env.WHATSAPP_LOG_LEVEL || 'silent' }),
       printQRInTerminal: false,
-      browser: [process.env.WHATSAPP_NOME_DISPOSITIVO || 'Viagem Bus OTP', 'Chrome', '1.0.0'],
+      browser: [process.env.WHATSAPP_NOME_DISPOSITIVO || 'Viagem Bus Avisos', 'Chrome', '1.0.0'],
       keepAliveIntervalMs: 30_000,
       connectTimeoutMs: 60_000,
       defaultQueryTimeoutMs: 60_000
@@ -68,7 +68,7 @@ class ServicoWhatsApp {
       this.qrCodeDataUrl = null;
       this.tentativasReconexao = 0;
       this._actualizarEstado('LIGADO');
-      console.log('WhatsApp ligado e pronto para enviar OTPs.');
+      console.log('WhatsApp ligado e pronto para entregar OTPs e avisos de viagem.');
     }
     if (connection === 'close') {
       this.socket = null;
@@ -93,12 +93,13 @@ class ServicoWhatsApp {
       return;
     }
     this.tentativasReconexao += 1;
+    const atraso = Math.min(5000 * (2 ** (this.tentativasReconexao - 1)), 5 * 60_000) + Math.floor(Math.random() * 1000);
     this.temporizadorReconexao = setTimeout(() => {
       this.iniciar().catch((erro) => {
         console.error('Falha ao religar o WhatsApp:', erro.message);
         this._agendarReconexao();
       });
-    }, 5000);
+    }, atraso);
   }
 
   async reiniciar({ limparSessao = false } = {}) {
@@ -122,7 +123,7 @@ class ServicoWhatsApp {
     return this.iniciar();
   }
 
-  async enviarOtp({ telefone, codigo, validadeMinutos }) {
+  async enviarTexto({ telefone, mensagem }) {
     if (this.estado !== 'LIGADO' || !this.socket) {
       const erro = new Error('O WhatsApp ainda não está ligado. A administração deve ler o QR Code no painel.');
       erro.statusCode = 503;
@@ -136,8 +137,7 @@ class ServicoWhatsApp {
       erro.statusCode = 400;
       throw erro;
     }
-    const texto = `Viagem Bus\n\nO seu código de confirmação é: ${codigo}\n\nO código expira em ${validadeMinutos} minutos. Não partilhe este código com ninguém.`;
-    const resultado = await this.socket.sendMessage(destino, { text: texto });
+    const resultado = await this.socket.sendMessage(destino, { text: mensagem });
     return { fornecedor: 'WHATSAPP_BAILEYS', identificador: resultado?.key?.id || null };
   }
 

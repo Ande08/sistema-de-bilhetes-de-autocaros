@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import Icone from './Icone.jsx';
 import ChatTicketSuporte, { traduzirEstado } from './ChatTicketSuporte.jsx';
 import { ModalCampo, ModalConfirmacao } from './Modal.jsx';
-import { actualizarUtilizadorAdministrativo, actualizarViagemAdministrativa, atribuirTicketSuporte, cancelarViagemAdministrativa, criarAutocarro, criarRota, criarUtilizadorAdministrativo, criarViagem, definirEstadoAdministrativo, guardarConfiguracaoIa, iniciarWhatsApp, listarGestoresSuporte, listarModelosIa, listarTicketsSuporte, obterConfiguracaoIa, obterEstadoWhatsApp, obterPainelAdministrativo, redefinirPalavraPasseAdministrativa, testarLigacaoIa } from '../servicos/api.js';
+import { actualizarUtilizadorAdministrativo, actualizarViagemAdministrativa, atribuirTicketSuporte, cancelarViagemAdministrativa, criarAutocarro, criarRota, criarUtilizadorAdministrativo, criarViagem, definirEstadoAdministrativo, enviarAvisoViagemAdministrativa, guardarConfiguracaoIa, iniciarWhatsApp, listarGestoresSuporte, listarModelosIa, listarTicketsSuporte, obterConfiguracaoIa, obterEstadoWhatsApp, obterPainelAdministrativo, redefinirPalavraPasseAdministrativa, repetirEnvioWhatsapp, testarLigacaoIa } from '../servicos/api.js';
 import { formatarValor } from '../utilitarios/moeda.js';
 
 const secoes = ['Visão geral', 'Utilizadores', 'Autocarros', 'Rotas', 'Viagens', 'Bilhetes', 'Suporte', 'Inteligência artificial', 'WhatsApp', 'Auditoria'];
@@ -149,17 +149,24 @@ function PaginaWhatsApp() {
     finally { setAProcessar(false); }
   }
 
+  async function repetir(id) {
+    setAProcessar(true); setErro('');
+    try { await repetirEnvioWhatsapp(id); carregar(); }
+    catch (falha) { setErro(falha.message); }
+    finally { setAProcessar(false); }
+  }
+
   return <section className="pagina-whatsapp-admin vidro">
     <div className="titulo-secao"><div><h3>WhatsApp para códigos OTP</h3><p>Esta ligação é utilizada apenas para enviar códigos de confirmação de conta.</p></div>{estado && <b className={`estado-whatsapp estado-whatsapp-${estado.estado.toLowerCase()}`}>{nomeEstadoWhatsApp(estado.estado)}</b>}</div>
     {erro && <p className="mensagem-formulario erro">{erro}</p>}
-    {!estado ? <div className="painel-carregando">A consultar ligação...</div> : <div className="conteudo-whatsapp-admin">
+    {!estado ? <div className="painel-carregando">A consultar ligação...</div> : <><div className="conteudo-whatsapp-admin">
       <div className="detalhes-whatsapp">
         <dl><div><dt>Número ligado</dt><dd>{estado.numero ? `+${estado.numero}` : 'Nenhum'}</dd></div><div><dt>Fornecedor OTP</dt><dd>{estado.fornecedorOtp}</dd></div><div><dt>Última alteração</dt><dd>{formatarData(estado.ultimaAlteracao)}</dd></div></dl>
         {estado.fornecedorOtp !== 'WHATSAPP_BAILEYS' && <p className="aviso-whatsapp">A ligação pode ser preparada agora, mas os OTPs continuarão simulados até definir <code>OTP_FORNECEDOR=WHATSAPP_BAILEYS</code> no ficheiro <code>.env</code>.</p>}
         <div className="acoes-whatsapp"><button disabled={aProcessar} onClick={() => ligar(false)}>{aProcessar ? 'A processar...' : estado.estado === 'NAO_INICIADO' ? 'Iniciar ligação' : 'Tentar ligar novamente'}</button><button className="botao-renovar-whatsapp" disabled={aProcessar} onClick={() => setConfirmarRenovacao(true)}>Gerar novo QR Code</button></div>
       </div>
       <div className="qr-whatsapp">{estado.qrCodeDataUrl ? <><img src={estado.qrCodeDataUrl} alt="QR Code para ligar o WhatsApp" /><p>No WhatsApp, abra Dispositivos ligados e leia este código.</p></> : estado.ligado ? <><span className="marca-whatsapp-ligado">Ligado</span><p>O número está pronto para enviar códigos OTP.</p></> : <><span className="marca-whatsapp-espera">Sem QR Code</span><p>Inicie ou renove a ligação para gerar o código.</p></>}</div>
-    </div>}
+    </div><section className="fila-whatsapp-admin"><div className="titulo-secao"><div><h3>Fila de entregas</h3><p>OTPs têm prioridade. Avisos são enviados individualmente e repetidos em caso de falha.</p></div></div><div className="indicadores-fila-whatsapp">{Object.entries(estado.fila?.contagens || {}).map(([nome, total]) => <span key={nome}><small>{nomeEstadoEnvio(nome)}</small><strong>{total}</strong></span>)}</div><div className="admin-tabela-scroll"><table><thead><tr><th>Tipo</th><th>Destino</th><th>Estado</th><th>Tentativas</th><th>Viagem</th><th>Ação</th></tr></thead><tbody>{estado.fila?.recentes?.length ? estado.fila.recentes.map((envio) => <tr key={envio.id}><td>{envio.tipo === 'OTP' ? 'OTP' : 'Aviso de viagem'}</td><td>{envio.telefone}</td><td><b className={`estado-envio estado-envio-${envio.estado.toLowerCase()}`}>{nomeEstadoEnvio(envio.estado)}</b></td><td>{envio.tentativas}</td><td>{envio.viagemId || '—'}</td><td>{['FALHADO', 'EXPIRADO'].includes(envio.estado) && envio.tipo !== 'OTP' ? <button disabled={aProcessar} onClick={() => repetir(envio.id)}>Repetir</button> : '—'}</td></tr>) : <tr><td colSpan="6">Ainda não existem entregas.</td></tr>}</tbody></table></div></section></>}
     {confirmarRenovacao && <ModalConfirmacao titulo="Gerar novo QR Code" texto="A sessão guardada será terminada e será necessário ligar novamente o telefone ao sistema." textoConfirmar="Gerar novo código" perigo aProcessar={aProcessar} aoConfirmar={() => ligar(true)} aoFechar={() => setConfirmarRenovacao(false)} />}
   </section>;
 }
@@ -273,6 +280,7 @@ function FormularioViagem({ rotas, autocarros, aoSubmeter }) { return <form clas
 function AcoesViagem({ viagem, executar }) {
   const [editarPreco, setEditarPreco] = useState(false);
   const [confirmarCancelamento, setConfirmarCancelamento] = useState(false);
+  const [enviarAviso, setEnviarAviso] = useState(false);
   const [aProcessar, setAProcessar] = useState(false);
 
   async function editar(preco) {
@@ -287,7 +295,13 @@ function AcoesViagem({ viagem, executar }) {
     if (concluido) setConfirmarCancelamento(false);
     setAProcessar(false);
   }
-  return <><span className="admin-acoes"><button onClick={() => setEditarPreco(true)}>Editar preço</button>{viagem.status === 'AGENDADA' && <button className="admin-desactivar" onClick={() => setConfirmarCancelamento(true)}>Cancelar</button>}</span>{editarPreco && <ModalCampo titulo="Editar preço da viagem" texto="O novo preço será utilizado nas próximas compras desta viagem." etiquetaCampo="Novo preço" tipo="number" min="1" step="0.01" valorInicial={String(viagem.price)} textoConfirmar="Guardar preço" aProcessar={aProcessar} aoConfirmar={editar} aoFechar={() => setEditarPreco(false)} />}{confirmarCancelamento && <ModalConfirmacao titulo="Cancelar viagem" texto="Os bilhetes ativos serão cancelados e os pagamentos ficarão marcados como reembolsados na simulação." textoConfirmar="Cancelar viagem" perigo aProcessar={aProcessar} aoConfirmar={cancelar} aoFechar={() => setConfirmarCancelamento(false)} />}</>;
+  async function avisar(mensagem) {
+    setAProcessar(true);
+    const concluido = await executar(() => enviarAvisoViagemAdministrativa(viagem.id, mensagem), 'Avisos adicionados à fila do WhatsApp.');
+    if (concluido) setEnviarAviso(false);
+    setAProcessar(false);
+  }
+  return <><span className="admin-acoes"><button onClick={() => setEditarPreco(true)}>Editar preço</button>{viagem.status === 'AGENDADA' && <><button onClick={() => setEnviarAviso(true)}>Enviar aviso</button><button className="admin-desactivar" onClick={() => setConfirmarCancelamento(true)}>Cancelar</button></>}</span>{editarPreco && <ModalCampo titulo="Editar preço da viagem" texto="O novo preço será utilizado nas próximas compras desta viagem." etiquetaCampo="Novo preço" tipo="number" min="1" step="0.01" valorInicial={String(viagem.price)} textoConfirmar="Guardar preço" aProcessar={aProcessar} aoConfirmar={editar} aoFechar={() => setEditarPreco(false)} />}{enviarAviso && <ModalCampo titulo="Avisar passageiros" texto="O aviso será entregue pelo WhatsApp a todos os clientes com bilhete ativo nesta viagem." etiquetaCampo="Mensagem do aviso" multilinha minLength={10} maxLength={1000} textoConfirmar="Colocar na fila" aProcessar={aProcessar} aoConfirmar={avisar} aoFechar={() => setEnviarAviso(false)} />}{confirmarCancelamento && <ModalConfirmacao titulo="Cancelar viagem" texto="Os bilhetes ativos serão cancelados, os pagamentos ficarão marcados como reembolsados na simulação e todos os passageiros serão avisados pelo WhatsApp." textoConfirmar="Cancelar e avisar" perigo aProcessar={aProcessar} aoConfirmar={cancelar} aoFechar={() => setConfirmarCancelamento(false)} />}</>;
 }
 
 function TabelaGestao({ titulo, colunas, linhas }) {
@@ -304,3 +318,4 @@ function formatarData(valor) { return new Intl.DateTimeFormat('pt-MZ', { dateSty
 function nomePerfil(perfil) { return { PASSAGEIRO: 'Cliente', GESTOR_SUPORTE: 'Atendente', ADMIN: 'Administrador' }[perfil] || perfil; }
 function nomePessoa(pessoa) { return pessoa ? `${pessoa.nome || ''} ${pessoa.apelido || ''}`.trim() : '—'; }
 function nomeEstadoWhatsApp(estado) { return { NAO_INICIADO: 'Não iniciado', A_LIGAR: 'A ligar', AGUARDA_QR: 'Aguarda QR Code', LIGADO: 'Ligado', A_RECONECTAR: 'A reconectar', SESSAO_TERMINADA: 'Sessão terminada', ERRO_RECONEXAO: 'Falha na reconexão' }[estado] || estado; }
+function nomeEstadoEnvio(estado) { return { PENDENTE: 'Pendente', PROCESSANDO: 'A enviar', ENVIADO: 'Enviado', FALHADO: 'Falhado', EXPIRADO: 'Expirado' }[estado] || estado; }

@@ -3,8 +3,9 @@ import { actualizarUtilizador, actualizarViagem, criarAutocarro, criarRota, cria
 import { exigirAutenticacao } from '../middlewares/autenticacao.middleware.js';
 import { exigirAdministrador } from '../middlewares/autorizacao.middleware.js';
 import { auditarOperacaoAdministrativa } from '../middlewares/auditoria.middleware.js';
-import { iniciarWhatsApp, obterEstadoWhatsApp } from '../controllers/whatsapp.controller.js';
+import { iniciarWhatsApp, obterEstadoWhatsApp, repetirEnvio } from '../controllers/whatsapp.controller.js';
 import { guardarConfiguracao, obterConfiguracao, obterModelos, testarLigacao } from '../controllers/configuracao-ia.controller.js';
+import { enviarAviso } from '../controllers/aviso-viagem.controller.js';
 
 const router = Router();
 router.use(exigirAutenticacao, exigirAdministrador);
@@ -12,6 +13,7 @@ router.use(auditarOperacaoAdministrativa);
 router.get('/painel', obterPainel);
 router.get('/whatsapp/estado', obterEstadoWhatsApp);
 router.post('/whatsapp/iniciar', iniciarWhatsApp);
+router.post('/whatsapp/envios/:id/repetir', repetirEnvio);
 router.get('/ia/configuracao', obterConfiguracao);
 router.put('/ia/configuracao', guardarConfiguracao);
 router.get('/ia/modelos', obterModelos);
@@ -22,6 +24,7 @@ router.post('/rotas', criarRota);
 router.patch('/rotas/:id/estado', definirEstadoRota);
 router.post('/viagens', criarViagem);
 router.put('/viagens/:id', actualizarViagem);
+router.post('/viagens/:id/avisos-whatsapp', enviarAviso);
 router.post('/utilizadores', criarUtilizador);
 router.put('/utilizadores/:id', actualizarUtilizador);
 router.put('/utilizadores/:id/palavra-passe', redefinirSenhaUtilizador);

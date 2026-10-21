@@ -73,6 +73,18 @@ Aplicado na seleção do método de pagamento. Serve para trocar o comportamento
 
 Utilizado no chat de suporte através do Socket.IO. Quando uma mensagem ou o estado de um ticket muda, o servidor publica o evento para todos os participantes autorizados na sala desse ticket. Serve para atualizar passageiro, gestor e administrador em tempo real sem consultas repetitivas.
 
+### Producer–Consumer e fila persistente
+
+Utilizado em `backend/src/services/fila-whatsapp.service.js`. O cadastro e a gestão de viagens produzem pedidos de envio, enquanto um processador único os consome sequencialmente. Serve para não bloquear a API, conservar mensagens durante uma desconexão e controlar o ritmo de entrega ao WhatsApp.
+
+### Transactional Outbox
+
+Utilizado em `backend/src/services/aviso-viagem.service.js`: a notificação interna, a alteração da viagem e o registo em `envios_whatsapp` são confirmados na mesma transação Sequelize. Serve para impedir que um cancelamento seja guardado sem que o respetivo aviso também fique registado para entrega.
+
+### Retry com recuo exponencial e idempotência
+
+Utilizado na fila WhatsApp. As falhas temporárias são repetidas com intervalos progressivos e cada OTP ou aviso automático possui uma chave única. Serve para recuperar de problemas de ligação sem criar envios duplicados nem manter ciclos rápidos que sobrecarreguem o sistema.
+
 ### State
 
 Utilizado nos estados de viagens, pagamentos e bilhetes. Serve para controlar comportamentos de acordo com o estado atual de cada entidade.
@@ -181,7 +193,7 @@ Para testar uma compra nova, use a viagem **Maputo–Xai-Xai**, criada sem bilhe
 
 O modo de desenvolvimento usa `OTP_FORNECEDOR=SIMULADO`. As opções `OTP_VALIDADE_MINUTOS`, `OTP_REENVIO_SEGUNDOS` e `OTP_EXIBIR_CODIGO` controlam a validade, o intervalo de reenvio e a apresentação do código de teste. Em produção, `OTP_EXIBIR_CODIGO` deve ser `false` e o adaptador deve ser ligado a um fornecedor real.
 
-### Ligar o WhatsApp para OTP
+### Ligar o WhatsApp para OTP e avisos de viagem
 
 1. Configure `OTP_FORNECEDOR=WHATSAPP_BAILEYS` no `backend/.env`;
 2. Configure `WHATSAPP_INICIAR_AUTOMATICAMENTE=true` ou abra a seção **WhatsApp** no painel administrativo e clique em **Iniciar ligação**;
@@ -189,9 +201,11 @@ O modo de desenvolvimento usa `OTP_FORNECEDOR=SIMULADO`. As opções `OTP_VALIDA
 4. Leia o QR Code apresentado no painel administrativo;
 5. Confirme no painel que o estado passou para **Ligado**.
 
-A sessão autenticada é guardada em `backend/.dados/whatsapp` quando a API é iniciada dentro da pasta `backend`. Essa pasta está ignorada pelo Git e não deve ser copiada, publicada ou partilhada. O bot adaptado não processa mensagens recebidas, grupos, comandos, ficheiros multimédia, IA ou transferências; ele apenas envia os códigos OTP gerados pelo backend.
+A sessão autenticada é guardada em `backend/.dados/whatsapp` quando a API é iniciada dentro da pasta `backend`. Essa pasta está ignorada pelo Git e não deve ser copiada, publicada ou partilhada. O bot adaptado não processa mensagens recebidas, grupos, comandos, ficheiros multimédia, IA ou transferências. Ele apenas entrega códigos OTP e avisos operacionais de viagens.
 
-Esta integração usa um dispositivo ligado por Baileys e não a API oficial da Meta. Para produção com maior estabilidade, conformidade e volume, o adaptador deve futuramente ser substituído pela WhatsApp Cloud API sem alterar o fluxo de OTP existente.
+Os envios são guardados primeiro na tabela `envios_whatsapp`. A fila dá prioridade aos OTPs, envia uma mensagem de cada vez, repete falhas com intervalos progressivos, recupera itens que ficaram em processamento após um encerramento inesperado e evita duplicações através de uma chave de idempotência. Se o WhatsApp estiver desligado, os avisos permanecem pendentes até a ligação ser restabelecida. O painel mostra o estado da fila e permite repetir avisos falhados. Ao cancelar uma viagem, todos os passageiros com bilhete ativo recebem uma notificação interna e um aviso WhatsApp; o administrador também pode enviar um aviso manual pela área **Viagens**.
+
+`WHATSAPP_RETENCAO_DIAS` controla por quantos dias os envios concluídos, falhados ou expirados permanecem no histórico; o padrão é 90 dias. Esta versão académica utiliza exclusivamente a ligação de dispositivo do Baileys.
 
 O backend está localizado em `backend/` e o frontend em `frontend/`.
 
@@ -209,6 +223,8 @@ GET  /api/conta/resumo
 GET  /api/gestao/painel
 GET  /api/gestao/whatsapp/estado
 POST /api/gestao/whatsapp/iniciar
+POST /api/gestao/whatsapp/envios/:id/repetir
+POST /api/gestao/viagens/:id/avisos-whatsapp
 GET  /api/gestao/ia/configuracao
 PUT  /api/gestao/ia/configuracao
 GET  /api/gestao/ia/modelos

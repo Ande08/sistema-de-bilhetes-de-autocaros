@@ -1,5 +1,6 @@
 import { Op } from 'sequelize';
-import { Bilhete, Pagamento, Trip } from '../models/index.js';
+import { Bilhete, Pagamento, Route, Trip, User } from '../models/index.js';
+import { enfileirarCancelamentoViagem } from './aviso-viagem.service.js';
 
 export async function cancelarBilhete(codigo, utilizadorAutenticado, transacao) {
   const bilhete = await Bilhete.findOne({ where: { codigo }, include: [Pagamento, Trip], transaction: transacao, lock: transacao.LOCK.UPDATE });
@@ -33,7 +34,7 @@ export async function cancelarBilhete(codigo, utilizadorAutenticado, transacao) 
 }
 
 export async function cancelarViagem(id, transacao) {
-  const viagem = await Trip.findByPk(id, { transaction: transacao, lock: transacao.LOCK.UPDATE });
+  const viagem = await Trip.findByPk(id, { include: [Route], transaction: transacao, lock: transacao.LOCK.UPDATE });
   if (!viagem) {
     const erro = new Error('Viagem não encontrada.');
     erro.statusCode = 404;
@@ -44,11 +45,13 @@ export async function cancelarViagem(id, transacao) {
     erro.statusCode = 409;
     throw erro;
   }
-  const bilhetes = await Bilhete.findAll({ where: { viagemId: id, estado: { [Op.in]: ['RESERVADO', 'EMITIDO'] } }, include: [Pagamento], transaction: transacao, lock: transacao.LOCK.UPDATE });
+  const bilhetes = await Bilhete.findAll({ where: { viagemId: id, estado: { [Op.in]: ['RESERVADO', 'EMITIDO'] } }, include: [Pagamento, { model: User, attributes: ['id', 'telefone'] }], transaction: transacao, lock: transacao.LOCK.UPDATE });
   for (const bilhete of bilhetes) {
     await bilhete.update({ estado: 'CANCELADO' }, { transaction: transacao });
     if (bilhete.Pagamento?.estado === 'APROVADO') await bilhete.Pagamento.update({ estado: 'REEMBOLSADO' }, { transaction: transacao });
   }
+  const totalAvisos = await enfileirarCancelamentoViagem({ viagem, bilhetes, transaction: transacao });
   await viagem.update({ status: 'CANCELADA' }, { transaction: transacao });
+  viagem.setDataValue('avisosWhatsapp', totalAvisos);
   return viagem;
 }

@@ -12,6 +12,7 @@ import { TicketSuporte } from './ticket-suporte.model.js';
 import { MensagemSuporte } from './mensagem-suporte.model.js';
 import { VerificacaoOtp } from './verificacao-otp.model.js';
 import { ConfiguracaoIa } from './configuracao-ia.model.js';
+import { EnvioWhatsapp } from './envio-whatsapp.model.js';
 
 // Os relacionamentos ficam centralizados para permitir consultas com include.
 Route.hasMany(Trip, { foreignKey: 'routeId' });
@@ -39,6 +40,10 @@ Assento.hasMany(Reserva, { foreignKey: 'assentoId' });
 Reserva.belongsTo(Assento, { foreignKey: 'assentoId' });
 User.hasMany(Notificacao, { foreignKey: 'utilizadorId' });
 Notificacao.belongsTo(User, { foreignKey: 'utilizadorId' });
+User.hasMany(EnvioWhatsapp, { foreignKey: 'utilizadorId' });
+EnvioWhatsapp.belongsTo(User, { foreignKey: 'utilizadorId' });
+Trip.hasMany(EnvioWhatsapp, { foreignKey: 'viagemId' });
+EnvioWhatsapp.belongsTo(Trip, { foreignKey: 'viagemId' });
 User.hasMany(Auditoria, { foreignKey: 'utilizadorId' });
 Auditoria.belongsTo(User, { foreignKey: 'utilizadorId' });
 
@@ -51,4 +56,4 @@ TicketSuporte.hasMany(MensagemSuporte, { as: 'Mensagens', foreignKey: 'ticketId'
 MensagemSuporte.belongsTo(TicketSuporte, { foreignKey: 'ticketId' });
 MensagemSuporte.belongsTo(User, { as: 'Remetente', foreignKey: 'remetenteId' });
 
-export { Assento, Auditoria, Bilhete, ConfiguracaoIa, MensagemSuporte, Notificacao, Pagamento, Reserva, TicketSuporte, VerificacaoOtp };
+export { Assento, Auditoria, Bilhete, ConfiguracaoIa, EnvioWhatsapp, MensagemSuporte, Notificacao, Pagamento, Reserva, TicketSuporte, VerificacaoOtp };
