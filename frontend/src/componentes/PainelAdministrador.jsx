@@ -92,7 +92,7 @@ function PaginaUtilizadores({ utilizadores, executar }) {
       <label>Nome<input name="nome" defaultValue={emEdicao?.nome || ''} required minLength="3" /></label>
       <label>Apelido<input name="apelido" defaultValue={emEdicao?.apelido || ''} required minLength="2" /></label>
       <label>Telefone<input name="telefone" type="tel" defaultValue={emEdicao?.telefone || ''} placeholder="+258840000000" required /></label>
-      <label>Perfil<select name="perfil" defaultValue={emEdicao?.perfil || 'PASSAGEIRO'}><option value="PASSAGEIRO">Passageiro</option><option value="GESTOR_SUPORTE">Gestor de suporte</option><option value="ADMIN">Administrador</option></select></label>
+      <label>Perfil<select name="perfil" defaultValue={emEdicao?.perfil || 'PASSAGEIRO'}><option value="PASSAGEIRO">Cliente</option><option value="GESTOR_SUPORTE">Atendente</option><option value="ADMIN">Administrador</option></select></label>
       {!emEdicao && <label>Palavra-passe<input name="palavraPasse" type="password" minLength="8" required /></label>}
       <button>{emEdicao ? 'Guardar alterações' : 'Criar utilizador'}</button>
       {emEdicao && <button type="button" className="botao-voltar" onClick={() => setEmEdicao(null)}>Cancelar edição</button>}
@@ -243,6 +243,6 @@ function TabelaGestao({ titulo, colunas, linhas }) {
 function BotaoEstado({ activo, aoClicar }) { return <button className={activo ? 'admin-desactivar' : 'admin-activar'} onClick={aoClicar}>{activo ? 'Desativar' : 'Ativar'}</button>; }
 function formatarValor(valor) { return new Intl.NumberFormat('pt-MZ', { style: 'currency', currency: 'MZN' }).format(Number(valor)); }
 function formatarData(valor) { return new Intl.DateTimeFormat('pt-MZ', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(valor)); }
-function nomePerfil(perfil) { return { PASSAGEIRO: 'Passageiro', GESTOR_SUPORTE: 'Gestor de suporte', ADMIN: 'Administrador' }[perfil] || perfil; }
+function nomePerfil(perfil) { return { PASSAGEIRO: 'Cliente', GESTOR_SUPORTE: 'Atendente', ADMIN: 'Administrador' }[perfil] || perfil; }
 function nomePessoa(pessoa) { return pessoa ? `${pessoa.nome || ''} ${pessoa.apelido || ''}`.trim() : '—'; }
 function nomeEstadoWhatsApp(estado) { return { NAO_INICIADO: 'Não iniciado', A_LIGAR: 'A ligar', AGUARDA_QR: 'Aguarda QR Code', LIGADO: 'Ligado', A_RECONECTAR: 'A reconectar', SESSAO_TERMINADA: 'Sessão terminada', ERRO_RECONEXAO: 'Falha na reconexão' }[estado] || estado; }

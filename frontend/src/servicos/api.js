@@ -166,3 +166,9 @@ export function listarGestoresSuporte() {
 export function atribuirTicketSuporte(id, gestorId) {
   return requisicao(`/suporte/tickets/${id}/atribuir`, { method: 'PATCH', body: JSON.stringify({ gestorId }) });
 }
+
+export function listarClientesAtendimento(pesquisa = '') {
+  const parametros = new URLSearchParams();
+  if (pesquisa) parametros.set('pesquisa', pesquisa);
+  return requisicao(`/atendimento/clientes?${parametros}`);
+}

@@ -94,7 +94,7 @@ Utilizado em `backend/src/realtime/suporte.socket.js`. Cada ticket possui uma sa
 ## Perfis e suporte
 
 - `PASSAGEIRO`: utiliza o assistente virtual, abre tickets e acompanha apenas os próprios pedidos;
-- `GESTOR_SUPORTE`: recebe tickets atribuídos pelo administrador, conversa com o passageiro e atualiza o estado do atendimento;
+- `GESTOR_SUPORTE` (apresentado como **Atendente**): vende bilhetes para clientes cadastrados, recebe tickets atribuídos pelo administrador, conversa com o passageiro e atualiza o estado do atendimento;
 - `ADMIN`: cria gestores, consulta todos os tickets, atribui responsáveis e acompanha a auditoria.
 
 O assistente virtual utiliza inicialmente uma base de perguntas frequentes em `backend/src/services/suporte.service.js`. Esta implementação mantém a demonstração independente de serviços externos e pode ser substituída por um adaptador de IA sem alterar as telas ou o fluxo dos tickets. As conversas humanas, atribuições e mudanças de estado ficam persistidas para rastreio.
@@ -149,6 +149,16 @@ Com `CRIAR_DADOS_DEMO=true`, o comando `npm run db:seed` cria contas, autocarros
 | Passageiro principal | `+258840000002` | `Passageiro@123` | Bilhete emitido, reserva e tickets |
 | Passageiro secundário | `+258840000003` | `Passageiro@123` | Bilhete cancelado, reembolso e suporte |
 | Passageiro inactivo | `+258840000004` | `Passageiro@123` | Teste de bloqueio de acesso |
+
+Contas principais para a apresentação:
+
+| Perfil | Telefone | Palavra-passe |
+| --- | --- | --- |
+| Administrador | `+258841111111` | `Admin@123` |
+| Cliente | `+258842222222` | `Cliente@123` |
+| Atendente | `+258843333333` | `Atendente@123` |
+
+O atendente possui um painel próprio com **Venda de bilhetes** e **Suporte ao cliente**. A venda assistida selecciona um cliente activo, processa o pagamento simulado e guarda o bilhete directamente na conta desse cliente.
 
 Para testar uma compra nova, use a viagem **Maputo–Xai-Xai**, criada sem bilhetes e com todos os assentos disponíveis. Os pagamentos são simulados e não movimentam dinheiro real.
 
@@ -210,6 +220,7 @@ POST /api/suporte/tickets/:id/mensagens
 PATCH /api/suporte/tickets/:id/estado
 GET  /api/suporte/gestores
 PATCH /api/suporte/tickets/:id/atribuir
+GET  /api/atendimento/clientes
 ```
 
 Exemplo de compra:

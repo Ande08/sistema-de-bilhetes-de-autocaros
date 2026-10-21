@@ -9,7 +9,7 @@ export class ServicoCompra {
     this.servicoBilhete = new ServicoBilhete();
   }
 
-  async comprar({ utilizadorId, viagemId, assentoId, metodoPagamento, referenciaPagamento }) {
+  async comprar({ utilizadorId, operadorId = utilizadorId, viagemId, assentoId, metodoPagamento, referenciaPagamento }) {
     if (!viagemId || !assentoId || !metodoPagamento || !referenciaPagamento) {
       const erro = new Error('Viagem, assento, método e referência de pagamento são obrigatórios.');
       erro.statusCode = 400;
@@ -18,7 +18,7 @@ export class ServicoCompra {
 
     const pagamentoProcessado = gatewayPagamentoSimulado.reservarAprovado({
       referencia: referenciaPagamento,
-      utilizadorId
+      utilizadorId: operadorId
     });
 
     try {
@@ -85,7 +85,7 @@ export class ServicoCompra {
   }
 
   _validarCompra({ utilizador, viagem, assento }) {
-    if (!utilizador?.activo) {
+    if (!utilizador?.activo || utilizador.perfil !== 'PASSAGEIRO') {
       const erro = new Error('A conta do passageiro não está disponível.');
       erro.statusCode = 403;
       throw erro;

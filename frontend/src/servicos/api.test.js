@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { comprarBilhete, confirmarRegistoUtilizador, guardarSessao, iniciarPagamentoSimulado, obterResumoConta, obterSessaoGuardada, processarPagamentoSimulado, registarUtilizador, terminarSessao } from './api.js';
+import { comprarBilhete, confirmarRegistoUtilizador, guardarSessao, iniciarPagamentoSimulado, listarClientesAtendimento, obterResumoConta, obterSessaoGuardada, processarPagamentoSimulado, registarUtilizador, terminarSessao } from './api.js';
 
 describe('sessão do passageiro', () => {
   beforeEach(() => {
@@ -74,5 +74,16 @@ describe('sessão do passageiro', () => {
 
     expect(fetchSimulado.mock.calls[0][0]).toContain('/autenticacao/solicitar-registo');
     expect(fetchSimulado.mock.calls[1][0]).toContain('/autenticacao/confirmar-registo');
+  });
+
+  it('permite ao atendente consultar clientes para uma venda assistida', async () => {
+    guardarSessao({ token: 'token-atendente' });
+    const fetchSimulado = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ dados: [{ id: 2, nome: 'Cliente' }] }) });
+    vi.stubGlobal('fetch', fetchSimulado);
+
+    const clientes = await listarClientesAtendimento('Cliente');
+
+    expect(clientes).toHaveLength(1);
+    expect(fetchSimulado.mock.calls[0][0]).toContain('/atendimento/clientes?pesquisa=Cliente');
   });
 });
