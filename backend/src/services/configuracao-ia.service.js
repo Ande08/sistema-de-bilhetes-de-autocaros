@@ -2,9 +2,9 @@ import { ConfiguracaoIa } from '../models/index.js';
 import { desencriptarSegredo, encriptarSegredo } from './segredo.service.js';
 import { obterModelosOpenRouter, solicitarConclusaoOpenRouter } from '../integrations/openrouter/openrouter.service.js';
 
-export const MODELO_IA_PADRAO = 'deepseek/deepseek-chat:free';
+export const MODELO_IA_PADRAO = 'deepseek/deepseek-chat';
 const MODELOS_CONTINGENCIA = [
-  { id: MODELO_IA_PADRAO, nome: 'DeepSeek V3 gratuito', gratuito: true },
+  { id: MODELO_IA_PADRAO, nome: 'DeepSeek V3', gratuito: false },
   { id: 'deepseek/deepseek-r1:free', nome: 'DeepSeek R1 gratuito', gratuito: true },
   { id: 'openrouter/free', nome: 'OpenRouter Free Router', gratuito: true }
 ];

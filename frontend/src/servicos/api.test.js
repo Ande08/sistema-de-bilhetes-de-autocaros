@@ -101,10 +101,10 @@ describe('sessão do passageiro', () => {
 
   it('guarda a configuração de IA apenas pela rota administrativa', async () => {
     guardarSessao({ token: 'token-administrador' });
-    const fetchSimulado = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ dados: { modelo: 'deepseek/deepseek-chat:free', apiKeyConfigurada: true } }) });
+    const fetchSimulado = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ dados: { modelo: 'deepseek/deepseek-chat', apiKeyConfigurada: true } }) });
     vi.stubGlobal('fetch', fetchSimulado);
 
-    await guardarConfiguracaoIa({ modelo: 'deepseek/deepseek-chat:free', activo: true, apiKey: 'sk-or-v1-teste' });
+    await guardarConfiguracaoIa({ modelo: 'deepseek/deepseek-chat', activo: true, apiKey: 'sk-or-v1-teste' });
 
     expect(fetchSimulado.mock.calls[0][0]).toContain('/gestao/ia/configuracao');
     expect(fetchSimulado.mock.calls[0][1]).toEqual(expect.objectContaining({ method: 'PUT', headers: expect.objectContaining({ Authorization: 'Bearer token-administrador' }) }));

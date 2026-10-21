@@ -102,7 +102,7 @@ O assistente virtual utiliza inicialmente uma base de perguntas frequentes em `b
 
 No chat de suporte, cada participante vê as próprias mensagens em azul e alinhadas à direita; as mensagens recebidas aparecem à esquerda. Passageiros, atendentes e administradores podem anexar imagens JPEG, PNG ou WebP de até 2 MB, com pré-visualização antes do envio. Os anexos são guardados localmente em `backend/.dados/suporte`, uma pasta ignorada pelo Git e servida apenas para visualização no chat.
 
-O painel administrativo possui a secção **Inteligência artificial**, onde é possível ativar o assistente, guardar uma chave da OpenRouter, escolher o modelo e testar a ligação. A chave é cifrada com AES-256-GCM antes de ser persistida, nunca volta a ser enviada ao navegador e é removida dos registos de auditoria. O modelo inicial é `deepseek/deepseek-chat:free`. Se a integração estiver inativa ou indisponível, o sistema utiliza automaticamente as respostas frequentes locais.
+O painel administrativo possui a secção **Inteligência artificial**, onde é possível ativar o assistente, guardar uma chave da OpenRouter, escolher o modelo e testar a ligação. A chave é cifrada com AES-256-GCM antes de ser persistida, nunca volta a ser enviada ao navegador e é removida dos registos de auditoria. O modelo inicial é `deepseek/deepseek-chat`; a versão gratuita anterior foi retirada pela OpenRouter. Se a integração estiver inativa ou indisponível, o sistema utiliza automaticamente as respostas frequentes locais.
 
 ## Configuração
 

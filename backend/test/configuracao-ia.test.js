@@ -16,8 +16,8 @@ test('cifra a chave da OpenRouter antes de a guardar', () => {
   else process.env.JWT_SECRET = anterior;
 });
 
-test('usa um modelo gratuito da DeepSeek como padrão', () => {
-  assert.equal(MODELO_IA_PADRAO, 'deepseek/deepseek-chat:free');
+test('usa o modelo disponível da DeepSeek como padrão', () => {
+  assert.equal(MODELO_IA_PADRAO, 'deepseek/deepseek-chat');
   assert.doesNotThrow(() => validarDadosConfiguracaoIa({ modelo: MODELO_IA_PADRAO, apiKey: 'sk-or-v1-chave-valida-teste' }));
 });
 
