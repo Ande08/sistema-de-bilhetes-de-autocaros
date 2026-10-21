@@ -89,6 +89,10 @@ export function respostaIaContemDadosNaoConfirmados(texto) {
 
 function respostaBaseDados(mensagem) { return { mensagem, resolveuAutomaticamente: true, origem: 'BASE_DADOS', modelo: null, dadosConfirmados: true }; }
 function normalizar(valor) { return String(valor || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); }
-function formatarDinheiro(valor) { return new Intl.NumberFormat('pt-MZ', { style: 'currency', currency: 'MZN' }).format(Number(valor)); }
+export function formatarDinheiro(valor) {
+  const numero = Number(valor);
+  const seguro = Number.isFinite(numero) ? numero : 0;
+  return `${new Intl.NumberFormat('pt-MZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(seguro)} MT`;
+}
 function formatarDataHora(valor) { return new Intl.DateTimeFormat('pt-MZ', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Maputo' }).format(new Date(valor)); }
 function traduzirEstado(estado) { return { PENDENTE: 'pendente', APROVADO: 'aprovado', REJEITADO: 'rejeitado', REEMBOLSADO: 'reembolsado' }[estado] || String(estado).toLowerCase(); }

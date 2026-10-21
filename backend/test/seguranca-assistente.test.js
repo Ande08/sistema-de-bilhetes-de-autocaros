@@ -1,6 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { identificarConsultaProtegida, removerDadosSensiveis, respostaIaContemDadosNaoConfirmados } from '../src/services/dados-assistente.service.js';
+import { formatarDinheiro, identificarConsultaProtegida, removerDadosSensiveis, respostaIaContemDadosNaoConfirmados } from '../src/services/dados-assistente.service.js';
+
+test('apresenta valores monetários em MT', () => {
+  const valor = formatarDinheiro(1500);
+  assert.match(valor, /1[\s\u00a0]?500,00 MT/);
+  assert.doesNotMatch(valor, /MTn|MZN/);
+});
 
 test('encaminha preços, horários e dados da conta para o backend', () => {
   assert.equal(identificarConsultaProtegida('Quanto custa viajar de Maputo para Xai-Xai?'), 'VIAGENS');

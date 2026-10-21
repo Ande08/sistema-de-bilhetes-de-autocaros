@@ -8,6 +8,7 @@ import {
   pesquisarViagens,
   processarPagamentoSimulado
 } from '../servicos/api.js';
+import { formatarValor } from '../utilitarios/moeda.js';
 
 export default function VendaAtendente() {
   const [clientes, setClientes] = useState([]);
@@ -86,5 +87,4 @@ export default function VendaAtendente() {
   </main>;
 }
 
-function formatarValor(valor) { return new Intl.NumberFormat('pt-MZ', { style: 'currency', currency: 'MZN' }).format(Number(valor)); }
 function formatarData(valor) { return new Intl.DateTimeFormat('pt-MZ', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(valor)); }

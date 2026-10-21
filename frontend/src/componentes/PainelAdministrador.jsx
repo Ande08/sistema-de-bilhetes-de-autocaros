@@ -3,6 +3,7 @@ import Icone from './Icone.jsx';
 import ChatTicketSuporte, { traduzirEstado } from './ChatTicketSuporte.jsx';
 import { ModalCampo, ModalConfirmacao } from './Modal.jsx';
 import { actualizarUtilizadorAdministrativo, actualizarViagemAdministrativa, atribuirTicketSuporte, cancelarViagemAdministrativa, criarAutocarro, criarRota, criarUtilizadorAdministrativo, criarViagem, definirEstadoAdministrativo, guardarConfiguracaoIa, iniciarWhatsApp, listarGestoresSuporte, listarModelosIa, listarTicketsSuporte, obterConfiguracaoIa, obterEstadoWhatsApp, obterPainelAdministrativo, redefinirPalavraPasseAdministrativa, testarLigacaoIa } from '../servicos/api.js';
+import { formatarValor } from '../utilitarios/moeda.js';
 
 const secoes = ['Visão geral', 'Utilizadores', 'Autocarros', 'Rotas', 'Viagens', 'Bilhetes', 'Suporte', 'Inteligência artificial', 'WhatsApp', 'Auditoria'];
 
@@ -299,7 +300,6 @@ function TabelaGestao({ titulo, colunas, linhas }) {
   return <section className="admin-tabela vidro"><div className="titulo-secao"><h3>{titulo}</h3><span>{filtradas.length} registos</span></div><div className="admin-filtros"><input value={pesquisa} onChange={(evento) => { setPesquisa(evento.target.value); setPagina(1); }} placeholder="Pesquisar nesta tabela..." /></div><div className="admin-tabela-scroll"><table><thead><tr>{colunas.map((item) => <th key={item}>{item}</th>)}</tr></thead><tbody>{visiveis.length ? visiveis.map((linha, indice) => <tr key={indice}>{linha.map((valor, posicao) => <td key={posicao}>{valor}</td>)}</tr>) : <tr><td colSpan={colunas.length}>Nenhum registo encontrado.</td></tr>}</tbody></table></div><div className="admin-paginacao"><button disabled={pagina === 1} onClick={() => setPagina((valor) => valor - 1)}>Anterior</button><span>Página {pagina} de {totalPaginas}</span><button disabled={pagina >= totalPaginas} onClick={() => setPagina((valor) => valor + 1)}>Seguinte</button></div></section>;
 }
 function BotaoEstado({ activo, aoClicar }) { return <button className={activo ? 'admin-desactivar' : 'admin-activar'} onClick={aoClicar}>{activo ? 'Desativar' : 'Ativar'}</button>; }
-function formatarValor(valor) { return new Intl.NumberFormat('pt-MZ', { style: 'currency', currency: 'MZN' }).format(Number(valor)); }
 function formatarData(valor) { return new Intl.DateTimeFormat('pt-MZ', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(valor)); }
 function nomePerfil(perfil) { return { PASSAGEIRO: 'Cliente', GESTOR_SUPORTE: 'Atendente', ADMIN: 'Administrador' }[perfil] || perfil; }
 function nomePessoa(pessoa) { return pessoa ? `${pessoa.nome || ''} ${pessoa.apelido || ''}`.trim() : '—'; }

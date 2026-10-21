@@ -5,6 +5,7 @@ import PainelSuporte from './componentes/PainelSuporte.jsx';
 import PaginaSuportePassageiro from './componentes/PaginaSuportePassageiro.jsx';
 import { ModalConfirmacao } from './componentes/Modal.jsx';
 import { actualizarPerfil, alterarPalavraPasse, cancelarBilhete, comprarBilhete, confirmarRegistoUtilizador, guardarSessao, iniciarPagamentoSimulado, iniciarSessao, listarAssentos, obterPerfil, obterResumoConta, obterSessaoGuardada, pesquisarViagens, processarPagamentoSimulado, registarUtilizador, terminarSessao } from './servicos/api.js';
+import { formatarValor } from './utilitarios/moeda.js';
 
 const itensMenu = [
   ['inicio', 'Início'], ['viagens', 'Minhas Viagens'], ['bilhete', 'Bilhetes'],
@@ -438,7 +439,7 @@ function descricaoEtapa(etapa) {
 }
 
 function formatarMeticais(valor) {
-  return new Intl.NumberFormat('pt-MZ', { style: 'currency', currency: 'MZN' }).format(Number(valor));
+  return formatarValor(valor);
 }
 
 function formatarDataHora(valor) {

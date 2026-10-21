@@ -2,6 +2,8 @@
 
 Sistema web para consulta de viagens, seleção de assentos, pagamento simulado, emissão de bilhetes eletrónicos e suporte ao passageiro em tempo real.
 
+Todos os valores monetários são apresentados em **MT**.
+
 O cadastro de passageiros utiliza nome, apelido e número de telefone. A conta só é criada depois da confirmação de um código OTP enviado por WhatsApp ou SMS. Em desenvolvimento, o envio é simulado e o código aparece na tela para permitir testes sem um fornecedor externo.
 
 ## Tecnologias
