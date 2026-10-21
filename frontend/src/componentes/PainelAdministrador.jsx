@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react';
 import Icone from './Icone.jsx';
 import ChatTicketSuporte, { traduzirEstado } from './ChatTicketSuporte.jsx';
 import { ModalCampo, ModalConfirmacao } from './Modal.jsx';
-import { actualizarUtilizadorAdministrativo, actualizarViagemAdministrativa, atribuirTicketSuporte, cancelarViagemAdministrativa, criarAutocarro, criarRota, criarUtilizadorAdministrativo, criarViagem, definirEstadoAdministrativo, iniciarWhatsApp, listarGestoresSuporte, listarTicketsSuporte, obterEstadoWhatsApp, obterPainelAdministrativo, redefinirPalavraPasseAdministrativa } from '../servicos/api.js';
+import { actualizarUtilizadorAdministrativo, actualizarViagemAdministrativa, atribuirTicketSuporte, cancelarViagemAdministrativa, criarAutocarro, criarRota, criarUtilizadorAdministrativo, criarViagem, definirEstadoAdministrativo, guardarConfiguracaoIa, iniciarWhatsApp, listarGestoresSuporte, listarModelosIa, listarTicketsSuporte, obterConfiguracaoIa, obterEstadoWhatsApp, obterPainelAdministrativo, redefinirPalavraPasseAdministrativa, testarLigacaoIa } from '../servicos/api.js';
 
-const secoes = ['Visão geral', 'Utilizadores', 'Autocarros', 'Rotas', 'Viagens', 'Bilhetes', 'Suporte', 'WhatsApp', 'Auditoria'];
+const secoes = ['Visão geral', 'Utilizadores', 'Autocarros', 'Rotas', 'Viagens', 'Bilhetes', 'Suporte', 'Inteligência artificial', 'WhatsApp', 'Auditoria'];
 
 export default function PainelAdministrador({ utilizador, aoSair }) {
   const [secao, setSecao] = useState('Visão geral');
@@ -54,6 +54,7 @@ function ConteudoAdministrativo({ secao, dados, executar, submeter }) {
   if (secao === 'Viagens') return <><FormularioViagem rotas={dados.rotas.filter((item) => item.active)} autocarros={dados.autocarros.filter((item) => item.active)} aoSubmeter={(e) => submeter(e, criarViagem, 'Viagem criada com sucesso.')} /><TabelaGestao titulo="Viagens" colunas={['ID', 'Rota', 'Autocarro', 'Partida', 'Chegada', 'Preço', 'Estado', 'Ações']} linhas={dados.viagens.map((item) => [item.id, `${item.Route?.origin} → ${item.Route?.destination}`, `${item.Bus?.registration || '—'} · ${item.Bus?.model || ''}`, formatarData(item.departureAt), item.arrivalExpectedAt ? formatarData(item.arrivalExpectedAt) : '—', formatarValor(item.price), item.status, <AcoesViagem viagem={item} executar={executar} />])} /></>;
   if (secao === 'Bilhetes') return <TabelaGestao titulo="Bilhetes emitidos" colunas={['Código', 'Passageiro', 'Rota', 'Autocarro', 'Assento', 'Pagamento', 'Referência', 'Preço', 'Estado', 'Emitido em']} linhas={dados.bilhetes.map((item) => [item.codigo, item.User ? nomePessoa(item.User) : item.nomePassageiro, `${item.Trip?.Route?.origin || ''} → ${item.Trip?.Route?.destination || ''}`, item.Trip?.Bus?.registration || '—', item.Assento?.numero || '—', item.Pagamento?.metodo || '—', item.Pagamento?.referencia || '—', formatarValor(item.preco), item.estado, formatarData(item.criado_em)])} />;
   if (secao === 'Suporte') return <PaginaGestaoSuporte />;
+  if (secao === 'Inteligência artificial') return <PaginaInteligenciaArtificial />;
   if (secao === 'WhatsApp') return <PaginaWhatsApp />;
   if (secao === 'Auditoria') return <PaginaAuditoria auditorias={dados.auditorias} />;
   return <VisaoGeral dados={dados} />;
@@ -159,6 +160,63 @@ function PaginaWhatsApp() {
       <div className="qr-whatsapp">{estado.qrCodeDataUrl ? <><img src={estado.qrCodeDataUrl} alt="QR Code para ligar o WhatsApp" /><p>No WhatsApp, abra Dispositivos ligados e leia este código.</p></> : estado.ligado ? <><span className="marca-whatsapp-ligado">Ligado</span><p>O número está pronto para enviar códigos OTP.</p></> : <><span className="marca-whatsapp-espera">Sem QR Code</span><p>Inicie ou renove a ligação para gerar o código.</p></>}</div>
     </div>}
     {confirmarRenovacao && <ModalConfirmacao titulo="Gerar novo QR Code" texto="A sessão guardada será terminada e será necessário ligar novamente o telefone ao sistema." textoConfirmar="Gerar novo código" perigo aProcessar={aProcessar} aoConfirmar={() => ligar(true)} aoFechar={() => setConfirmarRenovacao(false)} />}
+  </section>;
+}
+
+function PaginaInteligenciaArtificial() {
+  const [configuracao, setConfiguracao] = useState(null);
+  const [modelos, setModelos] = useState([]);
+  const [origemModelos, setOrigemModelos] = useState('');
+  const [apiKey, setApiKey] = useState('');
+  const [mostrarChave, setMostrarChave] = useState(false);
+  const [removerApiKey, setRemoverApiKey] = useState(false);
+  const [pesquisa, setPesquisa] = useState('');
+  const [aProcessar, setAProcessar] = useState(false);
+  const [mensagem, setMensagem] = useState('');
+  const [erro, setErro] = useState('');
+
+  function carregar() {
+    setErro('');
+    Promise.all([obterConfiguracaoIa(), listarModelosIa()])
+      .then(([configurada, catalogo]) => { setConfiguracao(configurada); setModelos(catalogo.modelos || []); setOrigemModelos(catalogo.origem); })
+      .catch((falha) => setErro(falha.message));
+  }
+  useEffect(carregar, []);
+
+  async function guardar(evento) {
+    evento.preventDefault(); setAProcessar(true); setMensagem(''); setErro('');
+    try {
+      const actualizada = await guardarConfiguracaoIa({ modelo: configuracao.modelo, activo: configuracao.activo, apiKey, removerApiKey });
+      setConfiguracao(actualizada); setApiKey(''); setRemoverApiKey(false); setMensagem('Configuração de inteligência artificial guardada com sucesso.');
+      const catalogo = await listarModelosIa(); setModelos(catalogo.modelos || []); setOrigemModelos(catalogo.origem);
+    } catch (falha) { setErro(falha.message); }
+    finally { setAProcessar(false); }
+  }
+
+  async function testar() {
+    setAProcessar(true); setMensagem(''); setErro('');
+    try { const resultado = await testarLigacaoIa(); setMensagem(`${resultado.mensagem} Modelo: ${resultado.modelo}.`); }
+    catch (falha) { setErro(falha.message); }
+    finally { setAProcessar(false); }
+  }
+
+  if (!configuracao) return <section className="pagina-ia-admin vidro"><p>{erro || 'A carregar configuração de inteligência artificial...'}</p></section>;
+  const filtrados = modelos.filter((item) => !pesquisa || `${item.nome} ${item.id}`.toLowerCase().includes(pesquisa.toLowerCase())).slice(0, 200);
+  const opcoes = filtrados.some((item) => item.id === configuracao.modelo) ? filtrados : [{ id: configuracao.modelo, nome: `${configuracao.modelo} (configurado)`, gratuito: configuracao.modelo.endsWith(':free') }, ...filtrados];
+
+  return <section className="pagina-ia-admin vidro">
+    <div className="titulo-secao"><div><h3>Inteligência artificial</h3><p>Configure a OpenRouter utilizada pelo assistente virtual do suporte.</p></div><b className={`estado-ia ${configuracao.activo ? 'estado-ia-activo' : 'estado-ia-inactivo'}`}>{configuracao.activo ? 'Ativa' : 'Inativa'}</b></div>
+    {mensagem && <p className="mensagem-formulario sucesso">{mensagem}</p>}{erro && <p className="mensagem-formulario erro">{erro}</p>}
+    <form className="formulario-ia" onSubmit={guardar}>
+      <label>Fornecedor<input value="OpenRouter" disabled /></label>
+      <label className="campo-chave-ia">Chave da API<span className="entrada-chave-ia"><input type={mostrarChave ? 'text' : 'password'} value={apiKey} onChange={(evento) => { setApiKey(evento.target.value); setRemoverApiKey(false); }} placeholder={configuracao.apiKeyConfigurada ? 'Chave configurada — escreva apenas para substituir' : 'sk-or-v1-...'} autoComplete="new-password" /><button type="button" onClick={() => setMostrarChave((valor) => !valor)}>{mostrarChave ? 'Ocultar' : 'Mostrar'}</button></span><small>{configuracao.apiKeyConfigurada ? 'Existe uma chave cifrada guardada.' : 'Ainda não existe uma chave configurada.'}</small></label>
+      <label className="campo-pesquisa-modelo">Pesquisar modelo<input value={pesquisa} onChange={(evento) => setPesquisa(evento.target.value)} placeholder="DeepSeek, gratuito, OpenAI..." /></label>
+      <label className="campo-modelo-ia">Modelo<select value={configuracao.modelo} onChange={(evento) => setConfiguracao((actual) => ({ ...actual, modelo: evento.target.value }))}>{opcoes.map((item) => <option key={item.id} value={item.id}>{item.nome}{item.gratuito ? ' — gratuito' : ''}</option>)}</select><small>{origemModelos === 'OPENROUTER' ? 'Catálogo atualizado diretamente pela OpenRouter.' : 'Catálogo básico de contingência. Guarde uma chave válida para carregar todos os modelos.'}</small></label>
+      <label className="alternador-ia"><input type="checkbox" checked={configuracao.activo} onChange={(evento) => setConfiguracao((actual) => ({ ...actual, activo: evento.target.checked }))} /><span>Utilizar a IA no assistente virtual</span></label>
+      {configuracao.apiKeyConfigurada && <label className="alternador-ia remover-chave-ia"><input type="checkbox" checked={removerApiKey} onChange={(evento) => { setRemoverApiKey(evento.target.checked); if (evento.target.checked) setApiKey(''); }} /><span>Remover a chave guardada ao salvar</span></label>}
+      <div className="acoes-ia"><button disabled={aProcessar}>{aProcessar ? 'A processar...' : 'Guardar configuração'}</button><button type="button" className="botao-secundario-ia" disabled={aProcessar || !configuracao.apiKeyConfigurada} onClick={testar}>Testar ligação</button></div>
+    </form>
+    <p className="aviso-ia">Se a IA estiver inativa, sem chave ou temporariamente indisponível, o assistente utiliza automaticamente as respostas frequentes locais.</p>
   </section>;
 }
 

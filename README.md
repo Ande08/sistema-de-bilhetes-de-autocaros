@@ -10,6 +10,7 @@ O cadastro de passageiros utiliza nome, apelido e número de telefone. A conta s
 - Base de dados: MySQL;
 - Frontend: React;
 - Comunicação em tempo real: Socket.IO;
+- Assistente de IA: OpenRouter, com escolha administrativa do modelo;
 - Envio de OTP por WhatsApp: Baileys com sessão de dispositivo ligado;
 - Linguagem: JavaScript;
 - Pagamentos: APIs falsas de M-Pesa, e-Mola e cartão, com transação pendente, processamento visual e aprovação simulada.
@@ -58,7 +59,7 @@ Representado por `ServicoCompra`, `ServicoPagamento` e `ServicoBilhete`, que coo
 
 ### Adapter
 
-Utilizado em `backend/src/adapters/otp.adapter.js` para isolar o envio de códigos OTP. Estão disponíveis o fornecedor simulado e `WHATSAPP_BAILEYS`; uma API oficial de WhatsApp ou SMS pode ser adicionada sem alterar o serviço de cadastro. O mesmo padrão está previsto para integrações reais de M-Pesa e e-Mola.
+Utilizado em `backend/src/adapters/otp.adapter.js` para isolar o envio de códigos OTP. Estão disponíveis o fornecedor simulado e `WHATSAPP_BAILEYS`; uma API oficial de WhatsApp ou SMS pode ser adicionada sem alterar o serviço de cadastro. A integração em `backend/src/integrations/openrouter` também isola o fornecedor de IA do assistente. O mesmo padrão está previsto para integrações reais de M-Pesa e e-Mola.
 
 ## Padrões comportamentais
 
@@ -100,6 +101,8 @@ Utilizado em `backend/src/realtime/suporte.socket.js`. Cada ticket possui uma sa
 O assistente virtual utiliza inicialmente uma base de perguntas frequentes em `backend/src/services/suporte.service.js`. Esta implementação mantém a demonstração independente de serviços externos e pode ser substituída por um adaptador de IA sem alterar as telas ou o fluxo dos tickets. As conversas humanas, atribuições e mudanças de estado ficam persistidas para rastreio.
 
 No chat de suporte, cada participante vê as próprias mensagens em azul e alinhadas à direita; as mensagens recebidas aparecem à esquerda. Passageiros, atendentes e administradores podem anexar imagens JPEG, PNG ou WebP de até 2 MB, com pré-visualização antes do envio. Os anexos são guardados localmente em `backend/.dados/suporte`, uma pasta ignorada pelo Git e servida apenas para visualização no chat.
+
+O painel administrativo possui a secção **Inteligência artificial**, onde é possível ativar o assistente, guardar uma chave da OpenRouter, escolher o modelo e testar a ligação. A chave é cifrada com AES-256-GCM antes de ser persistida, nunca volta a ser enviada ao navegador e é removida dos registos de auditoria. O modelo inicial é `deepseek/deepseek-chat:free`. Se a integração estiver inativa ou indisponível, o sistema utiliza automaticamente as respostas frequentes locais.
 
 ## Configuração
 
@@ -194,6 +197,10 @@ GET  /api/conta/resumo
 GET  /api/gestao/painel
 GET  /api/gestao/whatsapp/estado
 POST /api/gestao/whatsapp/iniciar
+GET  /api/gestao/ia/configuracao
+PUT  /api/gestao/ia/configuracao
+GET  /api/gestao/ia/modelos
+POST /api/gestao/ia/testar
 POST /api/gestao/autocarros
 PATCH /api/gestao/autocarros/:id/estado
 POST /api/gestao/rotas

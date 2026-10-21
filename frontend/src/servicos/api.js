@@ -135,6 +135,22 @@ export function iniciarWhatsApp(limparSessao = false) {
   return requisicao('/gestao/whatsapp/iniciar', { method: 'POST', body: JSON.stringify({ limparSessao }) });
 }
 
+export function obterConfiguracaoIa() {
+  return requisicao('/gestao/ia/configuracao');
+}
+
+export function guardarConfiguracaoIa(dados) {
+  return requisicao('/gestao/ia/configuracao', { method: 'PUT', body: JSON.stringify(dados) });
+}
+
+export function listarModelosIa() {
+  return requisicao('/gestao/ia/modelos');
+}
+
+export function testarLigacaoIa() {
+  return requisicao('/gestao/ia/testar', { method: 'POST' });
+}
+
 export function consultarAssistenteSuporte(mensagem) {
   return requisicao('/suporte/assistente', { method: 'POST', body: JSON.stringify({ mensagem }) });
 }

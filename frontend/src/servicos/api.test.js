@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { comprarBilhete, confirmarRegistoUtilizador, enviarMensagemSuporte, guardarSessao, iniciarPagamentoSimulado, listarClientesAtendimento, obterResumoConta, obterSessaoGuardada, processarPagamentoSimulado, registarUtilizador, terminarSessao } from './api.js';
+import { comprarBilhete, confirmarRegistoUtilizador, enviarMensagemSuporte, guardarConfiguracaoIa, guardarSessao, iniciarPagamentoSimulado, listarClientesAtendimento, obterResumoConta, obterSessaoGuardada, processarPagamentoSimulado, registarUtilizador, terminarSessao } from './api.js';
 
 describe('sessão do passageiro', () => {
   beforeEach(() => {
@@ -97,5 +97,16 @@ describe('sessão do passageiro', () => {
     const opcoes = fetchSimulado.mock.calls[0][1];
     expect(fetchSimulado.mock.calls[0][0]).toContain('/suporte/tickets/3/mensagens');
     expect(JSON.parse(opcoes.body)).toEqual({ mensagem: 'Imagem do problema', imagem: { nome: 'problema.png', dados: 'data:image/png;base64,AA==' } });
+  });
+
+  it('guarda a configuração de IA apenas pela rota administrativa', async () => {
+    guardarSessao({ token: 'token-administrador' });
+    const fetchSimulado = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ dados: { modelo: 'deepseek/deepseek-chat:free', apiKeyConfigurada: true } }) });
+    vi.stubGlobal('fetch', fetchSimulado);
+
+    await guardarConfiguracaoIa({ modelo: 'deepseek/deepseek-chat:free', activo: true, apiKey: 'sk-or-v1-teste' });
+
+    expect(fetchSimulado.mock.calls[0][0]).toContain('/gestao/ia/configuracao');
+    expect(fetchSimulado.mock.calls[0][1]).toEqual(expect.objectContaining({ method: 'PUT', headers: expect.objectContaining({ Authorization: 'Bearer token-administrador' }) }));
   });
 });

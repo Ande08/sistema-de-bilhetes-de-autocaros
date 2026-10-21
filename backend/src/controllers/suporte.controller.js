@@ -1,11 +1,12 @@
-import { adicionarMensagem, atribuirTicket, actualizarEstadoTicket, criarTicket, listarGestoresSuporte, listarTickets, obterTicketPorId, responderAssistente } from '../services/suporte.service.js';
+import { adicionarMensagem, atribuirTicket, actualizarEstadoTicket, criarTicket, listarGestoresSuporte, listarTickets, obterTicketPorId } from '../services/suporte.service.js';
 import { registarAuditoria } from '../services/auditoria.service.js';
 import { guardarImagemSuporte, removerImagemSuporte } from '../services/anexo-suporte.service.js';
+import { responderAssistenteComIa } from '../services/assistente-ia.service.js';
 
-export function consultarAssistente(req, res, next) {
+export async function consultarAssistente(req, res, next) {
   try {
-    if (!req.body.mensagem?.trim()) { const erro = new Error('Escreva uma pergunta para o assistente.'); erro.statusCode = 400; throw erro; }
-    return res.json({ sucesso: true, dados: responderAssistente(req.body.mensagem) });
+    if (!req.body.mensagem?.trim() || req.body.mensagem.trim().length > 2000) { const erro = new Error('Escreva uma pergunta com até 2000 caracteres para o assistente.'); erro.statusCode = 400; throw erro; }
+    return res.json({ sucesso: true, dados: await responderAssistenteComIa(req.body.mensagem.trim()) });
   } catch (erro) { return next(erro); }
 }
 
