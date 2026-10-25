@@ -8,9 +8,11 @@ import { processadorFilaWhatsapp } from '../services/fila-whatsapp.service.js';
 
 async function iniciarWorker() {
   validarVariaveisAmbiente();
-  await verificarLigacaoBaseDados();
   servicoWhatsApp.adicionarOuvinteEstado((estado) => guardarEstadoWhatsapp(estado));
-  await guardarEstadoWhatsapp(servicoWhatsApp.obterEstado());
+  // Publica um estado válido antes de esperar pela base de dados. Assim, o painel
+  // continua informativo mesmo quando o MySQL está desligado ou demora a responder.
+  await guardarEstadoWhatsapp({ ...servicoWhatsApp.obterEstado(), estado: 'A_INICIAR' });
+  await verificarLigacaoBaseDados();
   await processadorFilaWhatsapp.iniciar();
   await servicoWhatsApp.iniciar();
   console.log('Trabalhador WhatsApp iniciado sob gestão do PM2.');

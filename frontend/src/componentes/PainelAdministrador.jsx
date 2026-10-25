@@ -317,5 +317,5 @@ function BotaoEstado({ activo, aoClicar }) { return <button className={activo ? 
 function formatarData(valor) { return new Intl.DateTimeFormat('pt-MZ', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(valor)); }
 function nomePerfil(perfil) { return { PASSAGEIRO: 'Cliente', GESTOR_SUPORTE: 'Atendente', ADMIN: 'Administrador' }[perfil] || perfil; }
 function nomePessoa(pessoa) { return pessoa ? `${pessoa.nome || ''} ${pessoa.apelido || ''}`.trim() : '—'; }
-function nomeEstadoWhatsApp(estado) { return { NAO_INICIADO: 'Não iniciado', PROCESSO_PARADO: 'Processo parado', ERRO_PROCESSO: 'Erro no processo', A_LIGAR: 'A ligar', AGUARDA_QR: 'Aguarda QR Code', LIGADO: 'Ligado', A_RECONECTAR: 'A reconectar', SESSAO_TERMINADA: 'Sessão terminada', ERRO_RECONEXAO: 'Falha na reconexão' }[estado] || estado; }
+function nomeEstadoWhatsApp(estado) { return { NAO_INICIADO: 'Não iniciado', A_INICIAR: 'A iniciar', PROCESSO_PARADO: 'Processo parado', ERRO_PROCESSO: 'Erro no processo', A_LIGAR: 'A ligar', AGUARDA_QR: 'Aguarda QR Code', LIGADO: 'Ligado', A_RECONECTAR: 'A reconectar', SESSAO_TERMINADA: 'Sessão terminada', ERRO_RECONEXAO: 'Falha na reconexão' }[estado] || estado; }
 function nomeEstadoEnvio(estado) { return { PENDENTE: 'Pendente', PROCESSANDO: 'A enviar', ENVIADO: 'Enviado', FALHADO: 'Falhado', EXPIRADO: 'Expirado' }[estado] || estado; }
