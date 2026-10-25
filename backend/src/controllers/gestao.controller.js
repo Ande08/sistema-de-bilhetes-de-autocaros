@@ -12,16 +12,21 @@ export async function obterPainel(req, res, next) {
 export async function criarAutocarro(req, res, next) {
   let transacao;
   try {
-    const { matricula, modelo, capacidade } = req.body;
-    if (!matricula || !modelo || !Number.isInteger(capacidade) || capacidade <= 0) {
-      const erro = new Error('Matrícula, modelo e capacidade válida são obrigatórios.');
+    const { matricula, modelo, capacidade, lugaresEsquerda = 2, lugaresDireita = 2 } = req.body;
+    const distribuicaoValida = Number.isInteger(lugaresEsquerda) && Number.isInteger(lugaresDireita)
+      && lugaresEsquerda >= 1 && lugaresEsquerda <= 3 && lugaresDireita >= 1 && lugaresDireita <= 3;
+    if (!matricula || !modelo || !Number.isInteger(capacidade) || capacidade <= 0 || capacidade > 120 || !distribuicaoValida) {
+      const erro = new Error('Matrícula, modelo, capacidade entre 1 e 120 e distribuição válida são obrigatórios.');
       erro.statusCode = 400;
       throw erro;
     }
     transacao = await sequelize.transaction();
-    const autocarro = await Bus.create({ registration: matricula, model: modelo, capacity: capacidade }, { transaction: transacao });
-    // A capacidade informada gera automaticamente os assentos do autocarro.
-    await criarAssentosDoAutocarro(autocarro.id, capacidade, transacao);
+    const autocarro = await Bus.create({
+      registration: matricula, model: modelo, capacity: capacidade,
+      seatsLeft: lugaresEsquerda, seatsRight: lugaresDireita
+    }, { transaction: transacao });
+    // A capacidade e a distribuição geram posição, corredor e janelas.
+    await criarAssentosDoAutocarro(autocarro.id, capacidade, transacao, { lugaresEsquerda, lugaresDireita });
     await transacao.commit();
     return res.status(201).json({ sucesso: true, dados: autocarro });
   } catch (erro) {

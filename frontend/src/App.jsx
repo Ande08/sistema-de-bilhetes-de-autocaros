@@ -3,6 +3,7 @@ import Icone from './componentes/Icone.jsx';
 import PainelAdministrador from './componentes/PainelAdministrador.jsx';
 import PainelSuporte from './componentes/PainelSuporte.jsx';
 import PaginaSuportePassageiro from './componentes/PaginaSuportePassageiro.jsx';
+import MapaAssentos from './componentes/MapaAssentos.jsx';
 import { ModalConfirmacao } from './componentes/Modal.jsx';
 import { actualizarPerfil, alterarPalavraPasse, cancelarBilhete, comprarBilhete, confirmarRegistoUtilizador, guardarSessao, iniciarPagamentoSimulado, iniciarSessao, listarAssentos, obterPerfil, obterResumoConta, obterSessaoGuardada, pesquisarViagens, processarPagamentoSimulado, registarUtilizador, terminarSessao } from './servicos/api.js';
 import { formatarValor } from './utilitarios/moeda.js';
@@ -404,7 +405,7 @@ function FluxoCompra({ utilizador, aoFechar, aoComprar }) {
       {etapa === 'assentos' && <div className="selecao-assento">
         <ResumoViagem viagem={viagem} />
         <div className="legenda-assentos"><span><i className="livre" /> Disponível</span><span><i className="ocupado" /> Ocupado</span><span><i className="seleccionado" /> Selecionado</span></div>
-        <div className="mapa-assentos" aria-label="Seleção de assento">{assentos.map((assento) => <button key={assento.id} disabled={!assento.disponivel} className={String(assentoId) === String(assento.id) ? 'seleccionado' : ''} onClick={() => setAssentoId(assento.id)}>{assento.numero}</button>)}</div>
+        <MapaAssentos assentos={assentos} assentoId={assentoId} aoSelecionar={setAssentoId} />
         <div className="rodape-etapa"><button className="botao-voltar" onClick={() => setEtapa('resultados')}>Voltar</button><button className="botao-pesquisar" onClick={() => assentoId ? setEtapa('pagamento') : setErro('Selecione um assento disponível.')}>Continuar para pagamento</button></div>
       </div>}
 

@@ -1,0 +1,655 @@
+<!doctype html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Protótipo 3D para escolha de assento no sistema Viagem Bus." />
+  <title>Viagem Bus | Escolha do assento</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --azul-950: #05254a;
+      --azul-800: #074d91;
+      --azul-600: #0875d7;
+      --azul-400: #38a7ef;
+      --azul-100: #dff3ff;
+      --texto: #12395f;
+      --texto-suave: #66819a;
+      --vidro: rgba(255, 255, 255, 0.68);
+      --borda: rgba(255, 255, 255, 0.82);
+      --sombra: 0 24px 70px rgba(15, 74, 125, 0.18);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      overflow-x: hidden;
+      color: var(--texto);
+      background:
+        radial-gradient(circle at 8% 8%, rgba(74, 181, 255, 0.42), transparent 30%),
+        radial-gradient(circle at 90% 90%, rgba(35, 116, 210, 0.35), transparent 34%),
+        linear-gradient(145deg, #edf9ff 0%, #d9efff 48%, #c8e7ff 100%);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body::before,
+    body::after {
+      position: fixed;
+      z-index: -1;
+      width: 420px;
+      height: 420px;
+      border-radius: 50%;
+      content: "";
+      filter: blur(2px);
+      opacity: 0.55;
+    }
+
+    body::before { top: -190px; right: 8%; background: #5fc7ff; }
+    body::after { bottom: -230px; left: 4%; background: #75a8ff; }
+
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+
+    .pagina {
+      width: min(1460px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 24px 0 40px;
+    }
+
+    .vidro {
+      border: 1px solid var(--borda);
+      background: var(--vidro);
+      box-shadow: var(--sombra), inset 0 1px 0 rgba(255, 255, 255, 0.88);
+      backdrop-filter: blur(22px) saturate(145%);
+      -webkit-backdrop-filter: blur(22px) saturate(145%);
+    }
+
+    .topo {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 20px;
+      padding: 15px 18px;
+      border-radius: 22px;
+    }
+
+    .marca { display: flex; align-items: center; gap: 12px; }
+    .marca-simbolo {
+      display: grid;
+      width: 46px;
+      height: 46px;
+      place-items: center;
+      border-radius: 15px;
+      color: white;
+      background: linear-gradient(145deg, var(--azul-400), var(--azul-800));
+      box-shadow: 0 10px 24px rgba(8, 117, 215, 0.3);
+    }
+    .marca-simbolo svg { width: 26px; }
+    .marca strong, .marca small { display: block; }
+    .marca strong { color: var(--azul-950); font-size: 1rem; }
+    .marca small { margin-top: 2px; color: var(--texto-suave); font-size: 0.72rem; }
+
+    .passos { display: flex; align-items: center; gap: 8px; }
+    .passo { display: flex; align-items: center; gap: 7px; color: #7890a6; font-size: 0.78rem; font-weight: 700; }
+    .passo span {
+      display: grid;
+      width: 28px;
+      height: 28px;
+      place-items: center;
+      border-radius: 50%;
+      background: rgba(255,255,255,.72);
+    }
+    .passo.ativo { color: var(--azul-800); }
+    .passo.ativo span { color: white; background: var(--azul-600); }
+    .linha-passo { width: 34px; height: 1px; background: #a8cce8; }
+
+    .cabecalho {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 20px;
+      margin-bottom: 18px;
+      padding: 8px 4px;
+    }
+    .etiqueta { margin: 0 0 6px; color: var(--azul-600); font-size: .72rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+    h1 { margin: 0; color: var(--azul-950); font-size: clamp(1.75rem, 3.4vw, 2.75rem); line-height: 1.08; }
+    .cabecalho > div > p:last-child { max-width: 650px; margin: 9px 0 0; color: var(--texto-suave); }
+    .voltar { border: 0; color: var(--azul-800); background: transparent; font-weight: 750; }
+
+    .grelha {
+      display: grid;
+      grid-template-columns: minmax(0, 1.65fr) minmax(330px, .72fr);
+      gap: 20px;
+      align-items: stretch;
+    }
+
+    .palco {
+      position: relative;
+      min-height: 680px;
+      overflow: hidden;
+      border-radius: 30px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.45), rgba(220,242,255,.28)),
+        repeating-linear-gradient(90deg, transparent 0 68px, rgba(79,147,199,.07) 69px 70px),
+        repeating-linear-gradient(0deg, transparent 0 68px, rgba(79,147,199,.07) 69px 70px);
+    }
+
+    #palco-3d { position: absolute; inset: 0; width: 100%; height: 100%; outline: none; touch-action: none; }
+
+    .palco-topo {
+      position: absolute;
+      z-index: 3;
+      top: 18px;
+      left: 18px;
+      right: 18px;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      pointer-events: none;
+    }
+
+    .rota-mini, .instrucao {
+      padding: 12px 14px;
+      border: 1px solid rgba(255,255,255,.9);
+      border-radius: 16px;
+      background: rgba(255,255,255,.72);
+      box-shadow: 0 10px 30px rgba(16,72,117,.12);
+      backdrop-filter: blur(15px);
+    }
+    .rota-mini strong, .rota-mini small { display: block; }
+    .rota-mini small { margin-top: 3px; color: var(--texto-suave); }
+    .instrucao { align-self: flex-start; color: var(--texto-suave); font-size: .76rem; }
+
+    .legenda {
+      position: absolute;
+      z-index: 3;
+      bottom: 18px;
+      left: 50%;
+      display: flex;
+      gap: 16px;
+      padding: 10px 15px;
+      border: 1px solid rgba(255,255,255,.9);
+      border-radius: 16px;
+      background: rgba(255,255,255,.76);
+      box-shadow: 0 10px 28px rgba(16,72,117,.12);
+      transform: translateX(-50%);
+      backdrop-filter: blur(16px);
+    }
+    .legenda span { display: flex; align-items: center; gap: 7px; white-space: nowrap; color: var(--texto-suave); font-size: .72rem; font-weight: 700; }
+    .legenda i { width: 12px; height: 12px; border-radius: 4px; }
+    .livre { background: #e9f8ff; box-shadow: inset 0 0 0 2px #42a7e5; }
+    .selecionado { background: #0875d7; }
+    .ocupado { background: #95a8b8; }
+
+    .painel {
+      display: flex;
+      min-height: 680px;
+      flex-direction: column;
+      padding: 22px;
+      border-radius: 30px;
+    }
+    .painel h2 { margin: 0; color: var(--azul-950); font-size: 1.25rem; }
+    .painel > p { margin: 7px 0 19px; color: var(--texto-suave); font-size: .84rem; line-height: 1.5; }
+
+    .mapa-acessivel {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 7px;
+      padding: 15px;
+      border: 1px solid rgba(125,180,220,.38);
+      border-radius: 18px;
+      background: rgba(232,247,255,.55);
+    }
+    .mapa-acessivel::before {
+      grid-column: 1 / -1;
+      margin-bottom: 3px;
+      color: var(--texto-suave);
+      content: "Frente do autocarro";
+      font-size: .67rem;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-align: center;
+      text-transform: uppercase;
+    }
+    .assento-lista {
+      aspect-ratio: 1.18;
+      border: 1px solid #8cc5e9;
+      border-radius: 8px;
+      color: var(--azul-800);
+      background: rgba(255,255,255,.8);
+      font-size: .69rem;
+      font-weight: 800;
+      transition: transform .18s ease, background .18s ease, box-shadow .18s ease;
+    }
+    .assento-lista:nth-of-type(4n + 3) { grid-column: 4; }
+    .assento-lista:hover:not(:disabled), .assento-lista:focus-visible { transform: translateY(-2px); box-shadow: 0 7px 14px rgba(8,117,215,.2); outline: none; }
+    .assento-lista.esta-selecionado { color: white; border-color: var(--azul-600); background: var(--azul-600); }
+    .assento-lista:disabled { cursor: not-allowed; color: #f0f4f7; border-color: #a6b5c0; background: #95a8b8; opacity: .8; }
+
+    .separador { height: 1px; margin: 20px 0; background: rgba(117,164,198,.35); }
+    .detalhe-escolha { display: grid; gap: 11px; }
+    .linha-resumo { display: flex; justify-content: space-between; gap: 16px; color: var(--texto-suave); font-size: .84rem; }
+    .linha-resumo strong { color: var(--texto); }
+    .linha-resumo.total { margin-top: 4px; padding-top: 14px; border-top: 1px dashed #9fc5df; font-size: 1rem; }
+    .linha-resumo.total strong { color: var(--azul-600); font-size: 1.28rem; }
+
+    .continuar {
+      width: 100%;
+      min-height: 50px;
+      margin-top: auto;
+      border: 0;
+      border-radius: 15px;
+      color: white;
+      background: linear-gradient(135deg, #1595eb, #075bb7);
+      box-shadow: 0 14px 28px rgba(8,117,215,.28);
+      font-weight: 800;
+      transition: transform .18s ease, box-shadow .18s ease, opacity .18s ease;
+    }
+    .continuar:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 18px 34px rgba(8,117,215,.34); }
+    .continuar:disabled { cursor: not-allowed; opacity: .45; box-shadow: none; }
+    .nota { margin: 10px 0 0; text-align: center; color: var(--texto-suave); font-size: .7rem; }
+
+    .aviso {
+      position: fixed;
+      z-index: 10;
+      right: 24px;
+      bottom: 24px;
+      max-width: min(360px, calc(100% - 32px));
+      padding: 14px 17px;
+      border: 1px solid rgba(255,255,255,.9);
+      border-radius: 15px;
+      color: white;
+      background: rgba(5,68,127,.92);
+      box-shadow: 0 16px 40px rgba(4,49,91,.28);
+      opacity: 0;
+      transform: translateY(16px);
+      pointer-events: none;
+      transition: opacity .2s ease, transform .2s ease;
+    }
+    .aviso.visivel { opacity: 1; transform: translateY(0); }
+
+    @media (max-width: 980px) {
+      .grelha { grid-template-columns: 1fr; }
+      .palco { min-height: 590px; }
+      .painel { min-height: auto; }
+      .continuar { margin-top: 22px; }
+    }
+
+    @media (max-width: 640px) {
+      .pagina { width: min(100% - 20px, 1460px); padding-top: 10px; }
+      .topo { border-radius: 17px; }
+      .passos .passo:not(.ativo), .linha-passo { display: none; }
+      .cabecalho { align-items: flex-start; flex-direction: column-reverse; }
+      .palco { min-height: 500px; border-radius: 22px; }
+      .painel { padding: 17px; border-radius: 22px; }
+      .instrucao { display: none; }
+      .legenda { bottom: 12px; gap: 10px; width: calc(100% - 24px); justify-content: center; }
+      .legenda span { font-size: .65rem; }
+      .mapa-acessivel { padding: 11px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="pagina">
+    <nav class="topo vidro" aria-label="Progresso da compra">
+      <div class="marca">
+        <span class="marca-simbolo" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 16V6.5C5 4.6 6.5 3 8.5 3h7C17.5 3 19 4.6 19 6.5V16M5 10h14M7.5 19.5h0M16.5 19.5h0M7 16h10M6 16v2.5M18 16v2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+        <div><strong>Viagem Bus</strong><small>Compra segura de bilhetes</small></div>
+      </div>
+      <div class="passos" aria-label="Passo 2 de 3">
+        <div class="passo"><span>1</span> Viagem</div><i class="linha-passo"></i>
+        <div class="passo ativo"><span>2</span> Assento</div><i class="linha-passo"></i>
+        <div class="passo"><span>3</span> Pagamento</div>
+      </div>
+    </nav>
+
+    <header class="cabecalho">
+      <div>
+        <p class="etiqueta">Passo 2 de 3</p>
+        <h1>Escolha o seu assento</h1>
+        <p>Explore o interior do autocarro em 3D. Clique num assento livre para o reservar.</p>
+      </div>
+      <button class="voltar" type="button">Voltar às viagens</button>
+    </header>
+
+    <section class="grelha">
+      <div class="palco vidro">
+        <div class="palco-topo">
+          <div class="rota-mini"><strong>Maputo → Beira</strong><small>25 Out 2026 · 06:30</small></div>
+          <div class="instrucao">Arraste para rodar · Use a roda para aproximar</div>
+        </div>
+        <canvas id="palco-3d" aria-label="Mapa tridimensional dos assentos do autocarro"></canvas>
+        <div class="legenda" aria-label="Legenda dos assentos">
+          <span><i class="livre"></i>Livre</span>
+          <span><i class="selecionado"></i>Selecionado</span>
+          <span><i class="ocupado"></i>Ocupado</span>
+        </div>
+      </div>
+
+      <aside class="painel vidro">
+        <h2>Mapa de assentos</h2>
+        <p>Também pode escolher pela lista abaixo. Os assentos ocupados estão desativados.</p>
+        <div id="mapa-acessivel" class="mapa-acessivel" aria-label="Lista de assentos"></div>
+
+        <div class="separador"></div>
+        <div class="detalhe-escolha" aria-live="polite">
+          <div class="linha-resumo"><span>Autocarro</span><strong>Yutong ZK6122</strong></div>
+          <div class="linha-resumo"><span>Assento</span><strong id="assento-escolhido">Nenhum</strong></div>
+          <div class="linha-resumo"><span>Tipo</span><strong id="tipo-assento">—</strong></div>
+          <div class="linha-resumo total"><span>Total</span><strong id="valor-total">0 MT</strong></div>
+        </div>
+
+        <button id="continuar" class="continuar" type="button" disabled>Continuar para pagamento</button>
+        <p class="nota">O assento ficará reservado durante 15 minutos.</p>
+      </aside>
+    </section>
+  </main>
+
+  <div id="aviso" class="aviso" role="status">Assento selecionado. Pode continuar para o pagamento.</div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+      }
+    }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    const PRECO = 1800;
+    const TOTAL_ASSENTOS = 40;
+    const OCUPADOS = new Set([2, 5, 8, 13, 14, 19, 23, 28, 31, 36]);
+    const canvas = document.querySelector('#palco-3d');
+    const mapaAcessivel = document.querySelector('#mapa-acessivel');
+    const assentoEscolhido = document.querySelector('#assento-escolhido');
+    const tipoAssento = document.querySelector('#tipo-assento');
+    const valorTotal = document.querySelector('#valor-total');
+    const continuar = document.querySelector('#continuar');
+    const aviso = document.querySelector('#aviso');
+
+    let selecionado = null;
+    let emFoco = null;
+    let temporizadorAviso;
+    const objectosAssento = [];
+
+    const cena = new THREE.Scene();
+    cena.fog = new THREE.Fog(0xdff3ff, 19, 34);
+
+    const camara = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
+    camara.position.set(11.5, 15.5, 16.5);
+
+    const renderizador = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    renderizador.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderizador.setClearColor(0x000000, 0);
+    renderizador.shadowMap.enabled = true;
+    renderizador.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderizador.outputColorSpace = THREE.SRGBColorSpace;
+    renderizador.toneMapping = THREE.ACESFilmicToneMapping;
+    renderizador.toneMappingExposure = 1.08;
+
+    const controlos = new OrbitControls(camara, canvas);
+    controlos.enableDamping = true;
+    controlos.dampingFactor = 0.055;
+    controlos.enablePan = false;
+    controlos.minDistance = 13;
+    controlos.maxDistance = 28;
+    controlos.minPolarAngle = Math.PI * 0.16;
+    controlos.maxPolarAngle = Math.PI * 0.47;
+    controlos.target.set(0, 0.7, 0.5);
+
+    cena.add(new THREE.HemisphereLight(0xeaf8ff, 0x487ba1, 2.3));
+    const luzPrincipal = new THREE.DirectionalLight(0xffffff, 3.4);
+    luzPrincipal.position.set(7, 13, 8);
+    luzPrincipal.castShadow = true;
+    luzPrincipal.shadow.mapSize.set(2048, 2048);
+    cena.add(luzPrincipal);
+    const luzAzul = new THREE.PointLight(0x2b9fff, 22, 24);
+    luzAzul.position.set(-7, 5, -2);
+    cena.add(luzAzul);
+
+    const materialPiso = new THREE.MeshPhysicalMaterial({ color: 0xeffaff, roughness: .32, metalness: .08, clearcoat: .8 });
+    const materialCorredor = new THREE.MeshStandardMaterial({ color: 0xb9daf0, roughness: .58 });
+    const materialEstrutura = new THREE.MeshPhysicalMaterial({ color: 0x167fce, roughness: .24, metalness: .25, clearcoat: 1 });
+    const materialVidro = new THREE.MeshPhysicalMaterial({ color: 0x7fd4ff, transparent: true, opacity: .17, roughness: .12, metalness: .05, transmission: .45, side: THREE.DoubleSide });
+
+    function caixa(largura, altura, profundidade, material, x, y, z) {
+      const objecto = new THREE.Mesh(new THREE.BoxGeometry(largura, altura, profundidade), material);
+      objecto.position.set(x, y, z);
+      objecto.castShadow = true;
+      objecto.receiveShadow = true;
+      cena.add(objecto);
+      return objecto;
+    }
+
+    // Base, corredor, frente e painéis transparentes do autocarro.
+    caixa(8.1, .35, 16.5, materialPiso, 0, 0, .4);
+    caixa(1.25, .12, 14.7, materialCorredor, 0, .23, .6);
+    caixa(8.15, 1.0, .32, materialEstrutura, 0, .75, -7.85);
+    caixa(.22, 2.25, 16.1, materialVidro, -4.03, 1.18, .4);
+    caixa(.22, 2.25, 16.1, materialVidro, 4.03, 1.18, .4);
+
+    // Volante e posto do motorista tornam a orientação do modelo evidente.
+    const volante = new THREE.Mesh(new THREE.TorusGeometry(.44, .075, 12, 28), new THREE.MeshStandardMaterial({ color: 0x183b58, roughness: .45 }));
+    volante.position.set(-2.6, 1.25, -6.65);
+    volante.rotation.x = Math.PI / 2.3;
+    cena.add(volante);
+    caixa(1.5, .72, 1.28, new THREE.MeshStandardMaterial({ color: 0x275a80, roughness: .5 }), 2.45, .72, -6.75);
+
+    const cores = {
+      livre: { base: 0xe9f8ff, detalhe: 0x4ab0e8, emissao: 0x05243c },
+      selecionado: { base: 0x0875d7, detalhe: 0x83d4ff, emissao: 0x0d63ad },
+      ocupado: { base: 0x7f93a3, detalhe: 0xaebbc4, emissao: 0x111820 }
+    };
+
+    function criarAssento(numero, x, z) {
+      const ocupado = OCUPADOS.has(numero);
+      const grupo = new THREE.Group();
+      grupo.position.set(x, .46, z);
+      grupo.userData = { numero, ocupado };
+
+      const material = new THREE.MeshPhysicalMaterial({
+        color: ocupado ? cores.ocupado.base : cores.livre.base,
+        emissive: ocupado ? cores.ocupado.emissao : cores.livre.emissao,
+        emissiveIntensity: .1,
+        roughness: .28,
+        metalness: .03,
+        clearcoat: .72
+      });
+      const detalhe = new THREE.MeshStandardMaterial({ color: ocupado ? cores.ocupado.detalhe : cores.livre.detalhe, roughness: .34 });
+
+      const base = new THREE.Mesh(new THREE.BoxGeometry(1.18, .3, 1.1), material);
+      base.position.y = .38;
+      const encosto = new THREE.Mesh(new THREE.BoxGeometry(1.18, 1.45, .32), material);
+      encosto.position.set(0, 1.05, .38);
+      encosto.rotation.x = -.08;
+      const apoio = new THREE.Mesh(new THREE.BoxGeometry(1.02, .2, .18), detalhe);
+      apoio.position.set(0, 1.28, .18);
+      const pe = new THREE.Mesh(new THREE.CylinderGeometry(.08, .1, .55, 10), detalhe);
+      pe.position.y = .03;
+
+      [base, encosto, apoio, pe].forEach((peca) => {
+        peca.castShadow = true;
+        peca.receiveShadow = true;
+        peca.userData.assento = grupo;
+        grupo.add(peca);
+      });
+
+      const etiqueta = criarEtiquetaNumero(numero, ocupado);
+      etiqueta.position.set(0, 1.04, .2);
+      etiqueta.rotation.x = -.08;
+      grupo.add(etiqueta);
+      cena.add(grupo);
+      objectosAssento.push(grupo);
+      return grupo;
+    }
+
+    function criarEtiquetaNumero(numero, ocupado) {
+      const tela = document.createElement('canvas');
+      tela.width = 128;
+      tela.height = 128;
+      const contexto = tela.getContext('2d');
+      contexto.fillStyle = ocupado ? '#526574' : '#0875d7';
+      contexto.beginPath();
+      contexto.roundRect(16, 16, 96, 96, 24);
+      contexto.fill();
+      contexto.fillStyle = '#ffffff';
+      contexto.font = '700 54px Arial';
+      contexto.textAlign = 'center';
+      contexto.textBaseline = 'middle';
+      contexto.fillText(String(numero), 64, 68);
+      const textura = new THREE.CanvasTexture(tela);
+      textura.colorSpace = THREE.SRGBColorSpace;
+      const etiqueta = new THREE.Sprite(new THREE.SpriteMaterial({ map: textura, transparent: true }));
+      etiqueta.scale.set(.58, .58, .58);
+      etiqueta.userData.ignorarRaio = true;
+      return etiqueta;
+    }
+
+    for (let fila = 0; fila < 10; fila += 1) {
+      const z = -5.15 + fila * 1.32;
+      [-2.85, -1.5, 1.5, 2.85].forEach((x, coluna) => {
+        const numero = fila * 4 + coluna + 1;
+        criarAssento(numero, x, z);
+      });
+    }
+
+    // Rodas e sombra ajudam a leitura espacial sem fechar o interior do veículo.
+    const materialRoda = new THREE.MeshStandardMaterial({ color: 0x173143, roughness: .72 });
+    [[-4.15, -4.9], [4.15, -4.9], [-4.15, 5.6], [4.15, 5.6]].forEach(([x, z]) => {
+      const roda = new THREE.Mesh(new THREE.CylinderGeometry(.72, .72, .38, 24), materialRoda);
+      roda.position.set(x, .1, z);
+      roda.rotation.z = Math.PI / 2;
+      cena.add(roda);
+    });
+    const sombra = new THREE.Mesh(new THREE.PlaneGeometry(13, 22), new THREE.ShadowMaterial({ color: 0x194f79, opacity: .16 }));
+    sombra.rotation.x = -Math.PI / 2;
+    sombra.position.y = -.2;
+    sombra.receiveShadow = true;
+    cena.add(sombra);
+
+    function obterTipo(numero) {
+      const posicao = (numero - 1) % 4;
+      return posicao === 0 || posicao === 3 ? 'Janela' : 'Corredor';
+    }
+
+    function aplicarAspecto(grupo) {
+      const estado = grupo.userData.ocupado ? 'ocupado' : grupo.userData.numero === selecionado ? 'selecionado' : 'livre';
+      const cor = cores[estado];
+      grupo.children.forEach((peca, indice) => {
+        if (!peca.isMesh || indice === 3) return;
+        if (peca.material?.color) peca.material.color.setHex(indice === 2 ? cor.detalhe : cor.base);
+        if (peca.material?.emissive) {
+          peca.material.emissive.setHex(cor.emissao);
+          peca.material.emissiveIntensity = grupo === emFoco && estado === 'livre' ? .55 : estado === 'selecionado' ? .42 : .1;
+        }
+      });
+      const ampliacao = grupo === emFoco && !grupo.userData.ocupado ? 1.08 : grupo.userData.numero === selecionado ? 1.055 : 1;
+      grupo.scale.setScalar(ampliacao);
+    }
+
+    function selecionarAssento(numero) {
+      if (OCUPADOS.has(numero)) return;
+      selecionado = selecionado === numero ? null : numero;
+      objectosAssento.forEach(aplicarAspecto);
+      document.querySelectorAll('.assento-lista').forEach((botao) => {
+        botao.classList.toggle('esta-selecionado', Number(botao.dataset.numero) === selecionado);
+        botao.setAttribute('aria-pressed', String(Number(botao.dataset.numero) === selecionado));
+      });
+      assentoEscolhido.textContent = selecionado ? `Assento ${selecionado}` : 'Nenhum';
+      tipoAssento.textContent = selecionado ? obterTipo(selecionado) : '—';
+      valorTotal.textContent = selecionado ? `${PRECO.toLocaleString('pt-PT')} MT` : '0 MT';
+      continuar.disabled = !selecionado;
+      if (selecionado) mostrarAviso(`Assento ${selecionado} selecionado. Pode continuar para o pagamento.`);
+    }
+
+    function mostrarAviso(mensagem) {
+      aviso.textContent = mensagem;
+      aviso.classList.add('visivel');
+      clearTimeout(temporizadorAviso);
+      temporizadorAviso = setTimeout(() => aviso.classList.remove('visivel'), 2600);
+    }
+
+    for (let numero = 1; numero <= TOTAL_ASSENTOS; numero += 1) {
+      const botao = document.createElement('button');
+      botao.type = 'button';
+      botao.className = 'assento-lista';
+      botao.dataset.numero = numero;
+      botao.textContent = numero;
+      botao.disabled = OCUPADOS.has(numero);
+      botao.setAttribute('aria-label', OCUPADOS.has(numero) ? `Assento ${numero}, ocupado` : `Assento ${numero}, livre, ${obterTipo(numero)}`);
+      botao.setAttribute('aria-pressed', 'false');
+      botao.addEventListener('click', () => selecionarAssento(numero));
+      botao.addEventListener('mouseenter', () => {
+        emFoco = objectosAssento.find((item) => item.userData.numero === numero) || null;
+        objectosAssento.forEach(aplicarAspecto);
+      });
+      botao.addEventListener('mouseleave', () => { emFoco = null; objectosAssento.forEach(aplicarAspecto); });
+      mapaAcessivel.appendChild(botao);
+    }
+
+    const raio = new THREE.Raycaster();
+    const ponteiro = new THREE.Vector2();
+
+    function assentoSobPonteiro(evento) {
+      const area = canvas.getBoundingClientRect();
+      ponteiro.x = ((evento.clientX - area.left) / area.width) * 2 - 1;
+      ponteiro.y = -((evento.clientY - area.top) / area.height) * 2 + 1;
+      raio.setFromCamera(ponteiro, camara);
+      const alvos = objectosAssento.flatMap((grupo) => grupo.children.filter((filho) => filho.isMesh));
+      const impacto = raio.intersectObjects(alvos, false)[0];
+      return impacto?.object?.userData?.assento || null;
+    }
+
+    canvas.addEventListener('pointermove', (evento) => {
+      const proximo = assentoSobPonteiro(evento);
+      if (proximo === emFoco) return;
+      emFoco = proximo;
+      canvas.style.cursor = emFoco && !emFoco.userData.ocupado ? 'pointer' : emFoco ? 'not-allowed' : 'grab';
+      objectosAssento.forEach(aplicarAspecto);
+    });
+    canvas.addEventListener('pointerleave', () => { emFoco = null; objectosAssento.forEach(aplicarAspecto); });
+    canvas.addEventListener('click', (evento) => {
+      const grupo = assentoSobPonteiro(evento);
+      if (grupo) selecionarAssento(grupo.userData.numero);
+    });
+
+    continuar.addEventListener('click', () => {
+      mostrarAviso(`Assento ${selecionado} reservado por 15 minutos. A seguir abrirá o pagamento.`);
+    });
+
+    function redimensionar() {
+      const area = canvas.parentElement.getBoundingClientRect();
+      renderizador.setSize(area.width, area.height, false);
+      camara.aspect = area.width / area.height;
+      camara.updateProjectionMatrix();
+    }
+    window.addEventListener('resize', redimensionar);
+    redimensionar();
+
+    const relogio = new THREE.Clock();
+    function animar() {
+      const delta = Math.min(relogio.getDelta(), .05);
+      objectosAssento.forEach((grupo) => {
+        const alvo = grupo === emFoco && !grupo.userData.ocupado ? .09 : grupo.userData.numero === selecionado ? .055 : 0;
+        grupo.position.y += (alvo + .46 - grupo.position.y) * Math.min(delta * 12, 1);
+      });
+      controlos.update();
+      renderizador.render(cena, camara);
+      requestAnimationFrame(animar);
+    }
+    animar();
+  </script>
+</body>
+</html>

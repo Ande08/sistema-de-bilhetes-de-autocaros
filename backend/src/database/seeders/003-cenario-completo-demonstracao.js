@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { Assento, Auditoria, Bilhete, Bus, Notificacao, Pagamento, Reserva, Route, Trip, User } from '../../models/index.js';
+import { gerarMapaAssentos } from '../../services/assento.service.js';
 
 export async function executar({ transaction }) {
   if (process.env.CRIAR_DADOS_DEMO !== 'true') return;
@@ -12,7 +13,7 @@ export async function executar({ transaction }) {
   const [autocarro] = await Bus.findOrCreate({ where: { registration: 'TST-01-26' }, defaults: { model: 'Yutong Interprovincial', capacity: 32, active: true }, transaction });
   const [rota] = await Route.findOrCreate({ where: { origin: 'Tete', destination: 'Maputo' }, defaults: { distanceKm: 1500, active: true }, transaction });
 
-  await Assento.bulkCreate(Array.from({ length: autocarro.capacity }, (_, indice) => ({ autocarroId: autocarro.id, numero: String(indice + 1) })), { ignoreDuplicates: true, transaction });
+  await Assento.bulkCreate(gerarMapaAssentos(autocarro.capacity).map((assento) => ({ ...assento, autocarroId: autocarro.id })), { ignoreDuplicates: true, transaction });
   const assentos = await Assento.findAll({ where: { autocarroId: autocarro.id }, order: [['id', 'ASC']], transaction });
   const partida = new Date();
   partida.setDate(partida.getDate() + 20);

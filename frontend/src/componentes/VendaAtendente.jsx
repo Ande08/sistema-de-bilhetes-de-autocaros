@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import Icone from './Icone.jsx';
+import MapaAssentos from './MapaAssentos.jsx';
 import {
   comprarBilhete,
   iniciarPagamentoSimulado,
@@ -80,7 +81,7 @@ export default function VendaAtendente() {
       </form>
       {viagens.length > 0 && <div className="lista-venda-viagens">{viagens.map((item) => <button key={item.id} className={String(viagem?.id) === String(item.id) ? 'seleccionada' : ''} onClick={() => escolherViagem(item)}><span><strong>{item.Route?.origin} → {item.Route?.destination}</strong><small>{formatarData(item.departureAt)}</small></span><b>{formatarValor(item.price)}</b></button>)}</div>}
       {viagem && <form className="formulario-venda-final" onSubmit={vender}>
-        <div><h3>Escolha do assento</h3><div className="mapa-assentos">{assentos.map((item) => <button type="button" key={item.id} disabled={!item.disponivel} className={String(assentoId) === String(item.id) ? 'seleccionado' : ''} onClick={() => setAssentoId(item.id)}>{item.numero}</button>)}</div></div>
+        <div><h3>Escolha do assento</h3><MapaAssentos assentos={assentos} assentoId={assentoId} aoSelecionar={setAssentoId} apenasSimples /></div>
         <div className="pagamento-atendente"><h3>Pagamento simulado</h3><label>Método<select value={metodo} onChange={(evento) => setMetodo(evento.target.value)}><option value="MPESA">M-Pesa</option><option value="EMOLA">e-Mola</option><option value="CARTAO">Cartão</option></select></label>{metodo === 'CARTAO' ? <><label>Número do cartão<input name="numeroCartao" defaultValue="4242 4242 4242 4242" required /></label><label>Validade<input name="validade" defaultValue="12/30" required /></label><label>CVV<input name="cvv" type="password" defaultValue="123" required /></label></> : <label>Telefone do pagamento<input name="telefone" type="tel" defaultValue={cliente?.telefone || ''} key={cliente?.telefone} required /></label>}<button disabled={aProcessar || !assentoId}>{aProcessar ? 'A emitir bilhete...' : `Concluir venda · ${formatarValor(viagem.price)}`}</button></div>
       </form>}
     </section>

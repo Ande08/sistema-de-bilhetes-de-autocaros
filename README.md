@@ -67,7 +67,7 @@ Utilizado em `backend/src/adapters/otp.adapter.js` para isolar o envio de códig
 
 ### Strategy
 
-Aplicado na seleção do método de pagamento. Serve para trocar o comportamento de pagamento sem alterar o fluxo principal da compra.
+Aplicado na seleção do método de pagamento e em `frontend/src/componentes/MapaAssentos.jsx`, que escolhe entre a estratégia 3D e o mapa 2D leve conforme WebGL, memória, processadores e qualidade da ligação. Serve para trocar o comportamento sem alterar o fluxo principal da compra e manter a seleção de assentos disponível em telemóveis limitados.
 
 ### Observer
 

@@ -1,4 +1,5 @@
 import { Assento, Bus, Route, Trip } from '../../models/index.js';
+import { gerarMapaAssentos } from '../../services/assento.service.js';
 
 export async function executar({ transaction }) {
   // Dados de demonstração só são criados quando explicitamente ativados.
@@ -15,7 +16,7 @@ export async function executar({ transaction }) {
     transaction
   });
 
-  const assentos = Array.from({ length: autocarro.capacity }, (_, indice) => ({ autocarroId: autocarro.id, numero: String(indice + 1) }));
+  const assentos = gerarMapaAssentos(autocarro.capacity).map((assento) => ({ ...assento, autocarroId: autocarro.id }));
   await Assento.bulkCreate(assentos, { ignoreDuplicates: true, transaction });
 
   const partida = new Date();

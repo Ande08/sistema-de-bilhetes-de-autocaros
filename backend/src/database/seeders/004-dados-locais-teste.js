@@ -13,6 +13,7 @@ import {
   Trip,
   User
 } from '../../models/index.js';
+import { gerarMapaAssentos } from '../../services/assento.service.js';
 
 // Esta carga cria cenários previsíveis para demonstrações e testes manuais locais.
 // Ela só é executada quando CRIAR_DADOS_DEMO=true, evitando dados fictícios em produção.
@@ -44,10 +45,7 @@ export async function executar({ transaction }) {
 
     // Cada autocarro recebe a sua lotação completa de assentos numerados.
     await Assento.bulkCreate(
-      Array.from({ length: capacity }, (_, indice) => ({
-        autocarroId: autocarro.id,
-        numero: String(indice + 1)
-      })),
+      gerarMapaAssentos(capacity).map((assento) => ({ ...assento, autocarroId: autocarro.id })),
       { ignoreDuplicates: true, transaction }
     );
     return autocarro;

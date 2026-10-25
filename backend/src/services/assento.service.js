@@ -1,12 +1,26 @@
 import { Assento, Bilhete, Bus, Trip } from '../models/index.js';
 import { Op } from 'sequelize';
 
+// Gera um mapa físico previsível. O primeiro e o último lugar de cada fila
+// ficam junto às janelas e os blocos são separados pelo corredor central.
+export function gerarMapaAssentos(capacidade, lugaresEsquerda = 2, lugaresDireita = 2) {
+  const totalPorFila = lugaresEsquerda + lugaresDireita;
+  return Array.from({ length: capacidade }, (_, indice) => {
+    const posicao = indice % totalPorFila;
+    return {
+      numero: String(indice + 1),
+      fila: Math.floor(indice / totalPorFila) + 1,
+      coluna: String.fromCharCode(65 + posicao),
+      lado: posicao < lugaresEsquerda ? 'ESQUERDO' : 'DIREITO',
+      juntoJanela: posicao === 0 || posicao === totalPorFila - 1
+    };
+  });
+}
+
 // Cria os assentos numerados de um autocarro uma única vez.
-export async function criarAssentosDoAutocarro(autocarroId, capacidade, transacao) {
-  const assentos = Array.from({ length: capacidade }, (_, indice) => ({
-    autocarroId,
-    numero: String(indice + 1)
-  }));
+export async function criarAssentosDoAutocarro(autocarroId, capacidade, transacao, configuracao = {}) {
+  const assentos = gerarMapaAssentos(capacidade, configuracao.lugaresEsquerda, configuracao.lugaresDireita)
+    .map((assento) => ({ ...assento, autocarroId }));
   return Assento.bulkCreate(assentos, { transaction: transacao, ignoreDuplicates: true });
 }
 
@@ -32,6 +46,10 @@ export async function listarAssentosDaViagem(viagemId) {
   return assentos.map((assento) => ({
     id: assento.id,
     numero: assento.numero,
+    fila: assento.fila,
+    coluna: assento.coluna,
+    lado: assento.lado,
+    juntoJanela: assento.juntoJanela,
     disponivel: !ocupados.has(String(assento.id))
   }));
 }
