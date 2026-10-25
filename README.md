@@ -209,7 +209,7 @@ Os envios são guardados primeiro na tabela `envios_whatsapp`. A fila dá priori
 
 `WHATSAPP_RETENCAO_DIAS` controla por quantos dias os envios concluídos, falhados ou expirados permanecem no histórico; o padrão é 90 dias. Esta versão académica utiliza exclusivamente a ligação de dispositivo do Baileys.
 
-O backend está localizado em `backend/` e o frontend em `frontend/`.
+O backend está localizado em `backend/`, o frontend em `frontend/` e a documentação da integração do bot em `bot/`. O código executável do bot permanece integrado ao backend para partilhar a base de dados, a fila persistente e as regras de segurança sem duplicação.
 
 ## Endpoints atuais
 
