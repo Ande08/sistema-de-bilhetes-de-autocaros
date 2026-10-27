@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { actualizarEmpresa, actualizarUtilizador, actualizarViagem, criarAutocarro, criarRota, criarUtilizador, criarViagem, definirEstadoAutocarro, definirEstadoPassageiro, definirEstadoRota, eliminarUtilizador, obterEmpresa, obterPainel, redefinirSenhaUtilizador } from '../controllers/gestao.controller.js';
+import { actualizarEmpresa, actualizarUtilizador, actualizarViagem, criarAutocarro, criarEmpresa, criarRota, criarUtilizador, criarViagem, definirEstadoAutocarro, definirEstadoPassageiro, definirEstadoRota, eliminarUtilizador, obterEmpresa, obterPainel, redefinirSenhaUtilizador } from '../controllers/gestao.controller.js';
 import { exigirAutenticacao } from '../middlewares/autenticacao.middleware.js';
 import { exigirAdministrador, exigirAdministradorEmpresaOuPlataforma } from '../middlewares/autorizacao.middleware.js';
 import { auditarOperacaoAdministrativa } from '../middlewares/auditoria.middleware.js';
@@ -11,6 +11,7 @@ const router = Router();
 router.use(exigirAutenticacao, exigirAdministradorEmpresaOuPlataforma);
 router.use(auditarOperacaoAdministrativa);
 router.get('/painel', obterPainel);
+router.post('/empresas', exigirAdministrador, criarEmpresa);
 router.get('/empresa', obterEmpresa);
 router.put('/empresa', actualizarEmpresa);
 router.get('/whatsapp/estado', exigirAdministrador, obterEstadoWhatsApp);

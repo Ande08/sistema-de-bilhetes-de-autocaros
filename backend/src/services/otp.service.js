@@ -3,24 +3,23 @@ import bcrypt from 'bcryptjs';
 import { Op } from 'sequelize';
 import { sequelize } from '../config/database.js';
 import { obterAdaptadorOtp } from '../adapters/otp.adapter.js';
-import { Empresa, User, VerificacaoOtp } from '../models/index.js';
+import { User, VerificacaoOtp } from '../models/index.js';
 import { normalizarTelefone, validarApelido, validarNome, validarPalavraPasse } from '../validacoes/utilizador.validacao.js';
 
 const FINALIDADE_CRIAR_CONTA = 'CRIAR_CONTA';
 const FINALIDADE_RECUPERAR = 'RECUPERAR_PALAVRA_PASSE';
 
 export class ServicoOtp {
-  async solicitarCriacaoConta({ nome, apelido, telefone, palavraPasse, canal = 'WHATSAPP', tipoConta = 'PASSAGEIRO', empresaNome }) {
+  async solicitarCriacaoConta({ nome, apelido, telefone, palavraPasse, canal = 'WHATSAPP', tipoConta = 'PASSAGEIRO' }) {
     const tipoNormalizado = String(tipoConta || 'PASSAGEIRO').toUpperCase();
-    if (!['PASSAGEIRO', 'EMPRESA'].includes(tipoNormalizado)) throw erroValidacao('Selecione passageiro ou empresa como tipo de conta.');
-    const nomeEmpresa = tipoNormalizado === 'EMPRESA' ? validarNomeEmpresa(empresaNome) : null;
+    if (tipoNormalizado !== 'PASSAGEIRO') throw erroProibido('As empresas são criadas exclusivamente pelo administrador da plataforma.');
     const dados = {
       nome: validarNome(nome),
       apelido: validarApelido(apelido),
       telefone: normalizarTelefone(telefone),
       canal: String(canal).toUpperCase(),
-      tipoConta: tipoNormalizado,
-      empresaNome: nomeEmpresa
+      tipoConta: 'PASSAGEIRO',
+      empresaNome: null
     };
     validarPalavraPasse(palavraPasse);
     if (!['WHATSAPP', 'SMS'].includes(dados.canal)) throw erroValidacao('Selecione WhatsApp ou SMS para receber o código.');
@@ -72,6 +71,9 @@ export class ServicoOtp {
       order: [['id', 'DESC']]
     });
     if (!verificacao) throw erroValidacao('O código expirou ou já foi utilizado. Solicite um novo código.');
+    // Impede que pedidos antigos de cadastro empresarial sejam confirmados depois
+    // da entrada em vigor da criação exclusiva pelo administrador da plataforma.
+    if (verificacao.tipoConta !== 'PASSAGEIRO') throw erroProibido('O cadastro público é permitido apenas para passageiros.');
     if (verificacao.tentativas >= 5) throw erroConflito('O limite de tentativas foi atingido. Solicite um novo código.');
 
     const valido = await bcrypt.compare(String(codigo), verificacao.codigoHash);
@@ -82,26 +84,13 @@ export class ServicoOtp {
     if (await User.findOne({ where: { telefone: telefoneNormalizado } })) throw erroConflito('Este número de telefone já está registado.');
 
     return sequelize.transaction(async (transaction) => {
-      let empresa = null;
-      if (verificacao.tipoConta === 'EMPRESA') {
-        const slug = criarSlug(verificacao.empresaNome);
-        if (await Empresa.findOne({ where: { slug }, transaction })) {
-          throw erroConflito('Já existe uma empresa registada com este nome.');
-        }
-        empresa = await Empresa.create({
-          nome: verificacao.empresaNome,
-          slug,
-          telefone: verificacao.telefone,
-          activa: true
-        }, { transaction });
-      }
       const utilizador = await User.create({
         nome: verificacao.nome,
         apelido: verificacao.apelido,
         telefone: verificacao.telefone,
         palavraPasseHash: verificacao.palavraPasseHash,
-        empresaId: empresa?.id || null,
-        perfil: empresa ? 'EMPRESA_ADMIN' : 'PASSAGEIRO'
+        empresaId: null,
+        perfil: 'PASSAGEIRO'
       }, { transaction });
       await verificacao.update({ consumidoEm: new Date() }, { transaction });
       return utilizador;
@@ -214,17 +203,6 @@ export class ServicoOtp {
   }
 }
 
-function validarNomeEmpresa(valor) {
-  const nome = String(valor || '').trim().replace(/\s+/g, ' ');
-  if (nome.length < 3 || nome.length > 160) throw erroValidacao('O nome da empresa deve ter entre 3 e 160 caracteres.');
-  if (!/[\p{L}\d].*[\p{L}\d]/u.test(nome)) throw erroValidacao('Introduza um nome de empresa válido.');
-  return nome;
-}
-
-function criarSlug(valor) {
-  return String(valor).normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-}
-
 function erroValidacao(mensagem) { const erro = new Error(mensagem); erro.statusCode = 400; return erro; }
 function erroConflito(mensagem) { const erro = new Error(mensagem); erro.statusCode = 409; return erro; }
+function erroProibido(mensagem) { const erro = new Error(mensagem); erro.statusCode = 403; return erro; }

@@ -78,11 +78,11 @@ function BotaoAssento({ assento, assentoId, aoSelecionar }) {
   return <button
     type="button"
     disabled={!assento.disponivel}
-    className={`assento-mapa ${seleccionado ? 'seleccionado' : ''} ${assento.juntoJanela ? 'junto-janela' : 'junto-corredor'}`}
+    className={`assento-mapa ${seleccionado ? 'seleccionado' : ''} ${assento.reservadoTemporariamente ? 'reserva-temporaria' : ''} ${assento.juntoJanela ? 'junto-janela' : 'junto-corredor'}`}
     onClick={() => aoSelecionar(assento.id)}
     aria-pressed={seleccionado}
-    aria-label={`Assento ${assento.numero}, ${posicao}, ${assento.disponivel ? 'disponível' : 'ocupado'}`}
-    title={`Assento ${assento.numero} · ${posicao}`}
+    aria-label={`Assento ${assento.numero}, ${posicao}, ${assento.reservadoTemporariamente ? 'temporariamente reservado' : assento.disponivel ? 'disponível' : 'ocupado'}`}
+    title={`Assento ${assento.numero} · ${posicao}${assento.reservadoTemporariamente ? ' · reservado por outro utilizador' : ''}`}
   >
     <span>{assento.numero}</span>
     {assento.juntoJanela && <small>Janela</small>}

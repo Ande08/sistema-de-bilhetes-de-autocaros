@@ -8,6 +8,9 @@ export async function cancelarBilheteController(req, res, next) {
     transacao = await sequelize.transaction();
     const bilhete = await cancelarBilhete(req.params.codigo, req.utilizador, transacao);
     await transacao.commit();
+    req.app.get('io')?.to(`assentos:${bilhete.viagemId}`).emit('assentos:actualizado', {
+      viagemId: Number(bilhete.viagemId), assentoId: Number(bilhete.assentoId), estado: 'DISPONIVEL'
+    });
     return res.json({ sucesso: true, mensagem: 'Bilhete cancelado e pagamento reembolsado.', dados: bilhete });
   } catch (erro) {
     if (transacao && !transacao.finished) await transacao.rollback();

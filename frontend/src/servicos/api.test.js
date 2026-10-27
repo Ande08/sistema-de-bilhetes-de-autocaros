@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { actualizarEmpresaAdministrativa, comprarBilhete, confirmarRecuperacaoPalavraPasse, confirmarRegistoUtilizador, eliminarUtilizadorAdministrativo, enviarAvisoViagemAdministrativa, enviarMensagemSuporte, guardarConfiguracaoIa, guardarSessao, iniciarPagamentoSimulado, listarClientesAtendimento, listarLocalidades, obterBilhetePdf, obterResumoConta, obterSessaoGuardada, pesquisarViagens, processarPagamentoSimulado, registarUtilizador, solicitarRecuperacaoPalavraPasse, terminarSessao } from './api.js';
+import { actualizarEmpresaAdministrativa, comprarBilhete, confirmarRecuperacaoPalavraPasse, confirmarRegistoUtilizador, eliminarUtilizadorAdministrativo, enviarAvisoViagemAdministrativa, enviarMensagemSuporte, guardarConfiguracaoIa, guardarSessao, iniciarPagamentoSimulado, libertarReservaAssento, listarClientesAtendimento, listarLocalidades, obterBilhetePdf, obterResumoConta, obterSessaoGuardada, pesquisarViagens, processarPagamentoSimulado, registarUtilizador, reservarAssento, solicitarRecuperacaoPalavraPasse, terminarSessao } from './api.js';
 
 describe('sessão do passageiro', () => {
   beforeEach(() => {
@@ -46,6 +46,19 @@ describe('sessão do passageiro', () => {
 
     expect(resumo.totalBilhetesActivos).toBe(2);
     expect(fetchSimulado).toHaveBeenCalledWith(expect.stringContaining('/conta/resumo'), expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer token-resumo' }) }));
+  });
+
+  it('reserva e liberta um assento pela API autenticada', async () => {
+    guardarSessao({ token: 'token-assento' });
+    const fetchSimulado = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ dados: { assentoId: 9 } }) });
+    vi.stubGlobal('fetch', fetchSimulado);
+
+    await reservarAssento(4, 9);
+    await libertarReservaAssento(4, 9);
+
+    expect(fetchSimulado.mock.calls[0][0]).toContain('/viagens/4/assentos/9/reservar');
+    expect(fetchSimulado.mock.calls[0][1].method).toBe('POST');
+    expect(fetchSimulado.mock.calls[1][1].method).toBe('DELETE');
   });
 
   it('inicia e processa uma transação na API falsa de pagamentos', async () => {

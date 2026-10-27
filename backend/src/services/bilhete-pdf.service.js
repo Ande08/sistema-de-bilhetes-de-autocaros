@@ -1,7 +1,8 @@
 import QRCode from 'qrcode';
 
-// Gera um PDF autónomo sem depender de serviços externos. A estrutura utiliza
-// fontes padrão do PDF, por isso o bilhete abre em navegadores e leitores móveis.
+// Gera um talão de 80 mm, largura usada pelas impressoras térmicas POS. O fundo
+// branco, o texto preto e as linhas simples reduzem o consumo e preservam a
+// leitura em equipamentos térmicos monocromáticos.
 export function gerarBilhetePdf({ bilhete, empresa, rota, viagem, assento, pagamento }) {
   const dataPartida = formatarDataHora(viagem.partidaEm || viagem.departureAt);
   const emitidoEm = formatarDataHora(bilhete.createdAt || new Date());
@@ -18,36 +19,30 @@ export function gerarBilhetePdf({ bilhete, empresa, rota, viagem, assento, pagam
     ['Pagamento', traduzirEstado(estadoPagamento)]
   ];
 
-  const comandos = [];
-  comandos.push('0.965 0.984 1 rg 0 0 595 842 re f');
-  comandos.push('0.035 0.337 0.753 rg 0 692 595 150 re f');
-  comandos.push(textoPdf('VIAGEM BUS', 46, 790, 23, 'F2', [1, 1, 1]));
-  comandos.push(textoPdf('BILHETE ELETRÓNICO', 46, 758, 12, 'F1', [0.82, 0.92, 1]));
-  comandos.push(textoPdf('Apresente este documento no embarque', 46, 725, 10, 'F1', [1, 1, 1]));
+  const comandos = ['1 1 1 rg 0 0 226.772 595.276 re f'];
+  comandos.push(textoPdf(textoAjustado(empresa?.nome || 'VIAGEM BUS', 28), 14, 570, 14, 'F2', [0, 0, 0]));
+  comandos.push(textoPdf('BILHETE DE VIAGEM', 14, 550, 10, 'F2', [0, 0, 0]));
+  comandos.push(textoPdf('Apresente no embarque', 14, 535, 8, 'F1', [0, 0, 0]));
+  comandos.push('0 0 0 RG 14 525 m 212.772 525 l S');
+  comandos.push(textoPdf('CODIGO', 14, 508, 7, 'F1', [0, 0, 0]));
+  comandos.push(textoPdf(textoAjustado(bilhete.codigo, 24), 14, 488, 13, 'F2', [0, 0, 0]));
+  comandos.push('0 0 0 RG 14 478 m 212.772 478 l S');
 
-  // Cartão central com o código, fácil de localizar durante a validação.
-  comandos.push('1 1 1 rg 35 594 525 75 re f');
-  comandos.push('0.55 0.75 0.92 RG 35 594 525 75 re S');
-  comandos.push(textoPdf('CÓDIGO DO BILHETE', 54, 642, 9, 'F1', [0.35, 0.48, 0.6]));
-  comandos.push(textoPdf(bilhete.codigo, 54, 615, 18, 'F2', [0.03, 0.34, 0.69]));
-
-  let y = 555;
+  let y = 460;
   for (const [rotulo, valor] of linhas) {
-    comandos.push(textoPdf(rotulo.toUpperCase(), 48, y, 8, 'F1', [0.38, 0.5, 0.61]));
-    comandos.push(textoPdf(valor || '-', 205, y - 1, 11, 'F2', [0.06, 0.19, 0.33]));
-    comandos.push('0.82 0.9 0.96 RG 48 ' + (y - 13) + ' m 547 ' + (y - 13) + ' l S');
-    y -= 36;
+    comandos.push(textoPdf(rotulo.toUpperCase(), 14, y, 6.5, 'F1', [0, 0, 0]));
+    comandos.push(textoPdf(textoAjustado(valor || '-', 35), 14, y - 13, 8.5, 'F2', [0, 0, 0]));
+    comandos.push('0.72 0.72 0.72 RG 14 ' + (y - 19) + ' m 212.772 ' + (y - 19) + ' l S');
+    y -= 32;
   }
 
-  // O QR fica depois de todos os detalhes e contém somente o identificador do
-  // bilhete. Não inclui nome, telefone nem dados de pagamento do passageiro.
-  comandos.push(desenharQrPdf(`VIAGEM_BUS|BILHETE|${bilhete.codigo}`, 247.5, 130, 100));
-  comandos.push(textoPdf('VALIDAÇÃO DO BILHETE', 240, 115, 8, 'F2', [0.13, 0.36, 0.57]));
-
-  comandos.push('0.91 0.97 1 rg 35 42 525 58 re f');
-  comandos.push(textoPdf('Documento emitido em ' + emitidoEm, 54, 76, 9, 'F1', [0.25, 0.4, 0.53]));
-  comandos.push(textoPdf('Guarde o código para consultas e suporte.', 54, 57, 9, 'F2', [0.04, 0.35, 0.67]));
-  comandos.push(textoPdf('Sistema académico de bilhetes - valores em meticais (MT)', 46, 19, 8, 'F1', [0.42, 0.5, 0.58]));
+  // O QR aparece no fim dos detalhes e contém apenas o identificador do
+  // bilhete, nunca dados pessoais nem referências de pagamento.
+  comandos.push(desenharQrPdf(`VIAGEM_BUS|BILHETE|${bilhete.codigo}`, 68.386, 61, 90));
+  comandos.push(textoPdf('QR PARA VALIDACAO', 72, 48, 7, 'F2', [0, 0, 0]));
+  comandos.push(textoPdf(textoAjustado(`Emitido: ${emitidoEm}`, 39), 14, 30, 6.5, 'F1', [0, 0, 0]));
+  comandos.push(textoPdf('Valores em meticais (MT)', 14, 18, 6.5, 'F1', [0, 0, 0]));
+  comandos.push(textoPdf('Guarde este talao.', 14, 8, 6.5, 'F2', [0, 0, 0]));
 
   return montarPdf(comandos.join('\n'));
 }
@@ -87,6 +82,11 @@ function escaparTexto(valor) {
     .replace(/\)/g, '\\)');
 }
 
+function textoAjustado(valor, limite) {
+  const texto = String(valor ?? '-');
+  return texto.length > limite ? `${texto.slice(0, limite - 3)}...` : texto;
+}
+
 function formatarMeticais(valor) {
   return `${Number(valor || 0).toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MT`;
 }
@@ -112,7 +112,8 @@ function montarPdf(conteudo) {
   const objectos = [
     '<< /Type /Catalog /Pages 2 0 R >>',
     '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
-    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>',
+    // 226,772 x 595,276 pontos correspondem a 80 x 210 mm.
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 226.772 595.276] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>',
     '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>',
     '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>',
     Buffer.concat([Buffer.from(`<< /Length ${stream.length} >>\nstream\n`, 'ascii'), stream, Buffer.from('\nendstream', 'ascii')])

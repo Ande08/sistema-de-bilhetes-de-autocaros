@@ -15,6 +15,7 @@ test('gera um documento PDF válido com os dados essenciais do bilhete', () => {
   assert.equal(pdf.subarray(0, 8).toString('ascii'), '%PDF-1.4');
   assert.match(pdf.toString('latin1'), /BIL-TESTE-001/);
   assert.match(pdf.toString('latin1'), /% QR-CODE/);
+  assert.match(pdf.toString('latin1'), /MediaBox \[0 0 226\.772 595\.276\]/);
   assert.match(pdf.toString('latin1'), /%%EOF/);
   assert.ok(pdf.length > 5000);
 });

@@ -30,6 +30,9 @@ export async function criarCompra(req, res, next) {
         enderecoIp: req.ip
       });
     }
+    req.app.get('io')?.to(`assentos:${req.body.viagemId}`).emit('assentos:actualizado', {
+      viagemId: Number(req.body.viagemId), assentoId: Number(req.body.assentoId), estado: 'OCUPADO'
+    });
     return res.status(201).json({ sucesso: true, dados: compra });
   } catch (erro) { return next(erro); }
 }

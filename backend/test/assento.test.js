@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { gerarMapaAssentos, ordenarAssentosNumericamente } from '../src/services/assento.service.js';
+import { calcularEstadoAssento, gerarMapaAssentos, ordenarAssentosNumericamente } from '../src/services/assento.service.js';
 
 test('ordena os números dos assentos de forma natural', () => {
   const assentos = [{ numero: '1' }, { numero: '10' }, { numero: '2' }, { numero: '11' }];
@@ -28,4 +28,15 @@ test('respeita uma distribuição assimétrica 2+1', () => {
     ['1', 1, 'ESQUERDO', true], ['2', 1, 'ESQUERDO', false], ['3', 1, 'DIREITO', true],
     ['4', 2, 'ESQUERDO', true], ['5', 2, 'ESQUERDO', false]
   ]);
+});
+
+test('distingue assento vendido, reservado por outro e reservado pelo próprio utilizador', () => {
+  const ocupados = new Set(['1']);
+  const bloqueios = new Map([
+    ['2', { utilizadorId: 20, expiraEm: new Date() }],
+    ['3', { utilizadorId: 30, expiraEm: new Date() }]
+  ]);
+  assert.equal(calcularEstadoAssento({ assentoId: 1, ocupados, bloqueios, utilizadorId: 30 }).ocupado, true);
+  assert.equal(calcularEstadoAssento({ assentoId: 2, ocupados, bloqueios, utilizadorId: 30 }).reservadoTemporariamente, true);
+  assert.equal(calcularEstadoAssento({ assentoId: 3, ocupados, bloqueios, utilizadorId: 30 }).reservadoPorMim, true);
 });

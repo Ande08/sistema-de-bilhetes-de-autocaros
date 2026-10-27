@@ -6,7 +6,8 @@ import PaginaSuportePassageiro from './componentes/PaginaSuportePassageiro.jsx';
 import MapaAssentos from './componentes/MapaAssentos.jsx';
 import SelecaoLocalidade from './componentes/SelecaoLocalidade.jsx';
 import { ModalConfirmacao } from './componentes/Modal.jsx';
-import { URL_SERVIDOR, actualizarPerfil, alterarPalavraPasse, cancelarBilhete, comprarBilhete, confirmarRecuperacaoPalavraPasse, confirmarRegistoUtilizador, guardarSessao, iniciarPagamentoSimulado, iniciarSessao, listarAssentos, obterBilhetePdf, obterPerfil, obterResumoConta, obterSessaoGuardada, pesquisarViagens, processarPagamentoSimulado, registarUtilizador, solicitarRecuperacaoPalavraPasse, terminarSessao } from './servicos/api.js';
+import { URL_SERVIDOR, actualizarPerfil, alterarPalavraPasse, cancelarBilhete, comprarBilhete, confirmarRecuperacaoPalavraPasse, confirmarRegistoUtilizador, guardarSessao, iniciarPagamentoSimulado, iniciarSessao, obterBilhetePdf, obterPerfil, obterResumoConta, obterSessaoGuardada, pesquisarViagens, processarPagamentoSimulado, registarUtilizador, solicitarRecuperacaoPalavraPasse, terminarSessao } from './servicos/api.js';
+import useSelecaoAssentosTempoReal from './hooks/useSelecaoAssentosTempoReal.js';
 import { formatarValor } from './utilitarios/moeda.js';
 
 const itensMenu = [
@@ -241,7 +242,6 @@ function PaginaAutenticacao({ aoAutenticar }) {
   const [etapaRecuperacao, setEtapaRecuperacao] = useState('telefone');
   const [recuperacaoPendente, setRecuperacaoPendente] = useState(null);
   const [mostrarPalavraPasse, setMostrarPalavraPasse] = useState(false);
-  const [tipoConta, setTipoConta] = useState('PASSAGEIRO');
   const [aProcessar, setAProcessar] = useState(false);
   const [mensagem, setMensagem] = useState('');
   const [tipoMensagem, setTipoMensagem] = useState('erro');
@@ -298,7 +298,6 @@ function PaginaAutenticacao({ aoAutenticar }) {
     setRegistoPendente(null);
     setEtapaRecuperacao('telefone');
     setRecuperacaoPendente(null);
-    setTipoConta('PASSAGEIRO');
   }
 
   async function reenviarCodigo() {
@@ -332,7 +331,7 @@ function PaginaAutenticacao({ aoAutenticar }) {
       </div>
       <div className="titulo-autenticacao"><h2>{modo === 'entrar' ? 'Bem-vindo de volta' : modo === 'recuperar' ? etapaRecuperacao === 'otp' ? 'Defina uma nova palavra-passe' : 'Recupere o acesso' : etapaRegisto === 'otp' ? 'Confirme o seu número' : 'Crie a sua conta'}</h2><p>{modo === 'entrar' ? 'Introduza o telefone e a palavra-passe.' : modo === 'recuperar' ? etapaRecuperacao === 'otp' ? `Introduza o código enviado para ${recuperacaoPendente?.telefone}.` : 'Receba um código no número associado à sua conta.' : etapaRegisto === 'otp' ? `Introduza o código de 6 dígitos enviado para ${registoPendente?.telefone}.` : 'Não é necessário apresentar documento pessoal.'}</p></div>
       <form className="formulario-autenticacao" onSubmit={submeter}>
-        {modo === 'registar' && etapaRegisto === 'dados' && <><label>Tipo de conta<select name="tipoConta" value={tipoConta} onChange={(evento) => setTipoConta(evento.target.value)}><option value="PASSAGEIRO">Passageiro</option><option value="EMPRESA">Empresa de transporte</option></select></label>{tipoConta === 'EMPRESA' && <label>Nome da empresa<input name="empresaNome" minLength="3" maxLength="160" required /></label>}<div className="linha-nome-registo"><label>Nome do responsável<input name="nome" autoComplete="given-name" minLength="2" maxLength="80" required /></label><label>Apelido<input name="apelido" autoComplete="family-name" minLength="2" maxLength="120" required /></label></div></>}
+        {modo === 'registar' && etapaRegisto === 'dados' && <><input type="hidden" name="tipoConta" value="PASSAGEIRO" /><div className="linha-nome-registo"><label>Nome<input name="nome" autoComplete="given-name" minLength="2" maxLength="80" required /></label><label>Apelido<input name="apelido" autoComplete="family-name" minLength="2" maxLength="120" required /></label></div></>}
         {(modo === 'entrar' || (modo === 'registar' && etapaRegisto === 'dados') || (modo === 'recuperar' && etapaRecuperacao === 'telefone')) && <label>Número de telefone<input name="telefone" type="tel" inputMode="tel" autoComplete="tel" placeholder="84 000 0000" required /></label>}
         {((modo === 'registar' && etapaRegisto === 'dados') || (modo === 'recuperar' && etapaRecuperacao === 'telefone')) && <label>Receber código por<select name="canal" defaultValue="WHATSAPP"><option value="WHATSAPP">WhatsApp</option><option value="SMS">SMS</option></select></label>}
         {(modo === 'entrar' || (modo === 'registar' && etapaRegisto === 'dados')) && <label>Palavra-passe<div className="campo-palavra-passe"><input name="palavraPasse" type={mostrarPalavraPasse ? 'text' : 'password'} minLength="8" autoComplete={modo === 'entrar' ? 'current-password' : 'new-password'} required /><button type="button" onClick={() => setMostrarPalavraPasse((visivel) => !visivel)} aria-label={mostrarPalavraPasse ? 'Ocultar palavra-passe' : 'Mostrar palavra-passe'} title={mostrarPalavraPasse ? 'Ocultar palavra-passe' : 'Mostrar palavra-passe'}><Icone nome={mostrarPalavraPasse ? 'olhoFechado' : 'olho'} /></button></div></label>}
@@ -353,14 +352,13 @@ function FluxoCompra({ utilizador, aoFechar, aoComprar }) {
   const [etapa, setEtapa] = useState('pesquisa');
   const [viagens, setViagens] = useState([]);
   const [viagem, setViagem] = useState(null);
-  const [assentos, setAssentos] = useState([]);
-  const [assentoId, setAssentoId] = useState(null);
   const [metodoPagamento, setMetodoPagamento] = useState('MPESA');
   const [bilhete, setBilhete] = useState(null);
   const [aProcessar, setAProcessar] = useState(false);
   const [erro, setErro] = useState('');
   const [transacaoPagamento, setTransacaoPagamento] = useState(null);
   const [mensagemProcessamento, setMensagemProcessamento] = useState('A contactar o serviço de pagamento...');
+  const { assentos, assentoId, aReservar, seleccionar: seleccionarAssento, libertar: libertarAssento, actualizar: actualizarAssentos } = useSelecaoAssentosTempoReal(viagem?.id, setErro);
 
   async function pesquisar(evento) {
     evento.preventDefault();
@@ -375,14 +373,9 @@ function FluxoCompra({ utilizador, aoFechar, aoComprar }) {
   }
 
   async function escolherViagem(seleccionada) {
-    setAProcessar(true);
     setErro('');
-    try {
-      setAssentos(await listarAssentos(seleccionada.id));
-      setViagem(seleccionada);
-      setEtapa('assentos');
-    } catch (falha) { setErro(falha.message); }
-    finally { setAProcessar(false); }
+    setViagem(seleccionada);
+    setEtapa('assentos');
   }
 
   async function concluirCompra(evento) {
@@ -407,7 +400,7 @@ function FluxoCompra({ utilizador, aoFechar, aoComprar }) {
       setBilhete(compra.bilhete);
       setEtapa('concluida');
       aoComprar();
-    } catch (falha) { setErro(falha.message); setEtapa('pagamento'); }
+    } catch (falha) { setErro(falha.message); await actualizarAssentos().catch(() => {}); setEtapa('pagamento'); }
     finally { setAProcessar(false); }
   }
 
@@ -434,9 +427,10 @@ function FluxoCompra({ utilizador, aoFechar, aoComprar }) {
 
       {etapa === 'assentos' && <div className="selecao-assento">
         <ResumoViagem viagem={viagem} />
-        <div className="legenda-assentos"><span><i className="livre" /> Disponível</span><span><i className="ocupado" /> Ocupado</span><span><i className="seleccionado" /> Selecionado</span></div>
-        <MapaAssentos assentos={assentos} assentoId={assentoId} aoSelecionar={setAssentoId} />
-        <div className="rodape-etapa"><button className="botao-voltar" onClick={() => setEtapa('resultados')}>Voltar</button><button className="botao-pesquisar" onClick={() => assentoId ? setEtapa('pagamento') : setErro('Selecione um assento disponível.')}>Continuar para pagamento</button></div>
+        <div className="legenda-assentos"><span><i className="livre" /> Disponível</span><span><i className="reservado" /> Reservado agora</span><span><i className="ocupado" /> Vendido</span><span><i className="seleccionado" /> A sua seleção</span></div>
+        <MapaAssentos assentos={assentos} assentoId={assentoId} aoSelecionar={seleccionarAssento} />
+        {aReservar && <p className="estado-reserva-assento">A reservar o assento com segurança...</p>}
+        <div className="rodape-etapa"><button className="botao-voltar" onClick={async () => { await libertarAssento(); setViagem(null); setEtapa('resultados'); }}>Voltar</button><button className="botao-pesquisar" disabled={aReservar} onClick={() => assentoId ? setEtapa('pagamento') : setErro('Selecione um assento disponível.')}>Continuar para pagamento</button></div>
       </div>}
 
       {etapa === 'pagamento' && <form className="etapa-pagamento" onSubmit={concluirCompra}>

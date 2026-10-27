@@ -1,4 +1,4 @@
-import { Assento, Bilhete, Bus, Trip } from '../models/index.js';
+import { Assento, Bilhete, Reserva, Trip } from '../models/index.js';
 import { Op } from 'sequelize';
 
 // Gera um mapa físico previsível. O primeiro e o último lugar de cada fila
@@ -25,7 +25,7 @@ export async function criarAssentosDoAutocarro(autocarroId, capacidade, transaca
 }
 
 // Devolve todos os assentos do autocarro e indica os que já foram vendidos na viagem.
-export async function listarAssentosDaViagem(viagemId) {
+export async function listarAssentosDaViagem(viagemId, utilizadorId = null) {
   const viagem = await Trip.findByPk(viagemId);
   if (!viagem) {
     const erro = new Error('Viagem não encontrada.');
@@ -40,8 +40,18 @@ export async function listarAssentosDaViagem(viagemId) {
 
   const assentosEncontrados = await Assento.findAll({ where: { autocarroId: viagem.busId } });
   const assentos = ordenarAssentosNumericamente(assentosEncontrados);
-  const bilhetes = await Bilhete.findAll({ where: { viagemId, estado: { [Op.in]: ['RESERVADO', 'EMITIDO'] } } });
+  const agora = new Date();
+  // A expiração também é persistida para manter a tabela coerente mesmo após
+  // reinícios do servidor ou clientes que fecharam sem libertar o assento.
+  await Reserva.update({ estado: 'EXPIRADA' }, {
+    where: { viagemId, estado: 'PENDENTE', expiraEm: { [Op.lte]: agora } }
+  });
+  const [bilhetes, reservas] = await Promise.all([
+    Bilhete.findAll({ where: { viagemId, estado: { [Op.in]: ['RESERVADO', 'EMITIDO'] } } }),
+    Reserva.findAll({ where: { viagemId, estado: 'PENDENTE', expiraEm: { [Op.gt]: agora } } })
+  ]);
   const ocupados = new Set(bilhetes.map((bilhete) => String(bilhete.assentoId)));
+  const bloqueios = new Map(reservas.map((reserva) => [String(reserva.assentoId), reserva]));
 
   return assentos.map((assento) => ({
     id: assento.id,
@@ -50,8 +60,22 @@ export async function listarAssentosDaViagem(viagemId) {
     coluna: assento.coluna,
     lado: assento.lado,
     juntoJanela: assento.juntoJanela,
-    disponivel: !ocupados.has(String(assento.id))
+    ...calcularEstadoAssento({ assentoId: assento.id, ocupados, bloqueios, utilizadorId })
   }));
+}
+
+export function calcularEstadoAssento({ assentoId, ocupados, bloqueios, utilizadorId }) {
+  const chave = String(assentoId);
+  const vendido = ocupados.has(chave);
+  const reserva = bloqueios.get(chave);
+  const reservadoPorMim = Boolean(reserva && String(reserva.utilizadorId) === String(utilizadorId));
+  return {
+    disponivel: !vendido && (!reserva || reservadoPorMim),
+    ocupado: vendido,
+    reservadoTemporariamente: !vendido && Boolean(reserva) && !reservadoPorMim,
+    reservadoPorMim,
+    expiraEm: reservadoPorMim ? reserva.expiraEm : null
+  };
 }
 
 // A coluna é textual para aceitar futuras marcações como 1A, mas a apresentação

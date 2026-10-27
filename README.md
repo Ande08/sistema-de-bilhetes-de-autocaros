@@ -4,7 +4,7 @@ Plataforma multiempresa para consulta e comparação de viagens, seleção de as
 
 Todos os valores monetários são apresentados em **MT**.
 
-O cadastro utiliza nome, apelido e número de telefone. O utilizador pode criar uma conta de passageiro ou registar uma empresa de transporte; em ambos os casos, a conta só é criada depois da confirmação de um código OTP enviado por WhatsApp ou SMS. O mesmo canal permite recuperar a palavra-passe sem revelar se um telefone está registado. Em desenvolvimento, o envio é simulado e o código aparece na tela para permitir testes sem um fornecedor externo.
+O cadastro público utiliza nome, apelido e número de telefone e cria exclusivamente contas de passageiro, depois da confirmação de um código OTP enviado por WhatsApp ou SMS. Por segurança e controlo da plataforma, somente o administrador global pode criar uma empresa de transporte e a respetiva conta `EMPRESA_ADMIN`, através da área **Empresas** do painel administrativo. O mesmo canal permite recuperar a palavra-passe sem revelar se um telefone está registado. Em desenvolvimento, o envio é simulado e o código aparece na tela para permitir testes sem um fornecedor externo.
 
 ## Tecnologias
 
@@ -83,7 +83,11 @@ Aplicado na seleção do método de pagamento e em `frontend/src/componentes/Map
 
 ### Observer
 
-Utilizado no chat de suporte através do Socket.IO. Quando uma mensagem ou o estado de um ticket muda, o servidor publica o evento para todos os participantes autorizados na sala desse ticket. Serve para atualizar passageiro, gestor e administrador em tempo real sem consultas repetitivas.
+Utilizado no chat de suporte e no mapa de assentos através do Socket.IO. Quando uma mensagem, ticket, reserva temporária, venda ou cancelamento muda, o servidor publica o evento na respetiva sala privada. Serve para atualizar os participantes em tempo real sem depender apenas de consultas repetitivas.
+
+### Bloqueio temporário de assentos
+
+Ao selecionar um assento, o backend cria um bloqueio temporário na tabela `reservas`, associado ao utilizador autenticado. O bloqueio é renovado enquanto a tela de pagamento permanece aberta e libertado ao trocar de lugar ou abandonar o fluxo. Outros utilizadores recebem a atualização por Socket.IO e veem o lugar como temporariamente reservado. A emissão exige que a reserva continue válida e pertença ao operador da compra. Transações Sequelize com bloqueio de linha e índices únicos em `reservas(viagem_id, assento_id)` e `bilhetes(viagem_id, assento_id)` formam as barreiras finais contra vendas concorrentes.
 
 ### Producer–Consumer e fila persistente
 
@@ -123,11 +127,15 @@ Utilizado em `backend/src/realtime/suporte.socket.js`. Cada ticket possui uma sa
 - `PASSAGEIRO`: compara horários e preços de todas as empresas ativas, compra bilhetes, utiliza o assistente virtual, escolhe a empresa ao abrir um ticket e acompanha apenas os próprios pedidos;
 - `GESTOR_SUPORTE` (apresentado como **Atendente**): pertence a uma empresa, vende apenas os bilhetes dessa empresa, recebe os tickets que lhe foram atribuídos, conversa com o passageiro e atualiza o estado do atendimento;
 - `EMPRESA_ADMIN`: administra os atendentes, autocarros, rotas, viagens, vendas, avisos e suporte exclusivamente da própria empresa;
-- `ADMIN`: supervisiona a plataforma, possui visão global e gere configurações centrais como inteligência artificial e WhatsApp.
+- `ADMIN`: supervisiona a plataforma, cria as empresas e os respetivos administradores responsáveis, possui visão global e gere configurações centrais como inteligência artificial e WhatsApp.
 
-Cada empresa é criada com um proprietário `EMPRESA_ADMIN`. Autocarros, rotas, viagens e tickets ficam associados à empresa. Na pesquisa, o passageiro vê a transportadora, o horário e o preço de cada opção antes de escolher o bilhete. A origem e o destino são selecionados por província e cidade, tanto no painel do passageiro como na venda assistida e na criação administrativa de rotas.
+Cada empresa é criada exclusivamente por um `ADMIN` da plataforma e recebe, na mesma transação, um responsável com o perfil `EMPRESA_ADMIN`. Autocarros, rotas, viagens e tickets ficam associados à empresa. Na pesquisa, o passageiro vê a transportadora, o horário e o preço de cada opção antes de escolher o bilhete. A origem e o destino são selecionados por província e cidade, tanto no painel do passageiro como na venda assistida e na criação administrativa de rotas.
 
 O administrador da empresa pode editar a identidade da transportadora na área **Dados da empresa**: nome, telefone institucional, descrição, website e logótipo. Os logótipos aceitam PNG, JPEG ou WebP até 2 MB, são validados pelo conteúdo do ficheiro e aparecem no painel e na pesquisa de viagens. Ao substituir ou remover um logótipo, o ficheiro antigo também é eliminado.
+
+O bilhete PDF é produzido no formato térmico POS de **80 × 210 mm**, em preto e branco, com QR Code no final dos detalhes. Esse formato pode ser impresso em rolos térmicos de 80 mm sem redução para uma página A4.
+
+O endpoint `POST /api/gestao/empresas` é protegido pelo perfil global `ADMIN`. Ele recebe os dados da transportadora e do responsável e cria a empresa e a conta `EMPRESA_ADMIN` na mesma transação Sequelize. O cadastro público rejeita o tipo de conta empresarial, inclusive quando enviado diretamente à API.
 
 O assistente virtual utiliza inicialmente uma base de perguntas frequentes em `backend/src/services/suporte.service.js`. Esta implementação mantém a demonstração independente de serviços externos e pode ser substituída por um adaptador de IA sem alterar as telas ou o fluxo dos tickets. As conversas humanas, atribuições e mudanças de estado ficam persistidas para rastreio.
 

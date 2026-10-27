@@ -19,6 +19,9 @@ export async function criarUtilizadorAdministrativo({ nome, apelido, telefone, p
   if (administrador.perfil === 'EMPRESA_ADMIN' && dados.perfil !== 'GESTOR_SUPORTE') {
     const erro = new Error('O administrador da empresa só pode criar atendentes.'); erro.statusCode = 403; throw erro;
   }
+  if (administrador.perfil === 'ADMIN' && ['GESTOR_SUPORTE', 'EMPRESA_ADMIN'].includes(dados.perfil)) {
+    const erro = new Error('Crie a empresa e o respetivo administrador na área Empresas.'); erro.statusCode = 400; throw erro;
+  }
   dados.empresaId = dados.perfil === 'PASSAGEIRO' ? null : administrador.empresaId;
   validarPalavraPasse(palavraPasse);
   if (await User.findOne({ where: { telefone: dados.telefone } })) {

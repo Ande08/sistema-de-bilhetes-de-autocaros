@@ -87,6 +87,14 @@ export function listarAssentos(viagemId) {
   return requisicao(`/viagens/${viagemId}/assentos`);
 }
 
+export function reservarAssento(viagemId, assentoId) {
+  return requisicao(`/viagens/${viagemId}/assentos/${assentoId}/reservar`, { method: 'POST' });
+}
+
+export function libertarReservaAssento(viagemId, assentoId) {
+  return requisicao(`/viagens/${viagemId}/assentos/${assentoId}/reserva`, { method: 'DELETE' });
+}
+
 export function comprarBilhete(dados) {
   return requisicao('/compras', { method: 'POST', body: JSON.stringify(dados) });
 }
@@ -121,6 +129,10 @@ export function cancelarBilhete(codigo) {
 
 export function obterPainelAdministrativo() {
   return requisicao('/gestao/painel');
+}
+
+export function criarEmpresaAdministrativa(dados) {
+  return requisicao('/gestao/empresas', { method: 'POST', body: JSON.stringify(dados) });
 }
 
 export function obterEmpresaAdministrativa() {

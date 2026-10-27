@@ -1,7 +1,11 @@
 import { Router } from 'express';
-import { listarAssentos } from '../controllers/assento.controller.js';
+import { libertarAssento, listarAssentos, reservarAssento } from '../controllers/assento.controller.js';
+import { exigirAutenticacao } from '../middlewares/autenticacao.middleware.js';
 
 const router = Router();
+router.use(exigirAutenticacao);
 router.get('/viagens/:viagemId/assentos', listarAssentos);
+router.post('/viagens/:viagemId/assentos/:assentoId/reservar', reservarAssento);
+router.delete('/viagens/:viagemId/assentos/:assentoId/reserva', libertarAssento);
 
 export default router;

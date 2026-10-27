@@ -5,24 +5,23 @@ import SelecaoLocalidade from './SelecaoLocalidade.jsx';
 import {
   comprarBilhete,
   iniciarPagamentoSimulado,
-  listarAssentos,
   listarClientesAtendimento,
   pesquisarViagens,
   processarPagamentoSimulado
 } from '../servicos/api.js';
 import { formatarValor } from '../utilitarios/moeda.js';
+import useSelecaoAssentosTempoReal from '../hooks/useSelecaoAssentosTempoReal.js';
 
 export default function VendaAtendente() {
   const [clientes, setClientes] = useState([]);
   const [clienteId, setClienteId] = useState('');
   const [viagens, setViagens] = useState([]);
   const [viagem, setViagem] = useState(null);
-  const [assentos, setAssentos] = useState([]);
-  const [assentoId, setAssentoId] = useState('');
   const [metodo, setMetodo] = useState('MPESA');
   const [aProcessar, setAProcessar] = useState(false);
   const [erro, setErro] = useState('');
   const [resultado, setResultado] = useState(null);
+  const { assentos, assentoId, aReservar, seleccionar: seleccionarAssento, actualizar: actualizarAssentos } = useSelecaoAssentosTempoReal(viagem?.id, setErro);
 
   useEffect(() => {
     listarClientesAtendimento().then(setClientes).catch((falha) => setErro(falha.message));
@@ -30,7 +29,7 @@ export default function VendaAtendente() {
 
   async function pesquisar(evento) {
     evento.preventDefault();
-    setErro(''); setResultado(null); setViagem(null); setAssentoId('');
+    setErro(''); setResultado(null); setViagem(null);
     setAProcessar(true);
     try { setViagens(await pesquisarViagens(Object.fromEntries(new FormData(evento.currentTarget)))); }
     catch (falha) { setErro(falha.message); }
@@ -38,10 +37,7 @@ export default function VendaAtendente() {
   }
 
   async function escolherViagem(item) {
-    setErro(''); setAProcessar(true); setAssentoId('');
-    try { setAssentos(await listarAssentos(item.id)); setViagem(item); }
-    catch (falha) { setErro(falha.message); }
-    finally { setAProcessar(false); }
+    setErro(''); setViagem(item);
   }
 
   async function vender(evento) {
@@ -60,9 +56,8 @@ export default function VendaAtendente() {
         metodoPagamento: metodo, referenciaPagamento: aprovada.referencia
       });
       setResultado(compra.bilhete);
-      setAssentos((itens) => itens.map((item) => String(item.id) === String(assentoId) ? { ...item, disponivel: false } : item));
-      setAssentoId('');
-    } catch (falha) { setErro(falha.message); }
+      await actualizarAssentos();
+    } catch (falha) { setErro(falha.message); await actualizarAssentos().catch(() => {}); }
     finally { setAProcessar(false); }
   }
 
@@ -82,8 +77,8 @@ export default function VendaAtendente() {
       </form>
       {viagens.length > 0 && <div className="lista-venda-viagens">{viagens.map((item) => <button key={item.id} className={String(viagem?.id) === String(item.id) ? 'seleccionada' : ''} onClick={() => escolherViagem(item)}><span><strong>{item.Route?.origin} → {item.Route?.destination}</strong><small>{item.Empresa?.nome} · {formatarData(item.departureAt)}</small></span><b>{formatarValor(item.price)}</b></button>)}</div>}
       {viagem && <form className="formulario-venda-final" onSubmit={vender}>
-        <div><h3>Escolha do assento</h3><MapaAssentos assentos={assentos} assentoId={assentoId} aoSelecionar={setAssentoId} apenasSimples /></div>
-        <div className="pagamento-atendente"><h3>Pagamento simulado</h3><label>Método<select value={metodo} onChange={(evento) => setMetodo(evento.target.value)}><option value="MPESA">M-Pesa</option><option value="EMOLA">e-Mola</option><option value="CARTAO">Cartão</option></select></label>{metodo === 'CARTAO' ? <><label>Número do cartão<input name="numeroCartao" defaultValue="4242 4242 4242 4242" required /></label><label>Validade<input name="validade" defaultValue="12/30" required /></label><label>CVV<input name="cvv" type="password" defaultValue="123" required /></label></> : <label>Telefone do pagamento<input name="telefone" type="tel" defaultValue={cliente?.telefone || ''} key={cliente?.telefone} required /></label>}<button disabled={aProcessar || !assentoId}>{aProcessar ? 'A emitir bilhete...' : `Concluir venda · ${formatarValor(viagem.price)}`}</button></div>
+        <div><h3>Escolha do assento</h3><MapaAssentos assentos={assentos} assentoId={assentoId} aoSelecionar={seleccionarAssento} apenasSimples />{aReservar && <p className="estado-reserva-assento">A reservar o assento...</p>}</div>
+        <div className="pagamento-atendente"><h3>Pagamento simulado</h3><label>Método<select value={metodo} onChange={(evento) => setMetodo(evento.target.value)}><option value="MPESA">M-Pesa</option><option value="EMOLA">e-Mola</option><option value="CARTAO">Cartão</option></select></label>{metodo === 'CARTAO' ? <><label>Número do cartão<input name="numeroCartao" defaultValue="4242 4242 4242 4242" required /></label><label>Validade<input name="validade" defaultValue="12/30" required /></label><label>CVV<input name="cvv" type="password" defaultValue="123" required /></label></> : <label>Telefone do pagamento<input name="telefone" type="tel" defaultValue={cliente?.telefone || ''} key={cliente?.telefone} required /></label>}<button disabled={aProcessar || aReservar || !assentoId}>{aProcessar ? 'A emitir bilhete...' : `Concluir venda · ${formatarValor(viagem.price)}`}</button></div>
       </form>}
     </section>
   </main>;

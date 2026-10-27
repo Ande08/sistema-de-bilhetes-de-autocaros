@@ -3,13 +3,13 @@ import Icone from './Icone.jsx';
 import ChatTicketSuporte, { traduzirEstado } from './ChatTicketSuporte.jsx';
 import { ModalCampo, ModalConfirmacao } from './Modal.jsx';
 import SelecaoLocalidade from './SelecaoLocalidade.jsx';
-import { URL_SERVIDOR, actualizarEmpresaAdministrativa, actualizarUtilizadorAdministrativo, actualizarViagemAdministrativa, atribuirTicketSuporte, cancelarViagemAdministrativa, criarAutocarro, criarRota, criarUtilizadorAdministrativo, criarViagem, definirEstadoAdministrativo, eliminarUtilizadorAdministrativo, enviarAvisoViagemAdministrativa, guardarConfiguracaoIa, iniciarWhatsApp, listarGestoresSuporte, listarModelosIa, listarTicketsSuporte, obterConfiguracaoIa, obterEstadoWhatsApp, obterPainelAdministrativo, redefinirPalavraPasseAdministrativa, repetirEnvioWhatsapp, testarLigacaoIa } from '../servicos/api.js';
+import { URL_SERVIDOR, actualizarEmpresaAdministrativa, actualizarUtilizadorAdministrativo, actualizarViagemAdministrativa, atribuirTicketSuporte, cancelarViagemAdministrativa, criarAutocarro, criarEmpresaAdministrativa, criarRota, criarUtilizadorAdministrativo, criarViagem, definirEstadoAdministrativo, eliminarUtilizadorAdministrativo, enviarAvisoViagemAdministrativa, guardarConfiguracaoIa, iniciarWhatsApp, listarGestoresSuporte, listarModelosIa, listarTicketsSuporte, obterConfiguracaoIa, obterEstadoWhatsApp, obterPainelAdministrativo, redefinirPalavraPasseAdministrativa, repetirEnvioWhatsapp, testarLigacaoIa } from '../servicos/api.js';
 import { formatarValor } from '../utilitarios/moeda.js';
 
-const secoesGlobais = ['Visão geral', 'Utilizadores', 'Autocarros', 'Rotas', 'Viagens', 'Bilhetes', 'Suporte', 'Inteligência artificial', 'WhatsApp', 'Auditoria'];
+const secoesGlobais = ['Visão geral', 'Empresas', 'Utilizadores', 'Autocarros', 'Rotas', 'Viagens', 'Bilhetes', 'Suporte', 'Inteligência artificial', 'WhatsApp', 'Auditoria'];
 
 export default function PainelAdministrador({ utilizador, aoSair }) {
-  const secoes = utilizador.perfil === 'ADMIN' ? secoesGlobais : ['Dados da empresa', ...secoesGlobais.filter((item) => !['Inteligência artificial', 'WhatsApp'].includes(item))];
+  const secoes = utilizador.perfil === 'ADMIN' ? secoesGlobais : ['Dados da empresa', ...secoesGlobais.filter((item) => !['Empresas', 'Inteligência artificial', 'WhatsApp'].includes(item))];
   const [secao, setSecao] = useState(utilizador.perfil === 'EMPRESA_ADMIN' ? 'Dados da empresa' : 'Visão geral');
   const [dados, setDados] = useState(null);
   const [versao, setVersao] = useState(0);
@@ -57,6 +57,7 @@ export default function PainelAdministrador({ utilizador, aoSair }) {
 
 function ConteudoAdministrativo({ secao, dados, executar, submeter, utilizador }) {
   if (secao === 'Dados da empresa') return <PaginaDadosEmpresa empresa={dados.empresa} executar={executar} />;
+  if (secao === 'Empresas') return <PaginaEmpresas empresas={dados.empresas || []} executar={executar} />;
   if (secao === 'Utilizadores') return <PaginaUtilizadores utilizadores={dados.passageiros} executar={executar} administrador={utilizador} />;
   if (secao === 'Autocarros') return <><FormularioAutocarro aoSubmeter={(e) => submeter(e, criarAutocarro, 'Autocarro criado com sucesso.')} /><TabelaGestao titulo="Frota" colunas={['ID', 'Matrícula', 'Modelo', 'Capacidade', 'Distribuição', 'Estado', 'Criado em', 'Ação']} linhas={dados.autocarros.map((item) => [item.id, item.registration, item.model, item.capacity, `${item.seatsLeft || 2} + ${item.seatsRight || 2}`, item.active ? 'Ativo' : 'Inativo', formatarData(item.criado_em), <BotaoEstado activo={item.active} aoClicar={() => executar(() => definirEstadoAdministrativo('autocarros', item.id, !item.active), 'Estado do autocarro atualizado.')} />])} /></>;
   if (secao === 'Rotas') return <><FormularioRota aoSubmeter={(e) => submeter(e, criarRota, 'Rota criada com sucesso.')} /><TabelaGestao titulo="Rotas" colunas={['ID', 'Origem', 'Destino', 'Distância', 'Estado', 'Criada em', 'Ação']} linhas={dados.rotas.map((item) => [item.id, `${item.origin} (${item.originProvince})`, `${item.destination} (${item.destinationProvince})`, item.distanceKm ? `${item.distanceKm} km` : '—', item.active ? 'Ativa' : 'Inativa', formatarData(item.criado_em), <BotaoEstado activo={item.active} aoClicar={() => executar(() => definirEstadoAdministrativo('rotas', item.id, !item.active), 'Estado da rota atualizado.')} />])} /></>;
@@ -111,7 +112,7 @@ function PaginaUtilizadores({ utilizadores, executar, administrador }) {
       <label>Nome<input name="nome" defaultValue={emEdicao?.nome || ''} required minLength="3" /></label>
       <label>Apelido<input name="apelido" defaultValue={emEdicao?.apelido || ''} required minLength="2" /></label>
       <label>Telefone<input name="telefone" type="tel" defaultValue={emEdicao?.telefone || ''} placeholder="+258840000000" required /></label>
-      <label>Perfil<select name="perfil" defaultValue={emEdicao?.perfil || 'GESTOR_SUPORTE'}><option value="GESTOR_SUPORTE">Atendente</option>{administrador.perfil === 'EMPRESA_ADMIN' && emEdicao?.perfil === 'EMPRESA_ADMIN' && <option value="EMPRESA_ADMIN">Administrador da empresa</option>}{administrador.perfil === 'ADMIN' && <><option value="PASSAGEIRO">Cliente</option><option value="EMPRESA_ADMIN">Administrador da empresa</option><option value="ADMIN">Administrador da plataforma</option></>}</select></label>
+      <label>Perfil<select name="perfil" defaultValue={emEdicao?.perfil || (administrador.perfil === 'ADMIN' ? 'PASSAGEIRO' : 'GESTOR_SUPORTE')}>{(administrador.perfil === 'EMPRESA_ADMIN' || emEdicao?.perfil === 'GESTOR_SUPORTE') && <option value="GESTOR_SUPORTE">Atendente</option>}{emEdicao?.perfil === 'EMPRESA_ADMIN' && <option value="EMPRESA_ADMIN">Administrador da empresa</option>}{administrador.perfil === 'ADMIN' && <><option value="PASSAGEIRO">Cliente</option><option value="ADMIN">Administrador da plataforma</option></>}</select></label>
       {!emEdicao && <label>Palavra-passe<input name="palavraPasse" type="password" minLength="8" required /></label>}
       <button>{emEdicao ? 'Guardar alterações' : 'Criar utilizador'}</button>
       {emEdicao && <button type="button" className="botao-voltar" onClick={() => setEmEdicao(null)}>Cancelar edição</button>}
@@ -142,6 +143,38 @@ function PaginaGestaoSuporte() {
 
   if (ticketActivo) return <><button className="botao-voltar-suporte" onClick={() => { setTicketActivo(null); carregar(); }}>Voltar aos tickets</button><ChatTicketSuporte ticketId={ticketActivo} perfil="ADMIN" aoActualizar={carregar} /></>;
   return <section className="admin-tabela vidro"><div className="titulo-secao"><div><h3>Gestão de suporte</h3><p>Atribua os pedidos à equipa e acompanhe os atendimentos.</p></div><span>{tickets.length} tickets</span></div>{erro && <p className="mensagem-formulario erro">{erro}</p>}<div className="admin-tabela-scroll"><table><thead><tr><th>Código</th><th>Passageiro</th><th>Assunto</th><th>Prioridade</th><th>Estado</th><th>Gestor responsável</th><th>Ação</th></tr></thead><tbody>{tickets.map((ticket) => <tr key={ticket.id}><td>{ticket.codigo}</td><td>{nomePessoa(ticket.Passageiro)}</td><td>{ticket.assunto}</td><td>{ticket.prioridade}</td><td><b className={`estado-suporte estado-${ticket.estado.toLowerCase()}`}>{traduzirEstado(ticket.estado)}</b></td><td><select value={ticket.gestorId || ''} onChange={(evento) => atribuir(evento, ticket.id)}><option value="">Não atribuído</option>{gestores.map((gestor) => <option key={gestor.id} value={gestor.id}>{nomePessoa(gestor)}</option>)}</select></td><td><button className="admin-activar" onClick={() => setTicketActivo(ticket.id)}>Abrir</button></td></tr>)}</tbody></table></div></section>;
+}
+
+function PaginaEmpresas({ empresas, executar }) {
+  async function guardar(evento) {
+    evento.preventDefault();
+    const formulario = evento.currentTarget;
+    const dados = Object.fromEntries(new FormData(formulario));
+    const concluido = await executar(
+      () => criarEmpresaAdministrativa(dados),
+      'Empresa e administrador responsável criados com sucesso.'
+    );
+    if (concluido) formulario.reset();
+  }
+
+  return <>
+    <form className="admin-formulario admin-formulario-empresa vidro" onSubmit={guardar}>
+      <div className="cabecalho-formulario-empresa"><h3>Nova empresa</h3><p>A transportadora e o seu administrador são criados na mesma operação.</p></div>
+      <label>Nome da empresa<input name="nome" minLength="3" maxLength="160" required /></label>
+      <label>Telefone institucional<input name="telefone" type="tel" placeholder="+258840000000" /></label>
+      <label>Website<input name="website" type="url" placeholder="https://empresa.co.mz" /></label>
+      <label>Nome do responsável<input name="administradorNome" minLength="2" maxLength="80" required /></label>
+      <label>Apelido do responsável<input name="administradorApelido" minLength="2" maxLength="120" required /></label>
+      <label>Telefone de acesso<input name="administradorTelefone" type="tel" placeholder="+258840000000" required /></label>
+      <label>Palavra-passe inicial<input name="administradorPalavraPasse" type="password" minLength="8" required /></label>
+      <label className="descricao-nova-empresa">Descrição<textarea name="descricao" maxLength="500" rows="3" /></label>
+      <button type="submit">Criar empresa</button>
+    </form>
+    <TabelaGestao titulo="Empresas registadas" colunas={['ID', 'Empresa', 'Telefone', 'Administrador responsável', 'Telefone de acesso', 'Estado']} linhas={empresas.map((empresa) => {
+      const responsavel = empresa.Users?.[0];
+      return [empresa.id, empresa.nome, empresa.telefone || '—', responsavel ? nomePessoa(responsavel) : 'Sem responsável', responsavel?.telefone || '—', empresa.activa ? 'Ativa' : 'Inativa'];
+    })} />
+  </>;
 }
 
 function PaginaDadosEmpresa({ empresa, executar }) {

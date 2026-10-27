@@ -93,7 +93,8 @@ export default function MapaAssentos3D({ assentos, assentoId, aoSelecionar }) {
       objectosRef.current.forEach((grupo, id) => {
         const seleccionado = String(seleccionadoRef.current) === id;
         const ocupado = !grupo.userData.assento.disponivel;
-        const cor = ocupado ? 0x879bab : seleccionado ? 0x0875d7 : foco === grupo ? 0x8bd6ff : 0xeaf8ff;
+        const temporario = grupo.userData.assento.reservadoTemporariamente;
+        const cor = temporario ? 0xd69a2d : ocupado ? 0x879bab : seleccionado ? 0x0875d7 : foco === grupo ? 0x8bd6ff : 0xeaf8ff;
         grupo.children.filter((item) => item.isMesh).forEach((item) => {
           item.material.color.setHex(cor);
           if (item.material.emissive) {
@@ -169,7 +170,8 @@ export default function MapaAssentos3D({ assentos, assentoId, aoSelecionar }) {
     objectosRef.current.forEach((grupo, id) => {
       const ocupado = !grupo.userData.assento.disponivel;
       const seleccionado = String(assentoId) === id;
-      const cor = ocupado ? 0x879bab : seleccionado ? 0x0875d7 : 0xeaf8ff;
+      const temporario = grupo.userData.assento.reservadoTemporariamente;
+      const cor = temporario ? 0xd69a2d : ocupado ? 0x879bab : seleccionado ? 0x0875d7 : 0xeaf8ff;
       grupo.children.filter((item) => item.isMesh).forEach((item) => item.material.color.setHex(cor));
       grupo.position.y = seleccionado ? .08 : 0;
     });

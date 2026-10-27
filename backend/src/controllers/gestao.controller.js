@@ -6,6 +6,7 @@ import { actualizarUtilizadorAdministrativo, criarUtilizadorAdministrativo, defi
 import { filtroEmpresa, obterEmpresaParaCriacao } from '../services/empresa-escopo.service.js';
 import { obterLocalidadeValida } from '../services/localidades.service.js';
 import { actualizarPerfilEmpresa, obterPerfilEmpresa } from '../services/empresa-perfil.service.js';
+import { criarEmpresaAdministrativa } from '../services/empresa-administracao.service.js';
 
 export async function obterPainel(req, res, next) {
   try { return res.json({ sucesso: true, dados: await obterPainelAdministrativo(req.utilizador) }); }
@@ -108,6 +109,19 @@ export async function actualizarUtilizador(req, res, next) {
 export async function redefinirSenhaUtilizador(req, res, next) {
   try { await redefinirPalavraPasse(req.params.id, req.body.novaPalavraPasse, req.utilizador); return res.json({ sucesso: true, dados: { mensagem: 'Palavra-passe redefinida com sucesso.' } }); }
   catch (erro) { return next(erro); }
+}
+
+export async function criarEmpresa(req, res, next) {
+  try {
+    const resultado = await criarEmpresaAdministrativa(req.body, req.utilizador);
+    return res.status(201).json({
+      sucesso: true,
+      dados: {
+        empresa: resultado.empresa,
+        responsavel: dadosPublicosUtilizador(resultado.responsavel)
+      }
+    });
+  } catch (erro) { return next(erro); }
 }
 
 export async function obterEmpresa(req, res, next) {

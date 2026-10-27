@@ -19,14 +19,20 @@ export async function obterPainelAdministrativo(utilizador) {
   const filtroAuditoria = utilizador.perfil === 'ADMIN'
     ? { model: User, attributes: ['id', 'nome', 'apelido', 'telefone'] }
     : { model: User, attributes: ['id', 'nome', 'apelido', 'telefone'], where: { empresaId: utilizador.empresaId }, required: true };
-  const [passageiros, autocarros, rotas, viagens, bilhetes, auditorias, empresa] = await Promise.all([
+  const [passageiros, autocarros, rotas, viagens, bilhetes, auditorias, empresa, empresas] = await Promise.all([
     User.findAll({ where: filtroUtilizadores, attributes: ['id', 'nome', 'apelido', 'telefone', 'perfil', 'activo', 'empresaId'], order: [['id', 'DESC']], limit: 100 }),
     Bus.findAll({ where: escopo, order: [['id', 'DESC']], limit: 100 }),
     Route.findAll({ where: escopo, order: [['id', 'DESC']], limit: 100 }),
     Trip.findAll({ where: escopo, include: [Route, Bus], order: [['departureAt', 'DESC']], limit: 100 }),
     Bilhete.findAll({ include: [{ model: User, attributes: ['id', 'nome', 'apelido', 'telefone'] }, Assento, { model: Trip, where: escopo, required: true, include: [Route, Bus] }, Pagamento], order: [['id', 'DESC']], limit: 100 }),
     Auditoria.findAll({ include: [filtroAuditoria], order: [['id', 'DESC']], limit: 100 }),
-    utilizador.empresaId ? Empresa.findByPk(utilizador.empresaId) : null
+    utilizador.empresaId ? Empresa.findByPk(utilizador.empresaId) : null,
+    utilizador.perfil === 'ADMIN'
+      ? Empresa.findAll({
+        include: [{ model: User, where: { perfil: 'EMPRESA_ADMIN', eliminadoEm: null }, required: false, attributes: ['id', 'nome', 'apelido', 'telefone', 'activo'] }],
+        order: [['nome', 'ASC']]
+      })
+      : []
   ]);
   const receitaAprovada = bilhetes.reduce((total, item) => total + (item.Pagamento?.estado === 'APROVADO' ? Number(item.Pagamento.valor) : 0), 0);
   const passageirosIndicador = utilizador.perfil === 'ADMIN'
@@ -41,7 +47,8 @@ export async function obterPainelAdministrativo(utilizador) {
     viagens,
     bilhetes,
     auditorias,
-    empresa
+    empresa,
+    empresas
   };
 }
 

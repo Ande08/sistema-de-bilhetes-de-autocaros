@@ -1,8 +1,9 @@
 import { Op } from 'sequelize';
 import { sequelize } from '../config/database.js';
-import { Assento, Bilhete, Pagamento, Route, Trip, User } from '../models/index.js';
+import { Assento, Bilhete, Pagamento, Reserva, Route, Trip, User } from '../models/index.js';
 import { ServicoBilhete } from './ticket.service.js';
 import { gatewayPagamentoSimulado } from './gateway-pagamento-simulado.service.js';
+import { reservaPertenceAoUtilizador } from './reserva-assento.service.js';
 
 export class ServicoCompra {
   constructor() {
@@ -36,6 +37,20 @@ export class ServicoCompra {
         });
         if (bilheteExistente) {
           const erro = new Error('Este assento já foi vendido para esta viagem.');
+          erro.statusCode = 409;
+          throw erro;
+        }
+
+        // A compra só avança se o utilizador que iniciou o pagamento ainda
+        // possuir o bloqueio. Isto impede que uma tela desatualizada venda um
+        // assento que outro utilizador selecionou entretanto.
+        const reserva = await Reserva.findOne({
+          where: { viagemId: viagem.id, assentoId: assento.id },
+          transaction: transacao,
+          lock: transacao.LOCK.UPDATE
+        });
+        if (!reservaPertenceAoUtilizador(reserva, operadorId)) {
+          const erro = new Error('A reserva temporária deste assento expirou ou pertence a outro utilizador. Selecione novamente.');
           erro.statusCode = 409;
           throw erro;
         }
@@ -74,12 +89,19 @@ export class ServicoCompra {
           estado: pagamentoProcessado.estado
         }, { transaction: transacao });
 
+        await reserva.update({ estado: 'CONFIRMADA' }, { transaction: transacao });
+
         return { pagamento, bilhete: { ...bilhete.toJSON(), viagem: bilheteConstruido.viagem, assento: bilheteConstruido.assento } };
       });
       gatewayPagamentoSimulado.concluirUtilizacao(referenciaPagamento);
       return compra;
     } catch (erro) {
       gatewayPagamentoSimulado.libertarReserva(referenciaPagamento);
+      if (erro.name === 'SequelizeUniqueConstraintError') {
+        const conflito = new Error('Este assento acabou de ser vendido. Escolha outro lugar.');
+        conflito.statusCode = 409;
+        throw conflito;
+      }
       throw erro;
     }
   }
