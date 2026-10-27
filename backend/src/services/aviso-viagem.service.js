@@ -3,13 +3,14 @@ import { Op } from 'sequelize';
 import { sequelize } from '../config/database.js';
 import { Bilhete, Notificacao, Route, Trip, User } from '../models/index.js';
 import { enfileirarEnvioWhatsapp } from './fila-whatsapp.service.js';
+import { filtroEmpresa } from './empresa-escopo.service.js';
 
-export async function enviarAvisoManualViagem(viagemId, conteudo) {
+export async function enviarAvisoManualViagem(viagemId, conteudo, utilizador) {
   const mensagem = String(conteudo || '').trim();
   if (mensagem.length < 10 || mensagem.length > 1000) erroHttp('O aviso deve ter entre 10 e 1000 caracteres.', 400);
 
   return sequelize.transaction(async (transaction) => {
-    const viagem = await Trip.findByPk(viagemId, { include: [Route], transaction });
+    const viagem = await Trip.findOne({ where: { id: viagemId, ...filtroEmpresa(utilizador) }, include: [Route], transaction });
     if (!viagem) erroHttp('Viagem não encontrada.', 404);
     if (['CONCLUIDA', 'CANCELADA'].includes(viagem.status)) erroHttp('Não é possível enviar um novo aviso para esta viagem.', 409);
     const bilhetes = await Bilhete.findAll({

@@ -1,18 +1,19 @@
-import { Assento, Bus, Route, Trip } from '../../models/index.js';
+import { Assento, Bus, Empresa, Route, Trip } from '../../models/index.js';
 import { gerarMapaAssentos } from '../../services/assento.service.js';
 
 export async function executar({ transaction }) {
   // Dados de demonstração só são criados quando explicitamente ativados.
   if (process.env.CRIAR_DADOS_DEMO !== 'true') return;
+  const empresa = await Empresa.findOne({ where: { slug: 'viagem-bus' }, transaction });
 
   const [autocarro] = await Bus.findOrCreate({
     where: { registration: 'ABC-01-01' },
-    defaults: { model: 'Autocarro de demonstração', capacity: 40, active: true },
+    defaults: { empresaId: empresa.id, model: 'Autocarro de demonstração', capacity: 40, active: true },
     transaction
   });
   const [rota] = await Route.findOrCreate({
-    where: { origin: 'Tete', destination: 'Maputo' },
-    defaults: { distanceKm: 1500, active: true },
+    where: { empresaId: empresa.id, origin: 'Tete', destination: 'Maputo' },
+    defaults: { originProvince: 'Tete', destinationProvince: 'Maputo Cidade', distanceKm: 1500, active: true },
     transaction
   });
 
@@ -26,7 +27,7 @@ export async function executar({ transaction }) {
   chegada.setHours(chegada.getHours() + 18);
   await Trip.findOrCreate({
     where: { routeId: rota.id, busId: autocarro.id, departureAt: partida },
-    defaults: { arrivalExpectedAt: chegada, price: 1500, status: 'AGENDADA' },
+    defaults: { empresaId: empresa.id, arrivalExpectedAt: chegada, price: 1500, status: 'AGENDADA' },
     transaction
   });
 }

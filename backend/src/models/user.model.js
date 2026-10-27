@@ -10,6 +10,8 @@ User.init({
   // Mantido apenas para compatibilidade com dados antigos; já não é usado no acesso.
   email: { type: DataTypes.STRING(180), allowNull: true, unique: true, validate: { isEmail: true } },
   palavraPasseHash: { type: DataTypes.STRING(255), allowNull: false, field: 'password_hash' },
-  perfil: { type: DataTypes.ENUM('PASSAGEIRO', 'GESTOR_SUPORTE', 'ADMIN'), allowNull: false, defaultValue: 'PASSAGEIRO', field: 'perfil' },
-  activo: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true }
+  empresaId: { type: DataTypes.BIGINT.UNSIGNED, allowNull: true, field: 'empresa_id' },
+  perfil: { type: DataTypes.ENUM('PASSAGEIRO', 'GESTOR_SUPORTE', 'EMPRESA_ADMIN', 'ADMIN'), allowNull: false, defaultValue: 'PASSAGEIRO', field: 'perfil' },
+  activo: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+  eliminadoEm: { type: DataTypes.DATE, allowNull: true, field: 'eliminado_em' }
 }, { sequelize, modelName: 'User', tableName: 'utilizadores' });

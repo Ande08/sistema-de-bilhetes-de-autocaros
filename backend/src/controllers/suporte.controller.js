@@ -15,6 +15,7 @@ export async function abrirTicket(req, res, next) {
     const ticket = await criarTicket(req.utilizador, req.body);
     await registarAuditoria({ utilizadorId: req.utilizador.id, operacao: 'ABRIR_TICKET', entidade: 'tickets_suporte', entidadeId: ticket.id, valoresNovos: { codigo: ticket.codigo }, enderecoIp: req.ip });
     req.app.get('io')?.to('perfil:ADMIN').emit('suporte:novo-ticket', ticket);
+    req.app.get('io')?.to(`empresa:${ticket.empresaId}`).emit('suporte:novo-ticket', ticket);
     return res.status(201).json({ sucesso: true, dados: ticket });
   } catch (erro) { return next(erro); }
 }
@@ -58,7 +59,7 @@ export async function mudarEstado(req, res, next) {
   } catch (erro) { return next(erro); }
 }
 
-export async function obterGestores(_req, res, next) {
-  try { return res.json({ sucesso: true, dados: await listarGestoresSuporte() }); }
+export async function obterGestores(req, res, next) {
+  try { return res.json({ sucesso: true, dados: await listarGestoresSuporte(req.utilizador) }); }
   catch (erro) { return next(erro); }
 }

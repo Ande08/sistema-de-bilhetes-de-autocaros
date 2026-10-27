@@ -4,8 +4,9 @@ import PainelAdministrador from './componentes/PainelAdministrador.jsx';
 import PainelSuporte from './componentes/PainelSuporte.jsx';
 import PaginaSuportePassageiro from './componentes/PaginaSuportePassageiro.jsx';
 import MapaAssentos from './componentes/MapaAssentos.jsx';
+import SelecaoLocalidade from './componentes/SelecaoLocalidade.jsx';
 import { ModalConfirmacao } from './componentes/Modal.jsx';
-import { actualizarPerfil, alterarPalavraPasse, cancelarBilhete, comprarBilhete, confirmarRegistoUtilizador, guardarSessao, iniciarPagamentoSimulado, iniciarSessao, listarAssentos, obterPerfil, obterResumoConta, obterSessaoGuardada, pesquisarViagens, processarPagamentoSimulado, registarUtilizador, terminarSessao } from './servicos/api.js';
+import { URL_SERVIDOR, actualizarPerfil, alterarPalavraPasse, cancelarBilhete, comprarBilhete, confirmarRecuperacaoPalavraPasse, confirmarRegistoUtilizador, guardarSessao, iniciarPagamentoSimulado, iniciarSessao, listarAssentos, obterBilhetePdf, obterPerfil, obterResumoConta, obterSessaoGuardada, pesquisarViagens, processarPagamentoSimulado, registarUtilizador, solicitarRecuperacaoPalavraPasse, terminarSessao } from './servicos/api.js';
 import { formatarValor } from './utilitarios/moeda.js';
 
 const itensMenu = [
@@ -76,7 +77,7 @@ export default function App() {
   const utilizador = sessao.utilizador;
   const primeiroNome = utilizador.nome.split(' ')[0];
 
-  if (utilizador.perfil === 'ADMIN') {
+  if (['ADMIN', 'EMPRESA_ADMIN'].includes(utilizador.perfil)) {
     return <PainelAdministrador utilizador={utilizador} aoSair={sair} />;
   }
   if (utilizador.perfil === 'GESTOR_SUPORTE') {
@@ -147,13 +148,13 @@ function PaginaInicio({ resumo, aoNovaViagem, aoAbrirSuporte, aoActualizar }) {
     {proxima ? <section className="proxima-viagem" aria-label="Próxima viagem">
       <div className="viagem-conteudo">
         <div className="linha-estado"><span>Próxima viagem</span><span className="confirmado"><Icone nome="confirmado" /> Confirmado</span></div>
-        <h3>{proxima.viagem.origem} <span>→</span> {proxima.viagem.destino}</h3>
+        <h3>{proxima.viagem.origem} <span>→</span> {proxima.viagem.destino}</h3><p className="empresa-viagem">{proxima.viagem.empresa?.logoUrl && <img src={`${URL_SERVIDOR}${proxima.viagem.empresa.logoUrl}`} alt="" />}{proxima.viagem.empresa?.nome}</p>
         <div className="detalhes-viagem">
           <div><Icone nome="calendario" /><span><strong>{formatarData(proxima.viagem.partidaEm)}</strong><small>Data da viagem</small></span></div>
           <div><Icone nome="relogio" /><span><strong>{formatarHora(proxima.viagem.partidaEm)}</strong><small>Partida</small></span></div>
           <div><Icone nome="assento" /><span><strong>Assento {proxima.assento?.numero}</strong><small>{proxima.codigo}</small></span></div>
         </div>
-        <div className="acoes-viagem"><button className="botao-claro" onClick={() => imprimirBilhete(proxima)}>Ver bilhete <Icone nome="seta" /></button><button className="botao-secundario" onClick={aoNovaViagem}>Comprar outro bilhete</button></div>
+        <div className="acoes-viagem"><BotaoPdfBilhete codigo={proxima.codigo} className="botao-claro" texto="Descarregar bilhete" /><button className="botao-secundario" onClick={aoNovaViagem}>Comprar outro bilhete</button></div>
       </div><div className="arte-autocarro" aria-hidden="true"><Icone nome="autocarroGrande" /></div>
     </section> : <section className="sem-proxima-viagem vidro"><span><Icone nome="autocarro" /></span><div><h3>Ainda não tem uma viagem marcada</h3><p>Pesquise destinos disponíveis e compre o seu próximo bilhete.</p></div><button className="botao-nova-viagem" onClick={aoNovaViagem}>Nova viagem</button></section>}
 
@@ -195,7 +196,7 @@ function TabelaBilhetes({ titulo, bilhetes, aoActualizar, semMoldura = false }) 
     {titulo && <div className="titulo-secao"><h3>{titulo}</h3></div>}
     <div className="tabela-cabecalho"><span>Data</span><span>Origem → Destino</span><span>Assento</span><span>Estado</span><span>Ações</span></div>
     <div className="linhas-viagem">{bilhetes.length === 0 ? <EstadoVazio texto="Ainda não existem viagens nesta conta." /> : bilhetes.map((item) => <div className="linha-viagem" key={item.codigo}>
-      <span data-label="Data">{item.viagem ? formatarData(item.viagem.partidaEm) : '—'}</span><span data-label="Rota">{item.viagem ? `${item.viagem.origem} → ${item.viagem.destino}` : '—'}</span><span data-label="Assento">{item.assento?.numero || '—'}</span><span data-label="Estado"><b className={`estado-bilhete estado-${item.estado.toLowerCase()}`}>{traduzirEstado(item.estado)}</b></span><span data-label="Ação" className="acoes-linha"><button className="botao-contorno" onClick={() => imprimirBilhete(item)}>Ver</button>{['EMITIDO', 'RESERVADO'].includes(item.estado) && item.viagem && new Date(item.viagem.partidaEm) > new Date() && <button className="botao-cancelar" disabled={codigoEmCurso === item.codigo} onClick={() => setBilheteACancelar(item)}>Cancelar</button>}</span>
+      <span data-label="Data">{item.viagem ? formatarData(item.viagem.partidaEm) : '—'}</span><span data-label="Rota">{item.viagem ? `${item.viagem.origem} → ${item.viagem.destino}${item.viagem.empresa?.nome ? ` · ${item.viagem.empresa.nome}` : ''}` : '—'}</span><span data-label="Assento">{item.assento?.numero || '—'}</span><span data-label="Estado"><b className={`estado-bilhete estado-${item.estado.toLowerCase()}`}>{traduzirEstado(item.estado)}</b></span><span data-label="Ação" className="acoes-linha"><BotaoPdfBilhete codigo={item.codigo} />{['EMITIDO', 'RESERVADO'].includes(item.estado) && item.viagem && new Date(item.viagem.partidaEm) > new Date() && <button className="botao-cancelar" disabled={codigoEmCurso === item.codigo} onClick={() => setBilheteACancelar(item)}>Cancelar</button>}</span>
     </div>)}</div>{erro && <p className="mensagem-formulario erro">{erro}</p>}
     {bilheteACancelar && <ModalConfirmacao titulo="Cancelar bilhete" texto={`Deseja cancelar o bilhete ${bilheteACancelar.codigo}? O pagamento ficará marcado como reembolsado nesta simulação.`} textoConfirmar="Cancelar bilhete" perigo aProcessar={Boolean(codigoEmCurso)} aoConfirmar={cancelar} aoFechar={() => setBilheteACancelar(null)} />}
   </>;
@@ -237,7 +238,10 @@ function PaginaAutenticacao({ aoAutenticar }) {
   const [modo, setModo] = useState('entrar');
   const [etapaRegisto, setEtapaRegisto] = useState('dados');
   const [registoPendente, setRegistoPendente] = useState(null);
+  const [etapaRecuperacao, setEtapaRecuperacao] = useState('telefone');
+  const [recuperacaoPendente, setRecuperacaoPendente] = useState(null);
   const [mostrarPalavraPasse, setMostrarPalavraPasse] = useState(false);
+  const [tipoConta, setTipoConta] = useState('PASSAGEIRO');
   const [aProcessar, setAProcessar] = useState(false);
   const [mensagem, setMensagem] = useState('');
   const [tipoMensagem, setTipoMensagem] = useState('erro');
@@ -259,6 +263,21 @@ function PaginaAutenticacao({ aoAutenticar }) {
         await confirmarRegistoUtilizador({ telefone: registoPendente.telefone, codigo: dados.codigo });
         setModo('entrar'); setEtapaRegisto('dados'); setRegistoPendente(null);
         setTipoMensagem('sucesso'); setMensagem('Número confirmado e conta criada. Já pode iniciar sessão.');
+      } else if (modo === 'recuperar' && etapaRecuperacao === 'telefone') {
+        const pendente = await solicitarRecuperacaoPalavraPasse(dados);
+        setRecuperacaoPendente({ ...pendente, dadosOriginais: dados });
+        setEtapaRecuperacao('otp');
+        setTipoMensagem('sucesso');
+        setMensagem('Se o número estiver registado, receberá um código de recuperação.');
+      } else if (modo === 'recuperar') {
+        if (dados.novaPalavraPasse !== dados.confirmarPalavraPasse) throw new Error('As palavras-passe não coincidem.');
+        await confirmarRecuperacaoPalavraPasse({
+          telefone: recuperacaoPendente.telefone,
+          codigo: dados.codigo,
+          novaPalavraPasse: dados.novaPalavraPasse
+        });
+        setModo('entrar'); setEtapaRecuperacao('telefone'); setRecuperacaoPendente(null);
+        setTipoMensagem('sucesso'); setMensagem('Palavra-passe redefinida. Já pode iniciar sessão.');
       } else {
         const novaSessao = await iniciarSessao(dados);
         aoAutenticar(novaSessao);
@@ -277,13 +296,21 @@ function PaginaAutenticacao({ aoAutenticar }) {
     setMostrarPalavraPasse(false);
     setEtapaRegisto('dados');
     setRegistoPendente(null);
+    setEtapaRecuperacao('telefone');
+    setRecuperacaoPendente(null);
+    setTipoConta('PASSAGEIRO');
   }
 
   async function reenviarCodigo() {
     setAProcessar(true); setMensagem('');
     try {
-      const pendente = await registarUtilizador(registoPendente.dadosOriginais);
-      setRegistoPendente((actual) => ({ ...actual, ...pendente }));
+      if (modo === 'recuperar') {
+        const pendente = await solicitarRecuperacaoPalavraPasse(recuperacaoPendente.dadosOriginais);
+        setRecuperacaoPendente((actual) => ({ ...actual, ...pendente }));
+      } else {
+        const pendente = await registarUtilizador(registoPendente.dadosOriginais);
+        setRegistoPendente((actual) => ({ ...actual, ...pendente }));
+      }
       setTipoMensagem('sucesso'); setMensagem('Foi enviado um novo código de confirmação.');
     } catch (erro) { setTipoMensagem('erro'); setMensagem(erro.message); }
     finally { setAProcessar(false); }
@@ -303,16 +330,19 @@ function PaginaAutenticacao({ aoAutenticar }) {
         <button className={modo === 'entrar' ? 'ativa' : ''} onClick={() => mudarModo('entrar')}>Iniciar sessão</button>
         <button className={modo === 'registar' ? 'ativa' : ''} onClick={() => mudarModo('registar')}>Criar conta</button>
       </div>
-      <div className="titulo-autenticacao"><h2>{modo === 'entrar' ? 'Bem-vindo de volta' : etapaRegisto === 'otp' ? 'Confirme o seu número' : 'Crie a sua conta'}</h2><p>{modo === 'entrar' ? 'Introduza o telefone e a palavra-passe.' : etapaRegisto === 'otp' ? `Introduza o código de 6 dígitos enviado para ${registoPendente?.telefone}.` : 'Não é necessário apresentar documento pessoal.'}</p></div>
+      <div className="titulo-autenticacao"><h2>{modo === 'entrar' ? 'Bem-vindo de volta' : modo === 'recuperar' ? etapaRecuperacao === 'otp' ? 'Defina uma nova palavra-passe' : 'Recupere o acesso' : etapaRegisto === 'otp' ? 'Confirme o seu número' : 'Crie a sua conta'}</h2><p>{modo === 'entrar' ? 'Introduza o telefone e a palavra-passe.' : modo === 'recuperar' ? etapaRecuperacao === 'otp' ? `Introduza o código enviado para ${recuperacaoPendente?.telefone}.` : 'Receba um código no número associado à sua conta.' : etapaRegisto === 'otp' ? `Introduza o código de 6 dígitos enviado para ${registoPendente?.telefone}.` : 'Não é necessário apresentar documento pessoal.'}</p></div>
       <form className="formulario-autenticacao" onSubmit={submeter}>
-        {modo === 'registar' && etapaRegisto === 'dados' && <><div className="linha-nome-registo"><label>Nome<input name="nome" autoComplete="given-name" minLength="2" maxLength="80" required /></label><label>Apelido<input name="apelido" autoComplete="family-name" minLength="2" maxLength="120" required /></label></div></>}
-        {etapaRegisto === 'dados' && <label>Número de telefone<input name="telefone" type="tel" inputMode="tel" autoComplete="tel" placeholder="84 000 0000" required /></label>}
-        {modo === 'registar' && etapaRegisto === 'dados' && <label>Receber código por<select name="canal" defaultValue="WHATSAPP"><option value="WHATSAPP">WhatsApp</option><option value="SMS">SMS</option></select></label>}
-        {etapaRegisto === 'dados' && <label>Palavra-passe<div className="campo-palavra-passe"><input name="palavraPasse" type={mostrarPalavraPasse ? 'text' : 'password'} minLength="8" autoComplete={modo === 'entrar' ? 'current-password' : 'new-password'} required /><button type="button" onClick={() => setMostrarPalavraPasse((visivel) => !visivel)} aria-label={mostrarPalavraPasse ? 'Ocultar palavra-passe' : 'Mostrar palavra-passe'} title={mostrarPalavraPasse ? 'Ocultar palavra-passe' : 'Mostrar palavra-passe'}><Icone nome={mostrarPalavraPasse ? 'olhoFechado' : 'olho'} /></button></div></label>}
+        {modo === 'registar' && etapaRegisto === 'dados' && <><label>Tipo de conta<select name="tipoConta" value={tipoConta} onChange={(evento) => setTipoConta(evento.target.value)}><option value="PASSAGEIRO">Passageiro</option><option value="EMPRESA">Empresa de transporte</option></select></label>{tipoConta === 'EMPRESA' && <label>Nome da empresa<input name="empresaNome" minLength="3" maxLength="160" required /></label>}<div className="linha-nome-registo"><label>Nome do responsável<input name="nome" autoComplete="given-name" minLength="2" maxLength="80" required /></label><label>Apelido<input name="apelido" autoComplete="family-name" minLength="2" maxLength="120" required /></label></div></>}
+        {(modo === 'entrar' || (modo === 'registar' && etapaRegisto === 'dados') || (modo === 'recuperar' && etapaRecuperacao === 'telefone')) && <label>Número de telefone<input name="telefone" type="tel" inputMode="tel" autoComplete="tel" placeholder="84 000 0000" required /></label>}
+        {((modo === 'registar' && etapaRegisto === 'dados') || (modo === 'recuperar' && etapaRecuperacao === 'telefone')) && <label>Receber código por<select name="canal" defaultValue="WHATSAPP"><option value="WHATSAPP">WhatsApp</option><option value="SMS">SMS</option></select></label>}
+        {(modo === 'entrar' || (modo === 'registar' && etapaRegisto === 'dados')) && <label>Palavra-passe<div className="campo-palavra-passe"><input name="palavraPasse" type={mostrarPalavraPasse ? 'text' : 'password'} minLength="8" autoComplete={modo === 'entrar' ? 'current-password' : 'new-password'} required /><button type="button" onClick={() => setMostrarPalavraPasse((visivel) => !visivel)} aria-label={mostrarPalavraPasse ? 'Ocultar palavra-passe' : 'Mostrar palavra-passe'} title={mostrarPalavraPasse ? 'Ocultar palavra-passe' : 'Mostrar palavra-passe'}><Icone nome={mostrarPalavraPasse ? 'olhoFechado' : 'olho'} /></button></div></label>}
+        {modo === 'entrar' && <button className="botao-recuperar-senha" type="button" onClick={() => mudarModo('recuperar')}>Esqueci a palavra-passe</button>}
         {modo === 'registar' && etapaRegisto === 'otp' && <><label>Código de confirmação<input className="campo-otp" name="codigo" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength="6" placeholder="000000" required /></label>{registoPendente?.codigoDemonstracao && <p className="codigo-demonstracao">Código de demonstração: <strong>{registoPendente.codigoDemonstracao}</strong></p>}</>}
+        {modo === 'recuperar' && etapaRecuperacao === 'otp' && <><label>Código de recuperação<input className="campo-otp" name="codigo" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength="6" placeholder="000000" required /></label>{recuperacaoPendente?.codigoDemonstracao && <p className="codigo-demonstracao">Código de demonstração: <strong>{recuperacaoPendente.codigoDemonstracao}</strong></p>}<label>Nova palavra-passe<div className="campo-palavra-passe"><input name="novaPalavraPasse" type={mostrarPalavraPasse ? 'text' : 'password'} minLength="8" autoComplete="new-password" required /><button type="button" onClick={() => setMostrarPalavraPasse((visivel) => !visivel)} aria-label={mostrarPalavraPasse ? 'Ocultar palavra-passe' : 'Mostrar palavra-passe'}><Icone nome={mostrarPalavraPasse ? 'olhoFechado' : 'olho'} /></button></div></label><label>Confirmar nova palavra-passe<input name="confirmarPalavraPasse" type={mostrarPalavraPasse ? 'text' : 'password'} minLength="8" autoComplete="new-password" required /></label></>}
         {mensagem && <p className={`mensagem-formulario ${tipoMensagem}`} role="status">{mensagem}</p>}
-        <button className="botao-autenticacao" disabled={aProcessar}>{aProcessar ? 'A processar...' : modo === 'entrar' ? 'Entrar na minha conta' : etapaRegisto === 'otp' ? 'Confirmar e criar conta' : 'Enviar código de confirmação'}</button>
+        <button className="botao-autenticacao" disabled={aProcessar}>{aProcessar ? 'A processar...' : modo === 'entrar' ? 'Entrar na minha conta' : modo === 'recuperar' ? etapaRecuperacao === 'otp' ? 'Redefinir palavra-passe' : 'Enviar código de recuperação' : etapaRegisto === 'otp' ? 'Confirmar e criar conta' : 'Enviar código de confirmação'}</button>
         {modo === 'registar' && etapaRegisto === 'otp' && <div className="acoes-otp"><button type="button" onClick={() => { setEtapaRegisto('dados'); setMensagem(''); }}>Corrigir dados</button><button type="button" onClick={reenviarCodigo} disabled={aProcessar}>Reenviar código</button></div>}
+        {modo === 'recuperar' && <div className="acoes-otp"><button type="button" onClick={() => mudarModo('entrar')}>Voltar ao início de sessão</button>{etapaRecuperacao === 'otp' && <button type="button" onClick={reenviarCodigo} disabled={aProcessar}>Reenviar código</button>}</div>}
       </form>
       <p className="nota-seguranca"><Icone nome="escudo" /> Os seus dados são protegidos e utilizados apenas para gerir as viagens.</p>
     </section>
@@ -387,15 +417,15 @@ function FluxoCompra({ utilizador, aoFechar, aoComprar }) {
       <div className="modal-topo"><div><p className="etiqueta">Comprar bilhete</p><h2 id="titulo-nova-viagem">{tituloEtapa(etapa)}</h2><p>{descricaoEtapa(etapa)}</p></div><button className="fechar-modal" disabled={aProcessar} onClick={aoFechar} aria-label="Fechar">×</button></div>
 
       {etapa === 'pesquisa' && <form className="formulario-nova-viagem pesquisa-compra" onSubmit={pesquisar}>
-        <label>Origem<input name="origem" placeholder="Ex.: Tete" required /></label>
-        <label>Destino<input name="destino" placeholder="Ex.: Maputo" required /></label>
+        <SelecaoLocalidade prefixo="origem" titulo="Origem" />
+        <SelecaoLocalidade prefixo="destino" titulo="Destino" />
         <label>Data da viagem<input name="data" type="date" min={new Date().toISOString().slice(0, 10)} required /></label>
         <button disabled={aProcessar} type="submit" className="botao-pesquisar"><Icone nome="pesquisa" /> {aProcessar ? 'A pesquisar...' : 'Pesquisar viagens'}</button>
       </form>}
 
       {etapa === 'resultados' && <div className="resultados-viagens">
         {viagens.length === 0 ? <div className="estado-vazio"><Icone nome="autocarro" /><strong>Nenhuma viagem encontrada</strong><p>Altere a origem, o destino ou a data e tente novamente.</p></div> : viagens.map((item) => <article className="opcao-viagem vidro" key={item.id}>
-          <div><strong>{item.Route?.origin} → {item.Route?.destination}</strong><span>{formatarDataHora(item.departureAt)}</span></div>
+          <div className="identidade-viagem">{item.Empresa?.logoUrl ? <img src={`${URL_SERVIDOR}${item.Empresa.logoUrl}`} alt={`Logótipo da ${item.Empresa.nome}`} /> : <span className="logo-empresa-generico"><Icone nome="autocarro" /></span>}<div><strong>{item.Route?.origin} → {item.Route?.destination}</strong><span>{item.Empresa?.nome || 'Empresa de transporte'} · {formatarDataHora(item.departureAt)}</span></div></div>
           <div className="preco-viagem"><small>Preço</small><strong>{formatarMeticais(item.price)}</strong></div>
           <button onClick={() => escolherViagem(item)} disabled={aProcessar}>Escolher</button>
         </article>)}
@@ -419,7 +449,7 @@ function FluxoCompra({ utilizador, aoFechar, aoComprar }) {
 
       {etapa === 'processando' && <div className="pagamento-processando" role="status" aria-live="polite"><span className="animacao-pagamento"><i /><i /><i /></span><h3>Pagamento em processamento</h3><p>{mensagemProcessamento}</p><div className="detalhes-processamento"><span><small>Método</small><strong>{nomeMetodoPagamento(metodoPagamento)}</strong></span><span><small>Valor</small><strong>{formatarMeticais(viagem.price)}</strong></span>{transacaoPagamento && <span><small>Referência</small><strong>{transacaoPagamento.referencia}</strong></span>}</div><small>Não feche esta tela durante a simulação.</small></div>}
 
-      {etapa === 'concluida' && <div className="compra-concluida"><span className="icone-sucesso"><Icone nome="confirmado" /></span><h3>Bilhete emitido com sucesso</h3><p>O pagamento foi aprovado e o seu assento está confirmado.</p><div className="bilhete-resumo"><small>Código do bilhete</small><strong>{bilhete.codigo}</strong><span>{rota?.origin} → {rota?.destination}</span><span>Assento {bilhete.assento.numero} · {formatarMeticais(bilhete.preco)}</span></div><button className="botao-pesquisar" onClick={aoFechar}>Concluir</button></div>}
+      {etapa === 'concluida' && <div className="compra-concluida"><span className="icone-sucesso"><Icone nome="confirmado" /></span><h3>Bilhete emitido com sucesso</h3><p>O pagamento foi aprovado e o seu assento está confirmado.</p><div className="bilhete-resumo"><small>Código do bilhete</small><strong>{bilhete.codigo}</strong><span>{rota?.origin} → {rota?.destination}</span><span>Assento {bilhete.assento.numero} · {formatarMeticais(bilhete.preco)}</span></div><div className="acoes-bilhete-concluido"><BotaoPdfBilhete codigo={bilhete.codigo} className="botao-pesquisar" texto="Descarregar bilhete em PDF" /><button className="botao-voltar" onClick={aoFechar}>Concluir</button></div></div>}
 
       {erro && <p className="mensagem-formulario erro" role="alert">{erro}</p>}
       {!['concluida', 'processando'].includes(etapa) && <div className="vantagens-compra"><span><Icone nome="escudo" /> Pagamento seguro</span><span><Icone nome="bilhete" /> Bilhete eletrónico</span><span><Icone nome="confirmado" /> Confirmação imediata</span></div>}
@@ -428,7 +458,7 @@ function FluxoCompra({ utilizador, aoFechar, aoComprar }) {
 }
 
 function ResumoViagem({ viagem, assento }) {
-  return <div className="resumo-compra"><div><small>Rota</small><strong>{viagem.Route?.origin} → {viagem.Route?.destination}</strong></div><div><small>Partida</small><strong>{formatarDataHora(viagem.departureAt)}</strong></div>{assento && <div><small>Assento</small><strong>{assento.numero}</strong></div>}<div><small>Total</small><strong>{formatarMeticais(viagem.price)}</strong></div></div>;
+  return <div className="resumo-compra"><div><small>Empresa</small><strong>{viagem.Empresa?.nome || 'Empresa de transporte'}</strong></div><div><small>Rota</small><strong>{viagem.Route?.origin} → {viagem.Route?.destination}</strong></div><div><small>Partida</small><strong>{formatarDataHora(viagem.departureAt)}</strong></div>{assento && <div><small>Assento</small><strong>{assento.numero}</strong></div>}<div><small>Total</small><strong>{formatarMeticais(viagem.price)}</strong></div></div>;
 }
 
 function tituloEtapa(etapa) {
@@ -463,23 +493,28 @@ function nomeMetodoPagamento(metodo) {
   return { MPESA: 'M-Pesa', EMOLA: 'e-Mola', CARTAO: 'Cartão' }[metodo] || metodo;
 }
 
-function imprimirBilhete(bilhete) {
-  const janela = window.open('', '_blank', 'width=620,height=760');
-  if (!janela) return;
-  const linhas = [
-    'VIAGEM BUS', 'BILHETE ELETRÓNICO', '',
-    `Código: ${bilhete.codigo}`,
-    `Passageiro: ${bilhete.nomePassageiro || 'Titular da conta'}`,
-    `Rota: ${bilhete.viagem?.origem || ''} → ${bilhete.viagem?.destino || ''}`,
-    `Partida: ${bilhete.viagem ? formatarDataHora(bilhete.viagem.partidaEm) : ''}`,
-    `Assento: ${bilhete.assento?.numero || ''}`,
-    `Preço: ${formatarMeticais(bilhete.preco)}`,
-    `Estado: ${traduzirEstado(bilhete.estado)}`
-  ];
-  janela.document.title = `Bilhete ${bilhete.codigo}`;
-  const pre = janela.document.createElement('pre');
-  pre.textContent = linhas.join('\n');
-  pre.style.cssText = 'font:16px/1.7 Arial;padding:40px;color:#08264d;white-space:pre-wrap';
-  janela.document.body.appendChild(pre);
-  janela.print();
+function BotaoPdfBilhete({ codigo, className = 'botao-contorno', texto = 'PDF' }) {
+  const [aDescarregar, setADescarregar] = useState(false);
+  const [erro, setErro] = useState('');
+
+  async function descarregar() {
+    setADescarregar(true); setErro('');
+    try {
+      const ficheiro = await obterBilhetePdf(codigo);
+      const endereco = URL.createObjectURL(ficheiro);
+      const ligacao = document.createElement('a');
+      ligacao.href = endereco;
+      ligacao.download = `bilhete-${codigo}.pdf`;
+      document.body.appendChild(ligacao);
+      ligacao.click();
+      ligacao.remove();
+      URL.revokeObjectURL(endereco);
+    } catch (falha) {
+      setErro(falha.message);
+    } finally {
+      setADescarregar(false);
+    }
+  }
+
+  return <span className="controlador-pdf"><button type="button" className={className} disabled={aDescarregar} onClick={descarregar}>{aDescarregar ? 'A gerar PDF...' : texto}</button>{erro && <small role="alert">{erro}</small>}</span>;
 }

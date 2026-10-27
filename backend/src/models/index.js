@@ -13,14 +13,25 @@ import { MensagemSuporte } from './mensagem-suporte.model.js';
 import { VerificacaoOtp } from './verificacao-otp.model.js';
 import { ConfiguracaoIa } from './configuracao-ia.model.js';
 import { EnvioWhatsapp } from './envio-whatsapp.model.js';
+import { Empresa } from './empresa.model.js';
 
 // Os relacionamentos ficam centralizados para permitir consultas com include.
+Empresa.hasMany(User, { foreignKey: 'empresaId' });
+User.belongsTo(Empresa, { foreignKey: 'empresaId' });
+Empresa.hasMany(Bus, { foreignKey: 'empresaId' });
+Bus.belongsTo(Empresa, { foreignKey: 'empresaId' });
+Empresa.hasMany(Route, { foreignKey: 'empresaId' });
+Route.belongsTo(Empresa, { foreignKey: 'empresaId' });
+Empresa.hasMany(Trip, { foreignKey: 'empresaId' });
+Trip.belongsTo(Empresa, { foreignKey: 'empresaId' });
+Empresa.hasMany(TicketSuporte, { foreignKey: 'empresaId' });
+TicketSuporte.belongsTo(Empresa, { foreignKey: 'empresaId' });
 Route.hasMany(Trip, { foreignKey: 'routeId' });
 Trip.belongsTo(Route, { foreignKey: 'routeId' });
 Bus.hasMany(Trip, { foreignKey: 'busId' });
 Trip.belongsTo(Bus, { foreignKey: 'busId' });
 
-export { Bus, Route, Trip, User };
+export { Bus, Empresa, Route, Trip, User };
 
 Bus.hasMany(Assento, { foreignKey: 'autocarroId' });
 Assento.belongsTo(Bus, { foreignKey: 'autocarroId' });

@@ -42,6 +42,14 @@ export function confirmarRegistoUtilizador(dados) {
   return requisicao('/autenticacao/confirmar-registo', { method: 'POST', body: JSON.stringify(dados) });
 }
 
+export function solicitarRecuperacaoPalavraPasse(dados) {
+  return requisicao('/autenticacao/solicitar-recuperacao', { method: 'POST', body: JSON.stringify(dados) });
+}
+
+export function confirmarRecuperacaoPalavraPasse(dados) {
+  return requisicao('/autenticacao/confirmar-recuperacao', { method: 'POST', body: JSON.stringify(dados) });
+}
+
 export function iniciarSessao(dados) {
   return requisicao('/autenticacao/iniciar-sessao', { method: 'POST', body: JSON.stringify(dados) });
 }
@@ -60,7 +68,19 @@ export function alterarPalavraPasse(dados) {
 
 export function pesquisarViagens(filtros) {
   const parametros = new URLSearchParams(filtros);
+  const utilizador = obterSessaoGuardada()?.utilizador;
+  if (['GESTOR_SUPORTE', 'EMPRESA_ADMIN'].includes(utilizador?.perfil) && utilizador.empresaId) {
+    parametros.set('empresaId', utilizador.empresaId);
+  }
   return requisicao(`/viagens?${parametros}`);
+}
+
+export function listarLocalidades() {
+  return requisicao('/catalogo/localidades');
+}
+
+export function listarEmpresas() {
+  return requisicao('/catalogo/empresas');
 }
 
 export function listarAssentos(viagemId) {
@@ -69,6 +89,18 @@ export function listarAssentos(viagemId) {
 
 export function comprarBilhete(dados) {
   return requisicao('/compras', { method: 'POST', body: JSON.stringify(dados) });
+}
+
+export async function obterBilhetePdf(codigo) {
+  const token = obterSessaoGuardada()?.token;
+  const resposta = await fetch(`${URL_API}/compras/bilhete/${encodeURIComponent(codigo)}/pdf`, {
+    headers: { ...(token && { Authorization: `Bearer ${token}` }) }
+  });
+  if (!resposta.ok) {
+    const corpo = await resposta.json().catch(() => ({}));
+    throw new Error(corpo.message || corpo.mensagem || 'Não foi possível gerar o PDF do bilhete.');
+  }
+  return resposta.blob();
 }
 
 export function iniciarPagamentoSimulado(dados) {
@@ -89,6 +121,14 @@ export function cancelarBilhete(codigo) {
 
 export function obterPainelAdministrativo() {
   return requisicao('/gestao/painel');
+}
+
+export function obterEmpresaAdministrativa() {
+  return requisicao('/gestao/empresa');
+}
+
+export function actualizarEmpresaAdministrativa(dados) {
+  return requisicao('/gestao/empresa', { method: 'PUT', body: JSON.stringify(dados) });
 }
 
 export function criarAutocarro(dados) {
@@ -125,6 +165,10 @@ export function actualizarUtilizadorAdministrativo(id, dados) {
 
 export function redefinirPalavraPasseAdministrativa(id, novaPalavraPasse) {
   return requisicao(`/gestao/utilizadores/${id}/palavra-passe`, { method: 'PUT', body: JSON.stringify({ novaPalavraPasse }) });
+}
+
+export function eliminarUtilizadorAdministrativo(id) {
+  return requisicao(`/gestao/utilizadores/${id}`, { method: 'DELETE' });
 }
 
 export function obterEstadoWhatsApp() {

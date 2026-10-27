@@ -12,7 +12,9 @@ import contaRoutes from './routes/conta.routes.js';
 import suporteRoutes from './routes/suporte.routes.js';
 import pagamentoSimuladoRoutes from './routes/pagamento-simulado.routes.js';
 import atendimentoRoutes from './routes/atendimento.routes.js';
+import catalogoRoutes from './routes/catalogo.routes.js';
 import { directorioAnexosSuporte } from './services/anexo-suporte.service.js';
+import { directorioLogotiposEmpresas } from './services/logotipo-empresa.service.js';
 
 const app = express();
 
@@ -44,6 +46,13 @@ app.use('/ficheiros/suporte', express.static(directorioAnexosSuporte, {
   dotfiles: 'deny', index: false,
   setHeaders(resposta) { resposta.setHeader('Cross-Origin-Resource-Policy', 'cross-origin'); }
 }));
+app.use('/ficheiros/empresas', express.static(directorioLogotiposEmpresas, {
+  dotfiles: 'deny', index: false,
+  setHeaders(resposta) {
+    resposta.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    resposta.setHeader('Cache-Control', 'public, max-age=86400');
+  }
+}));
 
 app.get('/api/health', (_req, res) => {
   res.json({
@@ -63,6 +72,7 @@ app.use('/api', cancelamentoRoutes);
 app.use('/api/suporte', suporteRoutes);
 app.use('/api/pagamentos-simulados', pagamentoSimuladoRoutes);
 app.use('/api/atendimento', atendimentoRoutes);
+app.use('/api/catalogo', catalogoRoutes);
 
 app.use((_req, _res, next) => {
   const error = new Error('Rota não encontrada');

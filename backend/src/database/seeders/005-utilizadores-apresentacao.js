@@ -1,10 +1,12 @@
 import bcrypt from 'bcryptjs';
-import { User } from '../../models/index.js';
+import { Empresa, User } from '../../models/index.js';
 
 // Contas conhecidas para demonstrar os três perfis principais do sistema.
 export async function executar({ transaction }) {
+  const empresa = await Empresa.findOne({ where: { slug: 'viagem-bus' }, transaction });
   const contas = [
     { nome: 'Administrador', apelido: 'Principal', telefone: '+258841111111', palavraPasse: 'Admin@123', perfil: 'ADMIN' },
+    { nome: 'Gestor', apelido: 'da Empresa', telefone: '+258844444444', palavraPasse: 'Empresa@123', perfil: 'EMPRESA_ADMIN' },
     { nome: 'Cliente', apelido: 'Demonstração', telefone: '+258842222222', palavraPasse: 'Cliente@123', perfil: 'PASSAGEIRO' },
     { nome: 'Atendente', apelido: 'Demonstração', telefone: '+258843333333', palavraPasse: 'Atendente@123', perfil: 'GESTOR_SUPORTE' }
   ];
@@ -15,12 +17,14 @@ export async function executar({ transaction }) {
       where: { telefone: conta.telefone },
       defaults: {
         nome: conta.nome, apelido: conta.apelido, telefone: conta.telefone,
-        palavraPasseHash, perfil: conta.perfil, activo: true
+        palavraPasseHash, perfil: conta.perfil,
+        empresaId: conta.perfil === 'PASSAGEIRO' ? null : empresa?.id || null,
+        activo: true
       },
       transaction
     });
     if (!criado) {
-      await utilizador.update({ nome: conta.nome, apelido: conta.apelido, palavraPasseHash, perfil: conta.perfil, activo: true }, { transaction });
+      await utilizador.update({ nome: conta.nome, apelido: conta.apelido, palavraPasseHash, perfil: conta.perfil, empresaId: conta.perfil === 'PASSAGEIRO' ? null : empresa?.id || null, activo: true }, { transaction });
     }
   }
 }

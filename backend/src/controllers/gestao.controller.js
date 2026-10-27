@@ -2,10 +2,13 @@ import { Bus, Route, Trip } from '../models/index.js';
 import { criarAssentosDoAutocarro } from '../services/assento.service.js';
 import { definirEstadoEntidade, obterPainelAdministrativo } from '../services/administracao.service.js';
 import { sequelize } from '../config/database.js';
-import { actualizarUtilizadorAdministrativo, criarUtilizadorAdministrativo, definirEstadoUtilizador, redefinirPalavraPasse } from '../services/utilizador-administracao.service.js';
+import { actualizarUtilizadorAdministrativo, criarUtilizadorAdministrativo, definirEstadoUtilizador, eliminarUtilizadorAdministrativo, redefinirPalavraPasse } from '../services/utilizador-administracao.service.js';
+import { filtroEmpresa, obterEmpresaParaCriacao } from '../services/empresa-escopo.service.js';
+import { obterLocalidadeValida } from '../services/localidades.service.js';
+import { actualizarPerfilEmpresa, obterPerfilEmpresa } from '../services/empresa-perfil.service.js';
 
 export async function obterPainel(req, res, next) {
-  try { return res.json({ sucesso: true, dados: await obterPainelAdministrativo() }); }
+  try { return res.json({ sucesso: true, dados: await obterPainelAdministrativo(req.utilizador) }); }
   catch (erro) { return next(erro); }
 }
 
@@ -22,6 +25,7 @@ export async function criarAutocarro(req, res, next) {
     }
     transacao = await sequelize.transaction();
     const autocarro = await Bus.create({
+      empresaId: obterEmpresaParaCriacao(req.utilizador),
       registration: matricula, model: modelo, capacity: capacidade,
       seatsLeft: lugaresEsquerda, seatsRight: lugaresDireita
     }, { transaction: transacao });
@@ -37,13 +41,21 @@ export async function criarAutocarro(req, res, next) {
 
 export async function criarRota(req, res, next) {
   try {
-    const { origem, destino, distanciaKm } = req.body;
-    if (!origem || !destino || origem.trim().toLowerCase() === destino.trim().toLowerCase()) {
+    const origem = obterLocalidadeValida(req.body.origemProvincia, req.body.origem);
+    const destino = obterLocalidadeValida(req.body.destinoProvincia, req.body.destino);
+    if (origem.provincia === destino.provincia && origem.cidade === destino.cidade) {
       const erro = new Error('Origem e destino são obrigatórios e devem ser diferentes.');
       erro.statusCode = 400;
       throw erro;
     }
-    const rota = await Route.create({ origin: origem, destination: destino, distanceKm: distanciaKm });
+    const rota = await Route.create({
+      empresaId: obterEmpresaParaCriacao(req.utilizador),
+      originProvince: origem.provincia,
+      origin: origem.cidade,
+      destinationProvince: destino.provincia,
+      destination: destino.cidade,
+      distanceKm: req.body.distanciaKm
+    });
     return res.status(201).json({ sucesso: true, dados: rota });
   } catch (erro) { return next(erro); }
 }
@@ -61,38 +73,58 @@ export async function criarViagem(req, res, next) {
       erro.statusCode = 400;
       throw erro;
     }
-    const autocarro = await Bus.findByPk(autocarroId);
-    const rota = await Route.findByPk(rotaId);
+    const empresaId = obterEmpresaParaCriacao(req.utilizador);
+    const [autocarro, rota] = await Promise.all([
+      Bus.findOne({ where: { id: autocarroId, empresaId } }),
+      Route.findOne({ where: { id: rotaId, empresaId } })
+    ]);
     if (!autocarro || !rota || !autocarro.active || !rota.active) {
       const erro = new Error('A rota ou o autocarro não foram encontrados.');
       erro.statusCode = 404;
       throw erro;
     }
-    const viagem = await Trip.create({ routeId: rotaId, busId: autocarroId, departureAt: partidaEm, arrivalExpectedAt: chegadaPrevistaEm, price: preco });
+    const viagem = await Trip.create({ empresaId, routeId: rotaId, busId: autocarroId, departureAt: partidaEm, arrivalExpectedAt: chegadaPrevistaEm, price: preco });
     return res.status(201).json({ sucesso: true, dados: viagem });
   } catch (erro) { return next(erro); }
 }
 
 export async function definirEstadoPassageiro(req, res, next) {
   try {
-    const utilizador = await definirEstadoUtilizador(req.params.id, req.body.activo, req.utilizador.id);
+    const utilizador = await definirEstadoUtilizador(req.params.id, req.body.activo, req.utilizador);
     return res.json({ sucesso: true, dados: dadosPublicosUtilizador(utilizador) });
   } catch (erro) { return next(erro); }
 }
 
 export async function criarUtilizador(req, res, next) {
-  try { return res.status(201).json({ sucesso: true, dados: dadosPublicosUtilizador(await criarUtilizadorAdministrativo(req.body)) }); }
+  try { return res.status(201).json({ sucesso: true, dados: dadosPublicosUtilizador(await criarUtilizadorAdministrativo(req.body, req.utilizador)) }); }
   catch (erro) { return next(erro); }
 }
 
 export async function actualizarUtilizador(req, res, next) {
-  try { return res.json({ sucesso: true, dados: dadosPublicosUtilizador(await actualizarUtilizadorAdministrativo(req.params.id, req.body, req.utilizador.id)) }); }
+  try { return res.json({ sucesso: true, dados: dadosPublicosUtilizador(await actualizarUtilizadorAdministrativo(req.params.id, req.body, req.utilizador)) }); }
   catch (erro) { return next(erro); }
 }
 
 export async function redefinirSenhaUtilizador(req, res, next) {
-  try { await redefinirPalavraPasse(req.params.id, req.body.novaPalavraPasse); return res.json({ sucesso: true, dados: { mensagem: 'Palavra-passe redefinida com sucesso.' } }); }
+  try { await redefinirPalavraPasse(req.params.id, req.body.novaPalavraPasse, req.utilizador); return res.json({ sucesso: true, dados: { mensagem: 'Palavra-passe redefinida com sucesso.' } }); }
   catch (erro) { return next(erro); }
+}
+
+export async function obterEmpresa(req, res, next) {
+  try { return res.json({ sucesso: true, dados: await obterPerfilEmpresa(req.utilizador) }); }
+  catch (erro) { return next(erro); }
+}
+
+export async function actualizarEmpresa(req, res, next) {
+  try { return res.json({ sucesso: true, dados: await actualizarPerfilEmpresa(req.utilizador, req.body) }); }
+  catch (erro) { return next(erro); }
+}
+
+export async function eliminarUtilizador(req, res, next) {
+  try {
+    await eliminarUtilizadorAdministrativo(req.params.id, req.utilizador);
+    return res.json({ sucesso: true, dados: { mensagem: 'Utilizador eliminado com sucesso.' } });
+  } catch (erro) { return next(erro); }
 }
 
 function dadosPublicosUtilizador(utilizador) {
@@ -101,18 +133,18 @@ function dadosPublicosUtilizador(utilizador) {
 }
 
 export async function definirEstadoAutocarro(req, res, next) {
-  try { return res.json({ sucesso: true, dados: await definirEstadoEntidade(Bus, req.params.id, req.body.activo) }); }
+  try { return res.json({ sucesso: true, dados: await definirEstadoEntidade(Bus, req.params.id, req.body.activo, req.utilizador) }); }
   catch (erro) { return next(erro); }
 }
 
 export async function definirEstadoRota(req, res, next) {
-  try { return res.json({ sucesso: true, dados: await definirEstadoEntidade(Route, req.params.id, req.body.activo) }); }
+  try { return res.json({ sucesso: true, dados: await definirEstadoEntidade(Route, req.params.id, req.body.activo, req.utilizador) }); }
   catch (erro) { return next(erro); }
 }
 
 export async function actualizarViagem(req, res, next) {
   try {
-    const viagem = await Trip.findByPk(req.params.id);
+    const viagem = await Trip.findOne({ where: { id: req.params.id, ...filtroEmpresa(req.utilizador) } });
     if (!viagem) { const erro = new Error('Viagem não encontrada.'); erro.statusCode = 404; throw erro; }
     const alteracoes = {};
     if (req.body.partidaEm) alteracoes.departureAt = req.body.partidaEm;

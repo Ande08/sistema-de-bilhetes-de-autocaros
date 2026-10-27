@@ -1,10 +1,10 @@
 # Sistema de Bilhetes de Autocarros
 
-Sistema web para consulta de viagens, seleção de assentos, pagamento simulado, emissão de bilhetes eletrónicos e suporte ao passageiro em tempo real.
+Plataforma multiempresa para consulta e comparação de viagens, seleção de assentos, pagamento simulado, emissão de bilhetes eletrónicos e suporte ao passageiro em tempo real.
 
 Todos os valores monetários são apresentados em **MT**.
 
-O cadastro de passageiros utiliza nome, apelido e número de telefone. A conta só é criada depois da confirmação de um código OTP enviado por WhatsApp ou SMS. Em desenvolvimento, o envio é simulado e o código aparece na tela para permitir testes sem um fornecedor externo.
+O cadastro utiliza nome, apelido e número de telefone. O utilizador pode criar uma conta de passageiro ou registar uma empresa de transporte; em ambos os casos, a conta só é criada depois da confirmação de um código OTP enviado por WhatsApp ou SMS. O mesmo canal permite recuperar a palavra-passe sem revelar se um telefone está registado. Em desenvolvimento, o envio é simulado e o código aparece na tela para permitir testes sem um fornecedor externo.
 
 ## Tecnologias
 
@@ -26,6 +26,18 @@ Organiza o sistema em rotas, controladores, serviços, modelos Sequelize e base 
 ### MVC
 
 É utilizado através dos modelos Sequelize, controladores e rotas. Os modelos representam os dados, os controladores tratam as requisições e as rotas definem os endereços da API. Serve para separar dados, lógica e navegação.
+
+### Multi-tenancy por linha
+
+É utilizado nos modelos `Empresa`, `User`, `Bus`, `Route`, `Trip` e `TicketSuporte`. O campo `empresaId` identifica o proprietário de cada registo operacional, enquanto `backend/src/services/empresa-escopo.service.js` aplica o filtro da empresa autenticada. Serve para várias transportadoras utilizarem a mesma aplicação e base de dados sem conseguirem consultar ou alterar dados umas das outras. O administrador da plataforma mantém visão global para supervisão.
+
+### Catálogo canónico de localidades
+
+É utilizado em `backend/src/services/localidades.service.js` e `frontend/src/componentes/SelecaoLocalidade.jsx`. Províncias e cidades são selecionadas de uma lista controlada e novamente validadas no backend. Serve para evitar erros de digitação, rotas duplicadas e pesquisas sem resultados causadas por nomes escritos de formas diferentes.
+
+### Service Layer
+
+É utilizado nos serviços do backend, incluindo `otp.service.js` e `bilhete-pdf.service.js`. O primeiro concentra o cadastro e a recuperação de palavra-passe por OTP; o segundo gera o documento PDF sem expor consultas ou regras de autorização ao frontend. Serve para manter regras de negócio reutilizáveis e independentes das rotas HTTP.
 
 ## Padrões criacionais
 
@@ -61,7 +73,7 @@ Representado por `ServicoCompra`, `ServicoPagamento` e `ServicoBilhete`, que coo
 
 ### Adapter
 
-Utilizado em `backend/src/adapters/otp.adapter.js` para isolar o envio de códigos OTP. Estão disponíveis o fornecedor simulado e `WHATSAPP_BAILEYS`; uma API oficial de WhatsApp ou SMS pode ser adicionada sem alterar o serviço de cadastro. A integração em `backend/src/integrations/openrouter` também isola o fornecedor de IA do assistente. O mesmo padrão está previsto para integrações reais de M-Pesa e e-Mola.
+Utilizado em `backend/src/adapters/otp.adapter.js` para isolar o envio de códigos OTP. Estão disponíveis o fornecedor simulado e `WHATSAPP_BAILEYS`; uma API oficial de WhatsApp ou SMS pode ser adicionada sem alterar os serviços de cadastro e recuperação de palavra-passe. A integração em `backend/src/integrations/openrouter` também isola o fornecedor de IA do assistente. O mesmo padrão está previsto para integrações reais de M-Pesa e e-Mola.
 
 ## Padrões comportamentais
 
@@ -108,9 +120,14 @@ Utilizado em `backend/src/realtime/suporte.socket.js`. Cada ticket possui uma sa
 
 ## Perfis e suporte
 
-- `PASSAGEIRO`: utiliza o assistente virtual, abre tickets e acompanha apenas os próprios pedidos;
-- `GESTOR_SUPORTE` (apresentado como **Atendente**): vende bilhetes para clientes cadastrados, recebe tickets atribuídos pelo administrador, conversa com o passageiro e atualiza o estado do atendimento;
-- `ADMIN`: cria gestores, consulta todos os tickets, atribui responsáveis e acompanha a auditoria.
+- `PASSAGEIRO`: compara horários e preços de todas as empresas ativas, compra bilhetes, utiliza o assistente virtual, escolhe a empresa ao abrir um ticket e acompanha apenas os próprios pedidos;
+- `GESTOR_SUPORTE` (apresentado como **Atendente**): pertence a uma empresa, vende apenas os bilhetes dessa empresa, recebe os tickets que lhe foram atribuídos, conversa com o passageiro e atualiza o estado do atendimento;
+- `EMPRESA_ADMIN`: administra os atendentes, autocarros, rotas, viagens, vendas, avisos e suporte exclusivamente da própria empresa;
+- `ADMIN`: supervisiona a plataforma, possui visão global e gere configurações centrais como inteligência artificial e WhatsApp.
+
+Cada empresa é criada com um proprietário `EMPRESA_ADMIN`. Autocarros, rotas, viagens e tickets ficam associados à empresa. Na pesquisa, o passageiro vê a transportadora, o horário e o preço de cada opção antes de escolher o bilhete. A origem e o destino são selecionados por província e cidade, tanto no painel do passageiro como na venda assistida e na criação administrativa de rotas.
+
+O administrador da empresa pode editar a identidade da transportadora na área **Dados da empresa**: nome, telefone institucional, descrição, website e logótipo. Os logótipos aceitam PNG, JPEG ou WebP até 2 MB, são validados pelo conteúdo do ficheiro e aparecem no painel e na pesquisa de viagens. Ao substituir ou remover um logótipo, o ficheiro antigo também é eliminado.
 
 O assistente virtual utiliza inicialmente uma base de perguntas frequentes em `backend/src/services/suporte.service.js`. Esta implementação mantém a demonstração independente de serviços externos e pode ser substituída por um adaptador de IA sem alterar as telas ou o fluxo dos tickets. As conversas humanas, atribuições e mudanças de estado ficam persistidas para rastreio.
 
@@ -184,6 +201,7 @@ Contas principais para a apresentação:
 | Perfil | Telefone | Palavra-passe |
 | --- | --- | --- |
 | Administrador | `+258841111111` | `Admin@123` |
+| Administrador da empresa | `+258844444444` | `Empresa@123` |
 | Cliente | `+258842222222` | `Cliente@123` |
 | Atendente | `+258843333333` | `Atendente@123` |
 
@@ -215,14 +233,20 @@ O backend está localizado em `backend/`, o frontend em `frontend/` e a document
 
 ```text
 GET  /api/health
+GET  /api/catalogo/localidades
+GET  /api/catalogo/empresas
 POST /api/autenticacao/solicitar-registo
 POST /api/autenticacao/confirmar-registo
+POST /api/autenticacao/solicitar-recuperacao
+POST /api/autenticacao/confirmar-recuperacao
 POST /api/autenticacao/iniciar-sessao
 GET  /api/autenticacao/perfil
 PUT  /api/autenticacao/perfil
 PUT  /api/autenticacao/palavra-passe
 GET  /api/conta/resumo
 GET  /api/gestao/painel
+GET  /api/gestao/empresa
+PUT  /api/gestao/empresa
 GET  /api/gestao/whatsapp/estado
 POST /api/gestao/whatsapp/iniciar
 POST /api/gestao/whatsapp/envios/:id/repetir
@@ -249,6 +273,7 @@ GET  /api/viagens
 GET  /api/viagens/:id
 POST /api/compras
 GET  /api/compras/bilhete/:codigo
+GET  /api/compras/bilhete/:codigo/pdf
 POST /api/pagamentos-simulados
 POST /api/pagamentos-simulados/:referencia/processar
 POST /api/suporte/assistente
@@ -272,4 +297,4 @@ Exemplo de compra:
 }
 ```
 
-A compra exige autenticação. O nome do passageiro é obtido da conta autenticada, sem recolha de documento pessoal. O backend confirma o pagamento simulado, valida o assento na base de dados e só depois emite o bilhete.
+A compra exige autenticação. O nome do passageiro é obtido da conta autenticada, sem recolha de documento pessoal. O backend confirma o pagamento simulado, valida o assento na base de dados e só depois emite o bilhete. O PDF inclui um QR Code com o identificador de validação do bilhete, sem nome, telefone ou dados de pagamento do passageiro.

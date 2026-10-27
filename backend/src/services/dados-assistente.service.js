@@ -1,5 +1,5 @@
 import { Op } from 'sequelize';
-import { Bus, Route, Trip } from '../models/index.js';
+import { Bus, Empresa, Route, Trip } from '../models/index.js';
 import { listarAssentosDaViagem } from './assento.service.js';
 import { obterResumoConta } from './conta.service.js';
 
@@ -41,7 +41,7 @@ async function responderConta(utilizadorId, mensagem) {
 async function responderViagens(mensagem) {
   const viagens = await Trip.findAll({
     where: { status: 'AGENDADA', departureAt: { [Op.gt]: new Date() } },
-    include: [{ model: Route, where: { active: true } }, Bus],
+    include: [{ model: Route, where: { active: true } }, Bus, { model: Empresa, where: { activa: true }, attributes: ['nome'], required: true }],
     order: [['departureAt', 'ASC']], limit: 30
   });
   if (!viagens.length) return respostaBaseDados('Neste momento não existem viagens futuras disponíveis no sistema.');
@@ -52,7 +52,7 @@ async function responderViagens(mensagem) {
   const detalhes = await Promise.all(seleccionadas.map(async (viagem) => {
     const assentos = await listarAssentosDaViagem(viagem.id);
     const disponiveis = assentos.filter((item) => item.disponivel).length;
-    return `${viagem.Route.origin} → ${viagem.Route.destination}: ${formatarDinheiro(viagem.price)}, partida ${formatarDataHora(viagem.departureAt)}, ${disponiveis} lugar(es) disponível(is)`;
+    return `${viagem.Empresa.nome} — ${viagem.Route.origin} → ${viagem.Route.destination}: ${formatarDinheiro(viagem.price)}, partida ${formatarDataHora(viagem.departureAt)}, ${disponiveis} lugar(es) disponível(is)`;
   }));
   const introducao = porLocal.length ? 'Encontrei estas viagens confirmadas:' : 'Estas são as próximas viagens confirmadas. Para restringir a pesquisa, indique a origem e o destino:';
   return respostaBaseDados(`${introducao}\n${detalhes.map((item) => `• ${item}`).join('\n')}`);

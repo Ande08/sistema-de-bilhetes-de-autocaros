@@ -4,6 +4,7 @@ import {
   Auditoria,
   Bilhete,
   Bus,
+  Empresa,
   MensagemSuporte,
   Notificacao,
   Pagamento,
@@ -19,18 +20,19 @@ import { gerarMapaAssentos } from '../../services/assento.service.js';
 // Ela só é executada quando CRIAR_DADOS_DEMO=true, evitando dados fictícios em produção.
 export async function executar({ transaction }) {
   if (process.env.CRIAR_DADOS_DEMO !== 'true') return;
+  const empresa = await Empresa.findOne({ where: { slug: 'viagem-bus' }, transaction });
 
   // Actualiza também utilizadores existentes para manter as credenciais de teste documentadas.
   async function garantirUtilizador({ nome, apelido, telefone, palavraPasse, perfil, activo = true }) {
     const palavraPasseHash = await bcrypt.hash(palavraPasse, 12);
     const [utilizador, criado] = await User.findOrCreate({
       where: { telefone },
-      defaults: { nome, apelido, telefone, palavraPasseHash, perfil, activo },
+      defaults: { nome, apelido, telefone, palavraPasseHash, perfil, empresaId: perfil === 'PASSAGEIRO' ? null : empresa.id, activo },
       transaction
     });
 
     if (!criado) {
-      await utilizador.update({ nome, apelido, palavraPasseHash, perfil, activo }, { transaction });
+      await utilizador.update({ nome, apelido, palavraPasseHash, perfil, empresaId: perfil === 'PASSAGEIRO' ? null : empresa.id, activo }, { transaction });
     }
     return utilizador;
   }
@@ -38,10 +40,10 @@ export async function executar({ transaction }) {
   async function garantirAutocarro({ registration, model, capacity }) {
     const [autocarro] = await Bus.findOrCreate({
       where: { registration },
-      defaults: { model, capacity, active: true },
+      defaults: { empresaId: empresa.id, model, capacity, active: true },
       transaction
     });
-    await autocarro.update({ model, capacity, active: true }, { transaction });
+    await autocarro.update({ empresaId: empresa.id, model, capacity, active: true }, { transaction });
 
     // Cada autocarro recebe a sua lotação completa de assentos numerados.
     await Assento.bulkCreate(
@@ -53,11 +55,11 @@ export async function executar({ transaction }) {
 
   async function garantirRota({ origin, destination, distanceKm }) {
     const [rota] = await Route.findOrCreate({
-      where: { origin, destination },
-      defaults: { distanceKm, active: true },
+      where: { empresaId: empresa.id, origin, destination },
+      defaults: { originProvince: provinciaDe(origin), destinationProvince: provinciaDe(destination), distanceKm, active: true },
       transaction
     });
-    await rota.update({ distanceKm, active: true }, { transaction });
+    await rota.update({ empresaId: empresa.id, originProvince: provinciaDe(origin), destinationProvince: provinciaDe(destination), distanceKm, active: true }, { transaction });
     return rota;
   }
 
@@ -73,7 +75,7 @@ export async function executar({ transaction }) {
     const arrivalExpectedAt = new Date(departureAt.getTime() + duracaoHoras * 60 * 60 * 1000);
     const [viagem] = await Trip.findOrCreate({
       where: { routeId: rota.id, busId: autocarro.id, departureAt },
-      defaults: { arrivalExpectedAt, price, status },
+      defaults: { empresaId: empresa.id, arrivalExpectedAt, price, status },
       transaction
     });
     return viagem;
@@ -182,7 +184,7 @@ export async function executar({ transaction }) {
   const [ticketAberto] = await TicketSuporte.findOrCreate({
     where: { codigo: 'SUP-LOCAL-001' },
     defaults: {
-      utilizadorId: passageiroPrincipal.id, assunto: 'Dúvida sobre bagagem',
+      empresaId: empresa.id, utilizadorId: passageiroPrincipal.id, assunto: 'Dúvida sobre bagagem',
       categoria: 'VIAGEM', prioridade: 'NORMAL', estado: 'ABERTO'
     },
     transaction
@@ -193,7 +195,7 @@ export async function executar({ transaction }) {
   const [ticketAtendimento] = await TicketSuporte.findOrCreate({
     where: { codigo: 'SUP-LOCAL-002' },
     defaults: {
-      utilizadorId: passageiroSecundario.id, gestorId: gestor.id, assunto: 'Pagamento ainda não actualizado',
+      empresaId: empresa.id, utilizadorId: passageiroSecundario.id, gestorId: gestor.id, assunto: 'Pagamento ainda não actualizado',
       categoria: 'PAGAMENTO', prioridade: 'ALTA', estado: 'EM_ATENDIMENTO'
     },
     transaction
@@ -204,7 +206,7 @@ export async function executar({ transaction }) {
   const [ticketResolvido] = await TicketSuporte.findOrCreate({
     where: { codigo: 'SUP-LOCAL-003' },
     defaults: {
-      utilizadorId: passageiroPrincipal.id, gestorId: gestor.id, assunto: 'Correcção do nome da conta',
+      empresaId: empresa.id, utilizadorId: passageiroPrincipal.id, gestorId: gestor.id, assunto: 'Correcção do nome da conta',
       categoria: 'CONTA', prioridade: 'BAIXA', estado: 'RESOLVIDO', resolvidoEm: new Date()
     },
     transaction
@@ -226,4 +228,8 @@ export async function executar({ transaction }) {
 
   // A terceira viagem fica sem bilhetes para testar uma compra nova com todos os assentos livres.
   void viagemMaputoXaiXai;
+}
+
+function provinciaDe(cidade) {
+  return { Maputo: 'Maputo Cidade', Beira: 'Sofala', Nampula: 'Nampula', 'Xai-Xai': 'Gaza' }[cidade] || cidade;
 }

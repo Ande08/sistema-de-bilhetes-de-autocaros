@@ -15,6 +15,7 @@ export function configurarSuporteEmTempoReal(io) {
     // Salas de perfil e utilizador permitem notificações sem expor dados a outros perfis.
     socket.join(`perfil:${socket.utilizador.perfil}`);
     socket.join(`utilizador:${socket.utilizador.id}`);
+    if (socket.utilizador.empresaId) socket.join(`empresa:${socket.utilizador.empresaId}`);
     socket.on('suporte:entrar', async (ticketId, responder) => {
       try {
         await obterTicketPorId(ticketId, socket.utilizador);

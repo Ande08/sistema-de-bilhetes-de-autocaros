@@ -1,17 +1,18 @@
 import bcrypt from 'bcryptjs';
-import { Assento, Auditoria, Bilhete, Bus, Notificacao, Pagamento, Reserva, Route, Trip, User } from '../../models/index.js';
+import { Assento, Auditoria, Bilhete, Bus, Empresa, Notificacao, Pagamento, Reserva, Route, Trip, User } from '../../models/index.js';
 import { gerarMapaAssentos } from '../../services/assento.service.js';
 
 export async function executar({ transaction }) {
   if (process.env.CRIAR_DADOS_DEMO !== 'true') return;
+  const empresa = await Empresa.findOne({ where: { slug: 'viagem-bus' }, transaction });
 
   const [passageiro] = await User.findOrCreate({
     where: { telefone: '+258840000002' },
     defaults: { nome: 'Passageiro', apelido: 'de Testes', telefone: '+258840000002', palavraPasseHash: await bcrypt.hash('Passageiro@123', 12), perfil: 'PASSAGEIRO', activo: true },
     transaction
   });
-  const [autocarro] = await Bus.findOrCreate({ where: { registration: 'TST-01-26' }, defaults: { model: 'Yutong Interprovincial', capacity: 32, active: true }, transaction });
-  const [rota] = await Route.findOrCreate({ where: { origin: 'Tete', destination: 'Maputo' }, defaults: { distanceKm: 1500, active: true }, transaction });
+  const [autocarro] = await Bus.findOrCreate({ where: { registration: 'TST-01-26' }, defaults: { empresaId: empresa.id, model: 'Yutong Interprovincial', capacity: 32, active: true }, transaction });
+  const [rota] = await Route.findOrCreate({ where: { empresaId: empresa.id, origin: 'Tete', destination: 'Maputo' }, defaults: { originProvince: 'Tete', destinationProvince: 'Maputo Cidade', distanceKm: 1500, active: true }, transaction });
 
   await Assento.bulkCreate(gerarMapaAssentos(autocarro.capacity).map((assento) => ({ ...assento, autocarroId: autocarro.id })), { ignoreDuplicates: true, transaction });
   const assentos = await Assento.findAll({ where: { autocarroId: autocarro.id }, order: [['id', 'ASC']], transaction });
@@ -20,7 +21,7 @@ export async function executar({ transaction }) {
   partida.setHours(8, 0, 0, 0);
   const chegada = new Date(partida);
   chegada.setHours(chegada.getHours() + 18);
-  const [viagem] = await Trip.findOrCreate({ where: { routeId: rota.id, busId: autocarro.id, departureAt: partida }, defaults: { arrivalExpectedAt: chegada, price: 1500, status: 'AGENDADA' }, transaction });
+  const [viagem] = await Trip.findOrCreate({ where: { routeId: rota.id, busId: autocarro.id, departureAt: partida }, defaults: { empresaId: empresa.id, arrivalExpectedAt: chegada, price: 1500, status: 'AGENDADA' }, transaction });
 
   const [bilhete] = await Bilhete.findOrCreate({
     where: { codigo: 'BIL-DEMO-001' },

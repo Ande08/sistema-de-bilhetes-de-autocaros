@@ -9,7 +9,7 @@ export class ServicoCompra {
     this.servicoBilhete = new ServicoBilhete();
   }
 
-  async comprar({ utilizadorId, operadorId = utilizadorId, viagemId, assentoId, metodoPagamento, referenciaPagamento }) {
+  async comprar({ utilizadorId, operador, operadorId = utilizadorId, viagemId, assentoId, metodoPagamento, referenciaPagamento }) {
     if (!viagemId || !assentoId || !metodoPagamento || !referenciaPagamento) {
       const erro = new Error('Viagem, assento, método e referência de pagamento são obrigatórios.');
       erro.statusCode = 400;
@@ -28,7 +28,7 @@ export class ServicoCompra {
         const viagem = await Trip.findByPk(viagemId, { include: [Route], transaction: transacao, lock: transacao.LOCK.UPDATE });
         const assento = await Assento.findByPk(assentoId, { transaction: transacao, lock: transacao.LOCK.UPDATE });
 
-        this._validarCompra({ utilizador, viagem, assento });
+        this._validarCompra({ utilizador, viagem, assento, operador });
         const bilheteExistente = await Bilhete.findOne({
           where: { viagemId: viagem.id, assentoId: assento.id, estado: { [Op.in]: ['RESERVADO', 'EMITIDO'] } },
           transaction: transacao,
@@ -84,7 +84,7 @@ export class ServicoCompra {
     }
   }
 
-  _validarCompra({ utilizador, viagem, assento }) {
+  _validarCompra({ utilizador, viagem, assento, operador }) {
     if (!utilizador?.activo || utilizador.perfil !== 'PASSAGEIRO') {
       const erro = new Error('A conta do passageiro não está disponível.');
       erro.statusCode = 403;
@@ -93,6 +93,12 @@ export class ServicoCompra {
     if (!viagem || viagem.status !== 'AGENDADA' || new Date(viagem.departureAt) <= new Date()) {
       const erro = new Error('Esta viagem não está disponível para compra.');
       erro.statusCode = 409;
+      throw erro;
+    }
+    if (operador && ['GESTOR_SUPORTE', 'EMPRESA_ADMIN'].includes(operador.perfil)
+      && String(operador.empresaId) !== String(viagem.empresaId)) {
+      const erro = new Error('O atendente só pode vender bilhetes da própria empresa.');
+      erro.statusCode = 403;
       throw erro;
     }
     if (!assento || String(assento.autocarroId) !== String(viagem.busId)) {

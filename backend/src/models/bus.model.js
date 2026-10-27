@@ -4,6 +4,7 @@ import { sequelize } from '../config/database.js';
 export class Bus extends Model {}
 
 Bus.init({
+  empresaId: { type: DataTypes.BIGINT.UNSIGNED, allowNull: false, field: 'empresa_id' },
   registration: { type: DataTypes.STRING(30), allowNull: false, unique: true, field: 'matricula' },
   model: { type: DataTypes.STRING(100), allowNull: false, field: 'modelo' },
   capacity: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false, field: 'capacidade' },

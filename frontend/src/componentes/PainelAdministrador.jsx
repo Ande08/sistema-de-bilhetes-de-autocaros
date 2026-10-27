@@ -2,13 +2,15 @@ import { useEffect, useState } from 'react';
 import Icone from './Icone.jsx';
 import ChatTicketSuporte, { traduzirEstado } from './ChatTicketSuporte.jsx';
 import { ModalCampo, ModalConfirmacao } from './Modal.jsx';
-import { actualizarUtilizadorAdministrativo, actualizarViagemAdministrativa, atribuirTicketSuporte, cancelarViagemAdministrativa, criarAutocarro, criarRota, criarUtilizadorAdministrativo, criarViagem, definirEstadoAdministrativo, enviarAvisoViagemAdministrativa, guardarConfiguracaoIa, iniciarWhatsApp, listarGestoresSuporte, listarModelosIa, listarTicketsSuporte, obterConfiguracaoIa, obterEstadoWhatsApp, obterPainelAdministrativo, redefinirPalavraPasseAdministrativa, repetirEnvioWhatsapp, testarLigacaoIa } from '../servicos/api.js';
+import SelecaoLocalidade from './SelecaoLocalidade.jsx';
+import { URL_SERVIDOR, actualizarEmpresaAdministrativa, actualizarUtilizadorAdministrativo, actualizarViagemAdministrativa, atribuirTicketSuporte, cancelarViagemAdministrativa, criarAutocarro, criarRota, criarUtilizadorAdministrativo, criarViagem, definirEstadoAdministrativo, eliminarUtilizadorAdministrativo, enviarAvisoViagemAdministrativa, guardarConfiguracaoIa, iniciarWhatsApp, listarGestoresSuporte, listarModelosIa, listarTicketsSuporte, obterConfiguracaoIa, obterEstadoWhatsApp, obterPainelAdministrativo, redefinirPalavraPasseAdministrativa, repetirEnvioWhatsapp, testarLigacaoIa } from '../servicos/api.js';
 import { formatarValor } from '../utilitarios/moeda.js';
 
-const secoes = ['Visão geral', 'Utilizadores', 'Autocarros', 'Rotas', 'Viagens', 'Bilhetes', 'Suporte', 'Inteligência artificial', 'WhatsApp', 'Auditoria'];
+const secoesGlobais = ['Visão geral', 'Utilizadores', 'Autocarros', 'Rotas', 'Viagens', 'Bilhetes', 'Suporte', 'Inteligência artificial', 'WhatsApp', 'Auditoria'];
 
 export default function PainelAdministrador({ utilizador, aoSair }) {
-  const [secao, setSecao] = useState('Visão geral');
+  const secoes = utilizador.perfil === 'ADMIN' ? secoesGlobais : ['Dados da empresa', ...secoesGlobais.filter((item) => !['Inteligência artificial', 'WhatsApp'].includes(item))];
+  const [secao, setSecao] = useState(utilizador.perfil === 'EMPRESA_ADMIN' ? 'Dados da empresa' : 'Visão geral');
   const [dados, setDados] = useState(null);
   const [versao, setVersao] = useState(0);
   const [mensagem, setMensagem] = useState('');
@@ -36,24 +38,28 @@ export default function PainelAdministrador({ utilizador, aoSair }) {
     if (concluido) formulario.reset();
   }
 
+  const empresaPainel = dados?.empresa || utilizador.empresa;
+  const logoEmpresa = empresaPainel?.logoUrl ? `${URL_SERVIDOR}${empresaPainel.logoUrl}` : null;
+
   return <div className="admin-aplicacao">
     <aside className="admin-lateral">
-      <div className="logotipo"><span className="logotipo-icone"><Icone nome="autocarro" /></span><div><strong>Viagem Bus</strong><small>Administração</small></div></div>
+      <div className="logotipo"><span className={`logotipo-icone ${logoEmpresa ? 'com-imagem' : ''}`}>{logoEmpresa ? <img src={logoEmpresa} alt={`Logótipo da ${empresaPainel.nome}`} /> : <Icone nome="autocarro" />}</span><div><strong>{empresaPainel?.nome || 'Viagem Bus'}</strong><small>Administração</small></div></div>
       <nav>{secoes.map((item) => <button key={item} className={secao === item ? 'ativo' : ''} onClick={() => setSecao(item)}>{item}</button>)}</nav>
       <button className="admin-sair" onClick={aoSair}>Terminar sessão</button>
     </aside>
     <main className="admin-conteudo">
-      <header className="admin-topo"><div><p>Painel administrativo</p><h1>{secao}</h1></div><div className="perfil-topo"><span className="avatar">{utilizador.nome.charAt(0)}</span><div><strong>{nomePessoa(utilizador)}</strong><small>Administrador</small></div></div></header>
+      <header className="admin-topo"><div><p>{utilizador.empresa?.nome || 'Painel da plataforma'}</p><h1>{secao}</h1></div><div className="perfil-topo"><span className="avatar">{utilizador.nome.charAt(0)}</span><div><strong>{nomePessoa(utilizador)}</strong><small>Administrador</small></div></div></header>
       {mensagem && <p className="mensagem-formulario sucesso">{mensagem}</p>}{erro && <p className="mensagem-formulario erro">{erro}</p>}
-      {!dados ? <div className="painel-carregando vidro">A carregar informações administrativas...</div> : <ConteudoAdministrativo secao={secao} dados={dados} executar={executar} submeter={submeter} />}
+      {!dados ? <div className="painel-carregando vidro">A carregar informações administrativas...</div> : <ConteudoAdministrativo secao={secao} dados={dados} executar={executar} submeter={submeter} utilizador={utilizador} />}
     </main>
   </div>;
 }
 
-function ConteudoAdministrativo({ secao, dados, executar, submeter }) {
-  if (secao === 'Utilizadores') return <PaginaUtilizadores utilizadores={dados.passageiros} executar={executar} />;
+function ConteudoAdministrativo({ secao, dados, executar, submeter, utilizador }) {
+  if (secao === 'Dados da empresa') return <PaginaDadosEmpresa empresa={dados.empresa} executar={executar} />;
+  if (secao === 'Utilizadores') return <PaginaUtilizadores utilizadores={dados.passageiros} executar={executar} administrador={utilizador} />;
   if (secao === 'Autocarros') return <><FormularioAutocarro aoSubmeter={(e) => submeter(e, criarAutocarro, 'Autocarro criado com sucesso.')} /><TabelaGestao titulo="Frota" colunas={['ID', 'Matrícula', 'Modelo', 'Capacidade', 'Distribuição', 'Estado', 'Criado em', 'Ação']} linhas={dados.autocarros.map((item) => [item.id, item.registration, item.model, item.capacity, `${item.seatsLeft || 2} + ${item.seatsRight || 2}`, item.active ? 'Ativo' : 'Inativo', formatarData(item.criado_em), <BotaoEstado activo={item.active} aoClicar={() => executar(() => definirEstadoAdministrativo('autocarros', item.id, !item.active), 'Estado do autocarro atualizado.')} />])} /></>;
-  if (secao === 'Rotas') return <><FormularioRota aoSubmeter={(e) => submeter(e, criarRota, 'Rota criada com sucesso.')} /><TabelaGestao titulo="Rotas" colunas={['ID', 'Origem', 'Destino', 'Distância', 'Estado', 'Criada em', 'Ação']} linhas={dados.rotas.map((item) => [item.id, item.origin, item.destination, item.distanceKm ? `${item.distanceKm} km` : '—', item.active ? 'Ativa' : 'Inativa', formatarData(item.criado_em), <BotaoEstado activo={item.active} aoClicar={() => executar(() => definirEstadoAdministrativo('rotas', item.id, !item.active), 'Estado da rota atualizado.')} />])} /></>;
+  if (secao === 'Rotas') return <><FormularioRota aoSubmeter={(e) => submeter(e, criarRota, 'Rota criada com sucesso.')} /><TabelaGestao titulo="Rotas" colunas={['ID', 'Origem', 'Destino', 'Distância', 'Estado', 'Criada em', 'Ação']} linhas={dados.rotas.map((item) => [item.id, `${item.origin} (${item.originProvince})`, `${item.destination} (${item.destinationProvince})`, item.distanceKm ? `${item.distanceKm} km` : '—', item.active ? 'Ativa' : 'Inativa', formatarData(item.criado_em), <BotaoEstado activo={item.active} aoClicar={() => executar(() => definirEstadoAdministrativo('rotas', item.id, !item.active), 'Estado da rota atualizado.')} />])} /></>;
   if (secao === 'Viagens') return <><FormularioViagem rotas={dados.rotas.filter((item) => item.active)} autocarros={dados.autocarros.filter((item) => item.active)} aoSubmeter={(e) => submeter(e, criarViagem, 'Viagem criada com sucesso.')} /><TabelaGestao titulo="Viagens" colunas={['ID', 'Rota', 'Autocarro', 'Partida', 'Chegada', 'Preço', 'Estado', 'Ações']} linhas={dados.viagens.map((item) => [item.id, `${item.Route?.origin} → ${item.Route?.destination}`, `${item.Bus?.registration || '—'} · ${item.Bus?.model || ''}`, formatarData(item.departureAt), item.arrivalExpectedAt ? formatarData(item.arrivalExpectedAt) : '—', formatarValor(item.price), item.status, <AcoesViagem viagem={item} executar={executar} />])} /></>;
   if (secao === 'Bilhetes') return <TabelaGestao titulo="Bilhetes emitidos" colunas={['Código', 'Passageiro', 'Rota', 'Autocarro', 'Assento', 'Pagamento', 'Referência', 'Preço', 'Estado', 'Emitido em']} linhas={dados.bilhetes.map((item) => [item.codigo, item.User ? nomePessoa(item.User) : item.nomePassageiro, `${item.Trip?.Route?.origin || ''} → ${item.Trip?.Route?.destination || ''}`, item.Trip?.Bus?.registration || '—', item.Assento?.numero || '—', item.Pagamento?.metodo || '—', item.Pagamento?.referencia || '—', formatarValor(item.preco), item.estado, formatarData(item.criado_em)])} />;
   if (secao === 'Suporte') return <PaginaGestaoSuporte />;
@@ -68,10 +74,12 @@ function VisaoGeral({ dados }) {
   return <><section className="admin-indicadores">{itens.map(([icone, titulo, valor]) => <article className="vidro" key={titulo}><span className="resumo-icone"><Icone nome={icone} /></span><small>{titulo}</small><strong>{valor}</strong></article>)}</section><TabelaGestao titulo="Viagens recentes" colunas={['Rota', 'Partida', 'Preço', 'Estado']} linhas={dados.viagens.slice(0, 6).map((item) => [`${item.Route?.origin} → ${item.Route?.destination}`, formatarData(item.departureAt), formatarValor(item.price), item.status])} /></>;
 }
 
-function PaginaUtilizadores({ utilizadores, executar }) {
+function PaginaUtilizadores({ utilizadores, executar, administrador }) {
   const [emEdicao, setEmEdicao] = useState(null);
   const [utilizadorRedefinir, setUtilizadorRedefinir] = useState(null);
+  const [utilizadorEliminar, setUtilizadorEliminar] = useState(null);
   const [aRedefinir, setARedefinir] = useState(false);
+  const [aEliminar, setAEliminar] = useState(false);
 
   async function guardar(evento) {
     evento.preventDefault();
@@ -90,19 +98,27 @@ function PaginaUtilizadores({ utilizadores, executar }) {
     setARedefinir(false);
   }
 
+  async function eliminar() {
+    setAEliminar(true);
+    const concluido = await executar(() => eliminarUtilizadorAdministrativo(utilizadorEliminar.id), 'Utilizador eliminado com sucesso.');
+    if (concluido) setUtilizadorEliminar(null);
+    setAEliminar(false);
+  }
+
   return <>
     <form className="admin-formulario admin-formulario-utilizador vidro" onSubmit={guardar} key={emEdicao?.id || 'novo'}>
       <h3>{emEdicao ? 'Editar utilizador' : 'Novo utilizador'}</h3>
       <label>Nome<input name="nome" defaultValue={emEdicao?.nome || ''} required minLength="3" /></label>
       <label>Apelido<input name="apelido" defaultValue={emEdicao?.apelido || ''} required minLength="2" /></label>
       <label>Telefone<input name="telefone" type="tel" defaultValue={emEdicao?.telefone || ''} placeholder="+258840000000" required /></label>
-      <label>Perfil<select name="perfil" defaultValue={emEdicao?.perfil || 'PASSAGEIRO'}><option value="PASSAGEIRO">Cliente</option><option value="GESTOR_SUPORTE">Atendente</option><option value="ADMIN">Administrador</option></select></label>
+      <label>Perfil<select name="perfil" defaultValue={emEdicao?.perfil || 'GESTOR_SUPORTE'}><option value="GESTOR_SUPORTE">Atendente</option>{administrador.perfil === 'EMPRESA_ADMIN' && emEdicao?.perfil === 'EMPRESA_ADMIN' && <option value="EMPRESA_ADMIN">Administrador da empresa</option>}{administrador.perfil === 'ADMIN' && <><option value="PASSAGEIRO">Cliente</option><option value="EMPRESA_ADMIN">Administrador da empresa</option><option value="ADMIN">Administrador da plataforma</option></>}</select></label>
       {!emEdicao && <label>Palavra-passe<input name="palavraPasse" type="password" minLength="8" required /></label>}
       <button>{emEdicao ? 'Guardar alterações' : 'Criar utilizador'}</button>
       {emEdicao && <button type="button" className="botao-voltar" onClick={() => setEmEdicao(null)}>Cancelar edição</button>}
     </form>
-    <TabelaGestao titulo="Utilizadores" colunas={['ID', 'Nome', 'Apelido', 'Telefone', 'Perfil', 'Estado', 'Ações']} linhas={utilizadores.map((item) => [item.id, item.nome, item.apelido, item.telefone, nomePerfil(item.perfil), item.activo ? 'Ativo' : 'Inativo', <span className="admin-acoes"><button onClick={() => setEmEdicao(item)}>Editar</button><button onClick={() => setUtilizadorRedefinir(item)}>Redefinir senha</button><BotaoEstado activo={item.activo} aoClicar={() => executar(() => definirEstadoAdministrativo('utilizadores', item.id, !item.activo), 'Estado do utilizador atualizado.')} /></span>])} />
+    <TabelaGestao titulo="Utilizadores" colunas={['ID', 'Nome', 'Apelido', 'Telefone', 'Perfil', 'Estado', 'Ações']} linhas={utilizadores.map((item) => [item.id, item.nome, item.apelido, item.telefone, nomePerfil(item.perfil), item.activo ? 'Ativo' : 'Inativo', <span className="admin-acoes"><button onClick={() => setEmEdicao(item)}>Editar</button><button onClick={() => setUtilizadorRedefinir(item)}>Redefinir senha</button><BotaoEstado activo={item.activo} aoClicar={() => executar(() => definirEstadoAdministrativo('utilizadores', item.id, !item.activo), 'Estado do utilizador atualizado.')} /><button className="admin-eliminar" onClick={() => setUtilizadorEliminar(item)}>Eliminar</button></span>])} />
     {utilizadorRedefinir && <ModalCampo titulo="Redefinir palavra-passe" texto={`Defina uma nova palavra-passe para ${nomePessoa(utilizadorRedefinir)}.`} etiquetaCampo="Nova palavra-passe" tipo="password" minLength={8} textoConfirmar="Redefinir" aProcessar={aRedefinir} aoConfirmar={redefinir} aoFechar={() => setUtilizadorRedefinir(null)} />}
+    {utilizadorEliminar && <ModalConfirmacao titulo="Eliminar utilizador" texto={`Deseja eliminar ${nomePessoa(utilizadorEliminar)}? A conta será anonimizada e perderá o acesso, mas o histórico de bilhetes, pagamentos, suporte e auditoria será preservado.`} textoConfirmar="Eliminar utilizador" perigo aProcessar={aEliminar} aoConfirmar={eliminar} aoFechar={() => setUtilizadorEliminar(null)} />}
   </>;
 }
 
@@ -126,6 +142,74 @@ function PaginaGestaoSuporte() {
 
   if (ticketActivo) return <><button className="botao-voltar-suporte" onClick={() => { setTicketActivo(null); carregar(); }}>Voltar aos tickets</button><ChatTicketSuporte ticketId={ticketActivo} perfil="ADMIN" aoActualizar={carregar} /></>;
   return <section className="admin-tabela vidro"><div className="titulo-secao"><div><h3>Gestão de suporte</h3><p>Atribua os pedidos à equipa e acompanhe os atendimentos.</p></div><span>{tickets.length} tickets</span></div>{erro && <p className="mensagem-formulario erro">{erro}</p>}<div className="admin-tabela-scroll"><table><thead><tr><th>Código</th><th>Passageiro</th><th>Assunto</th><th>Prioridade</th><th>Estado</th><th>Gestor responsável</th><th>Ação</th></tr></thead><tbody>{tickets.map((ticket) => <tr key={ticket.id}><td>{ticket.codigo}</td><td>{nomePessoa(ticket.Passageiro)}</td><td>{ticket.assunto}</td><td>{ticket.prioridade}</td><td><b className={`estado-suporte estado-${ticket.estado.toLowerCase()}`}>{traduzirEstado(ticket.estado)}</b></td><td><select value={ticket.gestorId || ''} onChange={(evento) => atribuir(evento, ticket.id)}><option value="">Não atribuído</option>{gestores.map((gestor) => <option key={gestor.id} value={gestor.id}>{nomePessoa(gestor)}</option>)}</select></td><td><button className="admin-activar" onClick={() => setTicketActivo(ticket.id)}>Abrir</button></td></tr>)}</tbody></table></div></section>;
+}
+
+function PaginaDadosEmpresa({ empresa, executar }) {
+  const [logo, setLogo] = useState(null);
+  const [previsualizacao, setPrevisualizacao] = useState(empresa?.logoUrl ? `${URL_SERVIDOR}${empresa.logoUrl}` : '');
+  const [removerLogo, setRemoverLogo] = useState(false);
+  const [erroLocal, setErroLocal] = useState('');
+
+  useEffect(() => {
+    if (!logo) setPrevisualizacao(empresa?.logoUrl ? `${URL_SERVIDOR}${empresa.logoUrl}` : '');
+  }, [empresa?.logoUrl]);
+
+  async function escolherLogo(evento) {
+    const ficheiro = evento.target.files?.[0];
+    setErroLocal('');
+    if (!ficheiro) return;
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(ficheiro.type)) return setErroLocal('Selecione uma imagem PNG, JPEG ou WebP.');
+    if (ficheiro.size > 2 * 1024 * 1024) return setErroLocal('O logótipo deve ter no máximo 2 MB.');
+    const dados = await lerFicheiroComoDataUrl(ficheiro);
+    setLogo({ nome: ficheiro.name, dados });
+    setPrevisualizacao(dados);
+    setRemoverLogo(false);
+  }
+
+  async function guardar(evento) {
+    evento.preventDefault();
+    const valores = Object.fromEntries(new FormData(evento.currentTarget));
+    const concluido = await executar(() => actualizarEmpresaAdministrativa({
+      nome: valores.nome,
+      telefone: valores.telefone,
+      descricao: valores.descricao,
+      website: valores.website,
+      logo,
+      removerLogo
+    }), 'Dados da empresa atualizados com sucesso.');
+    if (concluido) { setLogo(null); setRemoverLogo(false); }
+  }
+
+  function removerPrevisualizacao() {
+    setLogo(null); setPrevisualizacao(''); setRemoverLogo(true); setErroLocal('');
+  }
+
+  return <section className="perfil-empresa-admin vidro">
+    <div className="titulo-secao"><div><p className="etiqueta">Identidade da transportadora</p><h3>Dados da empresa</h3><p>Estas informações aparecem para os passageiros durante a escolha da viagem.</p></div></div>
+    <form onSubmit={guardar} className="formulario-empresa-admin">
+      <div className="editor-logo-empresa">
+        <div className="previsualizacao-logo">{previsualizacao ? <img src={previsualizacao} alt="Pré-visualização do logótipo" /> : <Icone nome="autocarro" />}</div>
+        <div><strong>Logótipo da empresa</strong><p>PNG, JPEG ou WebP. Tamanho máximo de 2 MB.</p><label className="botao-selecionar-logo">Escolher imagem<input type="file" accept="image/png,image/jpeg,image/webp" onChange={escolherLogo} /></label>{previsualizacao && <button type="button" className="botao-remover-logo" onClick={removerPrevisualizacao}>Remover logótipo</button>}</div>
+      </div>
+      <div className="campos-empresa-admin">
+        <label>Nome da empresa<input name="nome" defaultValue={empresa?.nome || ''} minLength="3" maxLength="160" required /></label>
+        <label>Telefone institucional<input name="telefone" type="tel" defaultValue={empresa?.telefone || ''} placeholder="+258840000000" /></label>
+        <label>Website<input name="website" type="url" defaultValue={empresa?.website || ''} placeholder="https://empresa.co.mz" /></label>
+        <label className="campo-descricao-empresa">Descrição<textarea name="descricao" defaultValue={empresa?.descricao || ''} maxLength="500" rows="5" placeholder="Apresente brevemente a transportadora e os seus serviços." /></label>
+      </div>
+      {erroLocal && <p className="mensagem-formulario erro">{erroLocal}</p>}
+      <button className="botao-guardar-empresa" type="submit">Guardar alterações</button>
+    </form>
+  </section>;
+}
+
+function lerFicheiroComoDataUrl(ficheiro) {
+  return new Promise((resolver, rejeitar) => {
+    const leitor = new FileReader();
+    leitor.onload = () => resolver(leitor.result);
+    leitor.onerror = () => rejeitar(new Error('Não foi possível ler o logótipo selecionado.'));
+    leitor.readAsDataURL(ficheiro);
+  });
 }
 
 function PaginaWhatsApp() {
@@ -276,7 +360,7 @@ function PaginaAuditoria({ auditorias }) {
 }
 
 function FormularioAutocarro({ aoSubmeter }) { return <form className="admin-formulario admin-formulario-autocarro vidro" onSubmit={aoSubmeter}><h3>Novo autocarro</h3><label>Matrícula<input name="matricula" required /></label><label>Modelo<input name="modelo" required /></label><label>Capacidade<input name="capacidade" type="number" min="1" max="120" required /></label><label>Assentos à esquerda do corredor<select name="lugaresEsquerda" defaultValue="2"><option value="1">1 assento</option><option value="2">2 assentos</option><option value="3">3 assentos</option></select></label><label>Assentos à direita do corredor<select name="lugaresDireita" defaultValue="2"><option value="1">1 assento</option><option value="2">2 assentos</option><option value="3">3 assentos</option></select></label><p className="ajuda-layout-autocarro">Os assentos exteriores de cada fila serão marcados automaticamente como lugares junto à janela.</p><button>Adicionar autocarro e gerar assentos</button></form>; }
-function FormularioRota({ aoSubmeter }) { return <form className="admin-formulario vidro" onSubmit={aoSubmeter}><h3>Nova rota</h3><label>Origem<input name="origem" required /></label><label>Destino<input name="destino" required /></label><label>Distância em km<input name="distanciaKm" type="number" min="1" /></label><button>Adicionar rota</button></form>; }
+function FormularioRota({ aoSubmeter }) { return <form className="admin-formulario admin-formulario-rota vidro" onSubmit={aoSubmeter}><h3>Nova rota</h3><SelecaoLocalidade prefixo="origem" titulo="Origem" /><SelecaoLocalidade prefixo="destino" titulo="Destino" /><label>Distância em km<input name="distanciaKm" type="number" min="1" /></label><button>Adicionar rota</button></form>; }
 function FormularioViagem({ rotas, autocarros, aoSubmeter }) { return <form className="admin-formulario admin-formulario-viagem vidro" onSubmit={aoSubmeter}><h3>Nova viagem</h3><label>Rota<select name="rotaId" required><option value="">Selecionar</option>{rotas.map((item) => <option key={item.id} value={item.id}>{item.origin} → {item.destination}</option>)}</select></label><label>Autocarro<select name="autocarroId" required><option value="">Selecionar</option>{autocarros.map((item) => <option key={item.id} value={item.id}>{item.registration} · {item.model}</option>)}</select></label><label>Partida<input name="partidaEm" type="datetime-local" required /></label><label>Chegada prevista<input name="chegadaPrevistaEm" type="datetime-local" /></label><label>Preço<input name="preco" type="number" min="1" required /></label><button>Agendar viagem</button></form>; }
 
 function AcoesViagem({ viagem, executar }) {
@@ -317,7 +401,7 @@ function TabelaGestao({ titulo, colunas, linhas }) {
 }
 function BotaoEstado({ activo, aoClicar }) { return <button className={activo ? 'admin-desactivar' : 'admin-activar'} onClick={aoClicar}>{activo ? 'Desativar' : 'Ativar'}</button>; }
 function formatarData(valor) { return new Intl.DateTimeFormat('pt-MZ', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(valor)); }
-function nomePerfil(perfil) { return { PASSAGEIRO: 'Cliente', GESTOR_SUPORTE: 'Atendente', ADMIN: 'Administrador' }[perfil] || perfil; }
+function nomePerfil(perfil) { return { PASSAGEIRO: 'Cliente', GESTOR_SUPORTE: 'Atendente', EMPRESA_ADMIN: 'Administrador da empresa', ADMIN: 'Administrador da plataforma' }[perfil] || perfil; }
 function nomePessoa(pessoa) { return pessoa ? `${pessoa.nome || ''} ${pessoa.apelido || ''}`.trim() : '—'; }
 function nomeEstadoWhatsApp(estado) { return { NAO_INICIADO: 'Não iniciado', A_INICIAR: 'A iniciar', PROCESSO_PARADO: 'Processo parado', ERRO_PROCESSO: 'Erro no processo', A_LIGAR: 'A ligar', AGUARDA_QR: 'Aguarda QR Code', LIGADO: 'Ligado', A_RECONECTAR: 'A reconectar', SESSAO_TERMINADA: 'Sessão terminada', ERRO_RECONEXAO: 'Falha na reconexão' }[estado] || estado; }
 function nomeEstadoEnvio(estado) { return { PENDENTE: 'Pendente', PROCESSANDO: 'A enviar', ENVIADO: 'Enviado', FALHADO: 'Falhado', EXPIRADO: 'Expirado' }[estado] || estado; }

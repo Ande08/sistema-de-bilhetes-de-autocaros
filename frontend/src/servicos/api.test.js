@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { comprarBilhete, confirmarRegistoUtilizador, enviarAvisoViagemAdministrativa, enviarMensagemSuporte, guardarConfiguracaoIa, guardarSessao, iniciarPagamentoSimulado, listarClientesAtendimento, obterResumoConta, obterSessaoGuardada, processarPagamentoSimulado, registarUtilizador, terminarSessao } from './api.js';
+import { actualizarEmpresaAdministrativa, comprarBilhete, confirmarRecuperacaoPalavraPasse, confirmarRegistoUtilizador, eliminarUtilizadorAdministrativo, enviarAvisoViagemAdministrativa, enviarMensagemSuporte, guardarConfiguracaoIa, guardarSessao, iniciarPagamentoSimulado, listarClientesAtendimento, listarLocalidades, obterBilhetePdf, obterResumoConta, obterSessaoGuardada, pesquisarViagens, processarPagamentoSimulado, registarUtilizador, solicitarRecuperacaoPalavraPasse, terminarSessao } from './api.js';
 
 describe('sessão do passageiro', () => {
   beforeEach(() => {
@@ -76,6 +76,33 @@ describe('sessão do passageiro', () => {
     expect(fetchSimulado.mock.calls[1][0]).toContain('/autenticacao/confirmar-registo');
   });
 
+  it('solicita e confirma a recuperação da palavra-passe através de OTP', async () => {
+    const fetchSimulado = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ dados: { telefone: '+258841234567' } }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ dados: { mensagem: 'Palavra-passe redefinida com sucesso.' } }) });
+    vi.stubGlobal('fetch', fetchSimulado);
+
+    await solicitarRecuperacaoPalavraPasse({ telefone: '841234567', canal: 'WHATSAPP' });
+    await confirmarRecuperacaoPalavraPasse({ telefone: '+258841234567', codigo: '123456', novaPalavraPasse: 'novaSegura123' });
+
+    expect(fetchSimulado.mock.calls[0][0]).toContain('/autenticacao/solicitar-recuperacao');
+    expect(fetchSimulado.mock.calls[1][0]).toContain('/autenticacao/confirmar-recuperacao');
+  });
+
+  it('descarrega o PDF autenticado do bilhete', async () => {
+    guardarSessao({ token: 'token-pdf' });
+    const ficheiro = new Blob(['%PDF-1.4'], { type: 'application/pdf' });
+    const fetchSimulado = vi.fn().mockResolvedValue({ ok: true, blob: async () => ficheiro });
+    vi.stubGlobal('fetch', fetchSimulado);
+
+    const resposta = await obterBilhetePdf('BIL-1');
+
+    expect(resposta.type).toBe('application/pdf');
+    expect(fetchSimulado).toHaveBeenCalledWith(expect.stringContaining('/compras/bilhete/BIL-1/pdf'), expect.objectContaining({
+      headers: expect.objectContaining({ Authorization: 'Bearer token-pdf' })
+    }));
+  });
+
   it('permite ao atendente consultar clientes para uma venda assistida', async () => {
     guardarSessao({ token: 'token-atendente' });
     const fetchSimulado = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ dados: [{ id: 2, nome: 'Cliente' }] }) });
@@ -110,6 +137,18 @@ describe('sessão do passageiro', () => {
     expect(fetchSimulado.mock.calls[0][1]).toEqual(expect.objectContaining({ method: 'PUT', headers: expect.objectContaining({ Authorization: 'Bearer token-administrador' }) }));
   });
 
+  it('guarda os dados e o logótipo da empresa autenticada', async () => {
+    guardarSessao({ token: 'token-empresa' });
+    const fetchSimulado = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ dados: { nome: 'Empresa Teste', logoUrl: '/ficheiros/empresas/logo.png' } }) });
+    vi.stubGlobal('fetch', fetchSimulado);
+
+    await actualizarEmpresaAdministrativa({ nome: 'Empresa Teste', logo: { nome: 'logo.png', dados: 'data:image/png;base64,AA==' } });
+
+    expect(fetchSimulado).toHaveBeenCalledWith(expect.stringContaining('/gestao/empresa'), expect.objectContaining({
+      method: 'PUT', headers: expect.objectContaining({ Authorization: 'Bearer token-empresa' })
+    }));
+  });
+
   it('envia um aviso administrativo para os passageiros da viagem', async () => {
     guardarSessao({ token: 'token-administrador' });
     const fetchSimulado = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ dados: { totalDestinatarios: 3 } }) });
@@ -122,5 +161,38 @@ describe('sessão do passageiro', () => {
       method: 'POST',
       headers: expect.objectContaining({ Authorization: 'Bearer token-administrador' })
     }));
+  });
+
+  it('elimina um utilizador pela rota administrativa autenticada', async () => {
+    guardarSessao({ token: 'token-administrador' });
+    const fetchSimulado = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ dados: { mensagem: 'Utilizador eliminado com sucesso.' } }) });
+    vi.stubGlobal('fetch', fetchSimulado);
+
+    await eliminarUtilizadorAdministrativo(23);
+
+    expect(fetchSimulado).toHaveBeenCalledWith(expect.stringContaining('/gestao/utilizadores/23'), expect.objectContaining({
+      method: 'DELETE',
+      headers: expect.objectContaining({ Authorization: 'Bearer token-administrador' })
+    }));
+  });
+
+  it('restringe a pesquisa do atendente às viagens da sua empresa', async () => {
+    guardarSessao({ token: 'token-atendente', utilizador: { perfil: 'GESTOR_SUPORTE', empresaId: 12 } });
+    const fetchSimulado = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ dados: [] }) });
+    vi.stubGlobal('fetch', fetchSimulado);
+
+    await pesquisarViagens({ origem: 'Maputo', destino: 'Beira', data: '2026-11-10' });
+
+    expect(fetchSimulado.mock.calls[0][0]).toContain('empresaId=12');
+  });
+
+  it('carrega as províncias e cidades do catálogo público', async () => {
+    const fetchSimulado = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ dados: [{ provincia: 'Tete', cidades: ['Tete'] }] }) });
+    vi.stubGlobal('fetch', fetchSimulado);
+
+    const localidades = await listarLocalidades();
+
+    expect(localidades[0].cidades).toContain('Tete');
+    expect(fetchSimulado.mock.calls[0][0]).toContain('/catalogo/localidades');
   });
 });

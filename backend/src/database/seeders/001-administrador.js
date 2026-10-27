@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs';
-import { User } from '../../models/index.js';
+import { Empresa, User } from '../../models/index.js';
 
 export async function executar({ transaction }) {
   const nome = process.env.ADMIN_NOME;
@@ -12,9 +12,10 @@ export async function executar({ transaction }) {
   }
 
   const palavraPasseHash = await bcrypt.hash(palavraPasse, 12);
+  const empresa = await Empresa.findOne({ where: { slug: 'viagem-bus' }, transaction });
   await User.findOrCreate({
     where: { telefone },
-    defaults: { nome, apelido, telefone, palavraPasseHash, perfil: 'ADMIN', activo: true },
+    defaults: { nome, apelido, telefone, palavraPasseHash, perfil: 'ADMIN', empresaId: empresa?.id || null, activo: true },
     transaction
   });
 }

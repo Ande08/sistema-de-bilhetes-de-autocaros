@@ -1,9 +1,9 @@
 import { Op } from 'sequelize';
-import { Route, Trip } from '../models/index.js';
+import { Empresa, Route, Trip } from '../models/index.js';
 
 export async function listTrips(req, res, next) {
   try {
-  const { origem, destino, data } = req.query;
+  const { origem, destino, origemProvincia, destinoProvincia, empresaId, data } = req.query;
   const filtro = { status: 'AGENDADA', departureAt: { [Op.gt]: new Date() } };
   if (data) {
     const inicio = new Date(`${data}T00:00:00`);
@@ -19,10 +19,16 @@ export async function listTrips(req, res, next) {
   const filtroRota = {};
   if (origem) filtroRota.origin = { [Op.like]: String(origem).trim() };
   if (destino) filtroRota.destination = { [Op.like]: String(destino).trim() };
+  if (origemProvincia) filtroRota.originProvince = String(origemProvincia).trim();
+  if (destinoProvincia) filtroRota.destinationProvince = String(destinoProvincia).trim();
   filtroRota.active = true;
+  if (empresaId) filtro.empresaId = empresaId;
   const viagens = await Trip.findAll({
     where: filtro,
-    include: [{ model: Route, where: filtroRota, required: true }],
+    include: [
+      { model: Route, where: filtroRota, required: true },
+      { model: Empresa, where: { activa: true }, attributes: ['id', 'nome', 'slug', 'logoUrl'], required: true }
+    ],
     order: [['departureAt', 'ASC']]
   });
   return res.json({ sucesso: true, dados: viagens });
@@ -31,7 +37,9 @@ export async function listTrips(req, res, next) {
 
 export async function getTrip(req, res, next) {
   try {
-  const viagem = await Trip.findByPk(req.params.id, { include: [Route] });
+  const viagem = await Trip.findByPk(req.params.id, {
+    include: [Route, { model: Empresa, where: { activa: true }, attributes: ['id', 'nome', 'slug', 'logoUrl'], required: true }]
+  });
   if (!viagem) {
     const error = new Error('Viagem não encontrada');
     error.statusCode = 404;

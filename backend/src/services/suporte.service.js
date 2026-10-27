@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { Op } from 'sequelize';
 import { sequelize } from '../config/database.js';
-import { MensagemSuporte, TicketSuporte, User } from '../models/index.js';
+import { Empresa, MensagemSuporte, TicketSuporte, User } from '../models/index.js';
 
 const inclusoesTicket = [
+  { model: Empresa, attributes: ['id', 'nome', 'slug'] },
   { model: User, as: 'Passageiro', attributes: ['id', 'nome', 'apelido', 'telefone'] },
   { model: User, as: 'Gestor', attributes: ['id', 'nome', 'apelido', 'telefone'] }
 ];
@@ -33,16 +34,19 @@ export function responderAssistente(mensagem) {
   };
 }
 
-export async function criarTicket(utilizador, { assunto, categoria = 'OUTRO', prioridade = 'NORMAL', mensagem }) {
+export async function criarTicket(utilizador, { empresaId, assunto, categoria = 'OUTRO', prioridade = 'NORMAL', mensagem }) {
   if (utilizador.perfil !== 'PASSAGEIRO') throw erroAcesso('Apenas passageiros podem abrir pedidos de suporte.');
   if (!assunto?.trim() || assunto.trim().length < 5 || !mensagem?.trim()) throw erroValidacao('Assunto e mensagem são obrigatórios.');
   const categorias = ['BILHETE', 'PAGAMENTO', 'VIAGEM', 'CONTA', 'RECLAMACAO', 'OUTRO'];
   const prioridades = ['BAIXA', 'NORMAL', 'ALTA', 'URGENTE'];
   if (!categorias.includes(categoria) || !prioridades.includes(prioridade)) throw erroValidacao('Categoria ou prioridade inválida.');
+  const empresa = await Empresa.findOne({ where: { id: empresaId, activa: true } });
+  if (!empresa) throw erroValidacao('Selecione a empresa responsável pelo atendimento.');
 
   return sequelize.transaction(async (transaction) => {
     const ticket = await TicketSuporte.create({
       codigo: `SUP-${new Date().toISOString().slice(0, 10).replaceAll('-', '')}-${randomUUID().slice(0, 6).toUpperCase()}`,
+      empresaId: empresa.id,
       utilizadorId: utilizador.id,
       assunto: assunto.trim(), categoria, prioridade
     }, { transaction });
@@ -53,7 +57,8 @@ export async function criarTicket(utilizador, { assunto, categoria = 'OUTRO', pr
 
 export async function listarTickets(utilizador) {
   const where = utilizador.perfil === 'ADMIN' ? {}
-    : utilizador.perfil === 'GESTOR_SUPORTE' ? { gestorId: utilizador.id }
+    : utilizador.perfil === 'EMPRESA_ADMIN' ? { empresaId: utilizador.empresaId }
+      : utilizador.perfil === 'GESTOR_SUPORTE' ? { gestorId: utilizador.id, empresaId: utilizador.empresaId }
       : { utilizadorId: utilizador.id };
   return TicketSuporte.findAll({ where, include: inclusoesTicket, order: [['actualizado_em', 'DESC']] });
 }
@@ -92,10 +97,14 @@ export async function adicionarMensagem(id, utilizador, conteudo, anexo = {}) {
 }
 
 export async function atribuirTicket(id, gestorId, administrador) {
-  if (administrador.perfil !== 'ADMIN') throw erroAcesso();
+  if (!['ADMIN', 'EMPRESA_ADMIN'].includes(administrador.perfil)) throw erroAcesso();
   const [ticket, gestor] = await Promise.all([TicketSuporte.findByPk(id), User.findByPk(gestorId)]);
   if (!ticket) throw erroNaoEncontrado();
   if (!gestor || gestor.perfil !== 'GESTOR_SUPORTE' || !gestor.activo) throw erroValidacao('Selecione um gestor de suporte ativo.');
+  if (String(ticket.empresaId) !== String(gestor.empresaId)
+    || (administrador.perfil === 'EMPRESA_ADMIN' && String(ticket.empresaId) !== String(administrador.empresaId))) {
+    throw erroAcesso('O ticket e o atendente devem pertencer à mesma empresa.');
+  }
   await ticket.update({ gestorId: gestor.id, estado: ticket.estado === 'ABERTO' ? 'EM_ATENDIMENTO' : ticket.estado });
   await MensagemSuporte.create({ ticketId: ticket.id, autorTipo: 'SISTEMA', conteudo: `Ticket atribuído a ${gestor.nome} ${gestor.apelido}.` });
   return obterTicketPorId(ticket.id, administrador);
@@ -114,13 +123,21 @@ export async function actualizarEstadoTicket(id, estado, utilizador) {
   return obterTicketPorId(ticket.id, utilizador);
 }
 
-export async function listarGestoresSuporte() {
-  return User.findAll({ where: { perfil: 'GESTOR_SUPORTE', activo: true }, attributes: ['id', 'nome', 'apelido', 'telefone'], order: [['nome', 'ASC'], ['apelido', 'ASC']] });
+export async function listarGestoresSuporte(administrador) {
+  return User.findAll({
+    where: {
+      perfil: 'GESTOR_SUPORTE', activo: true,
+      ...(administrador.perfil === 'EMPRESA_ADMIN' && { empresaId: administrador.empresaId })
+    },
+    attributes: ['id', 'nome', 'apelido', 'telefone', 'empresaId'],
+    order: [['nome', 'ASC'], ['apelido', 'ASC']]
+  });
 }
 
 export function garantirAcesso(ticket, utilizador) {
   const permitido = utilizador.perfil === 'ADMIN'
-    || (utilizador.perfil === 'GESTOR_SUPORTE' && String(ticket.gestorId) === String(utilizador.id))
+    || (utilizador.perfil === 'EMPRESA_ADMIN' && String(ticket.empresaId) === String(utilizador.empresaId))
+    || (utilizador.perfil === 'GESTOR_SUPORTE' && String(ticket.empresaId) === String(utilizador.empresaId) && String(ticket.gestorId) === String(utilizador.id))
     || (utilizador.perfil === 'PASSAGEIRO' && String(ticket.utilizadorId) === String(utilizador.id));
   if (!permitido) throw erroAcesso('Não tem acesso a este ticket.');
 }

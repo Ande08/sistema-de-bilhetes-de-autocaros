@@ -4,6 +4,7 @@ import { sequelize } from '../config/database.js';
 export class Trip extends Model {}
 
 Trip.init({
+  empresaId: { type: DataTypes.BIGINT.UNSIGNED, allowNull: false, field: 'empresa_id' },
   routeId: { type: DataTypes.BIGINT.UNSIGNED, allowNull: false, field: 'rota_id' },
   busId: { type: DataTypes.BIGINT.UNSIGNED, allowNull: false, field: 'autocarro_id' },
   departureAt: { type: DataTypes.DATE, allowNull: false, field: 'partida_em' },

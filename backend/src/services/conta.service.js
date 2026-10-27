@@ -1,4 +1,4 @@
-import { Bilhete, Pagamento, Route, Trip, Assento } from '../models/index.js';
+import { Assento, Bilhete, Empresa, Pagamento, Route, Trip } from '../models/index.js';
 
 // Converte instâncias Sequelize numa estrutura estável e simples para o frontend.
 export function normalizarBilhete(bilhete) {
@@ -17,6 +17,7 @@ export function normalizarBilhete(bilhete) {
       partidaEm: viagem.departureAt,
       chegadaPrevistaEm: viagem.arrivalExpectedAt,
       estado: viagem.status,
+      empresa: viagem.Empresa ? { id: viagem.Empresa.id, nome: viagem.Empresa.nome, logoUrl: viagem.Empresa.logoUrl || null } : null,
       origem: viagem.Route?.origin || '',
       destino: viagem.Route?.destination || ''
     } : null,
@@ -54,7 +55,7 @@ export function construirResumoConta(bilhetes, agora = new Date()) {
 export async function obterResumoConta(utilizadorId) {
   const bilhetes = await Bilhete.findAll({
     where: { utilizadorId },
-    include: [Pagamento, Assento, { model: Trip, include: [Route] }],
+    include: [Pagamento, Assento, { model: Trip, include: [Route, { model: Empresa, attributes: ['id', 'nome', 'logoUrl'] }] }],
     order: [['id', 'DESC']],
     limit: 100
   });

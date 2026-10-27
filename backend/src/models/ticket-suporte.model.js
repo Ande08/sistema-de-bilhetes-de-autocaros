@@ -4,6 +4,7 @@ import { sequelize } from '../config/database.js';
 export class TicketSuporte extends Model {}
 
 TicketSuporte.init({
+  empresaId: { type: DataTypes.BIGINT.UNSIGNED, allowNull: false, field: 'empresa_id' },
   codigo: { type: DataTypes.STRING(32), allowNull: false, unique: true },
   utilizadorId: { type: DataTypes.BIGINT.UNSIGNED, allowNull: false, field: 'utilizador_id' },
   gestorId: { type: DataTypes.BIGINT.UNSIGNED, allowNull: true, field: 'gestor_id' },

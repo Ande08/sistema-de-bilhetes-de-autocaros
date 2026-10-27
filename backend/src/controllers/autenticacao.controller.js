@@ -13,7 +13,19 @@ export async function solicitarRegisto(req, res, next) {
 export async function confirmarRegisto(req, res, next) {
   try {
     const utilizador = await servicoOtp.confirmarCriacaoConta(req.body);
-    return res.status(201).json({ sucesso: true, dados: servico._dadosPublicos(utilizador) });
+    return res.status(201).json({ sucesso: true, dados: await servico.obterPerfil(utilizador.id) });
+  } catch (erro) { return next(erro); }
+}
+
+export async function solicitarRecuperacao(req, res, next) {
+  try {
+    return res.json({ sucesso: true, dados: await servicoOtp.solicitarRecuperacaoPalavraPasse(req.body) });
+  } catch (erro) { return next(erro); }
+}
+
+export async function confirmarRecuperacao(req, res, next) {
+  try {
+    return res.json({ sucesso: true, dados: await servicoOtp.confirmarRecuperacaoPalavraPasse(req.body) });
   } catch (erro) { return next(erro); }
 }
 

@@ -1,4 +1,5 @@
-import { Assento, Auditoria, Bilhete, Bus, Pagamento, Route, Trip, User } from '../models/index.js';
+import { Assento, Auditoria, Bilhete, Bus, Empresa, Pagamento, Route, Trip, User } from '../models/index.js';
+import { filtroEmpresa } from './empresa-escopo.service.js';
 
 export function construirIndicadores({ passageiros, autocarros, viagens, bilhetes, receitaAprovada }) {
   return {
@@ -10,30 +11,42 @@ export function construirIndicadores({ passageiros, autocarros, viagens, bilhete
   };
 }
 
-export async function obterPainelAdministrativo() {
-  const [passageiros, autocarros, rotas, viagens, bilhetes, auditorias, receitaAprovada] = await Promise.all([
-    User.findAll({ attributes: ['id', 'nome', 'apelido', 'telefone', 'perfil', 'activo'], order: [['id', 'DESC']], limit: 100 }),
-    Bus.findAll({ order: [['id', 'DESC']], limit: 100 }),
-    Route.findAll({ order: [['id', 'DESC']], limit: 100 }),
-    Trip.findAll({ include: [Route, Bus], order: [['departureAt', 'DESC']], limit: 100 }),
-    Bilhete.findAll({ include: [{ model: User, attributes: ['id', 'nome', 'apelido', 'telefone'] }, Assento, { model: Trip, include: [Route, Bus] }, Pagamento], order: [['id', 'DESC']], limit: 100 }),
-    Auditoria.findAll({ include: [{ model: User, attributes: ['id', 'nome', 'apelido', 'telefone'] }], order: [['id', 'DESC']], limit: 100 }),
-    Pagamento.sum('valor', { where: { estado: 'APROVADO' } })
+export async function obterPainelAdministrativo(utilizador) {
+  const escopo = filtroEmpresa(utilizador);
+  const filtroUtilizadores = utilizador.perfil === 'ADMIN'
+    ? { eliminadoEm: null }
+    : { eliminadoEm: null, empresaId: utilizador.empresaId };
+  const filtroAuditoria = utilizador.perfil === 'ADMIN'
+    ? { model: User, attributes: ['id', 'nome', 'apelido', 'telefone'] }
+    : { model: User, attributes: ['id', 'nome', 'apelido', 'telefone'], where: { empresaId: utilizador.empresaId }, required: true };
+  const [passageiros, autocarros, rotas, viagens, bilhetes, auditorias, empresa] = await Promise.all([
+    User.findAll({ where: filtroUtilizadores, attributes: ['id', 'nome', 'apelido', 'telefone', 'perfil', 'activo', 'empresaId'], order: [['id', 'DESC']], limit: 100 }),
+    Bus.findAll({ where: escopo, order: [['id', 'DESC']], limit: 100 }),
+    Route.findAll({ where: escopo, order: [['id', 'DESC']], limit: 100 }),
+    Trip.findAll({ where: escopo, include: [Route, Bus], order: [['departureAt', 'DESC']], limit: 100 }),
+    Bilhete.findAll({ include: [{ model: User, attributes: ['id', 'nome', 'apelido', 'telefone'] }, Assento, { model: Trip, where: escopo, required: true, include: [Route, Bus] }, Pagamento], order: [['id', 'DESC']], limit: 100 }),
+    Auditoria.findAll({ include: [filtroAuditoria], order: [['id', 'DESC']], limit: 100 }),
+    utilizador.empresaId ? Empresa.findByPk(utilizador.empresaId) : null
   ]);
+  const receitaAprovada = bilhetes.reduce((total, item) => total + (item.Pagamento?.estado === 'APROVADO' ? Number(item.Pagamento.valor) : 0), 0);
+  const passageirosIndicador = utilizador.perfil === 'ADMIN'
+    ? passageiros
+    : [...new Set(bilhetes.map((item) => item.utilizadorId).filter(Boolean))].map(() => ({ perfil: 'PASSAGEIRO' }));
 
   return {
-    indicadores: construirIndicadores({ passageiros, autocarros, viagens, bilhetes, receitaAprovada }),
+    indicadores: construirIndicadores({ passageiros: passageirosIndicador, autocarros, viagens, bilhetes, receitaAprovada }),
     passageiros,
     autocarros,
     rotas,
     viagens,
     bilhetes,
-    auditorias
+    auditorias,
+    empresa
   };
 }
 
-export async function definirEstadoEntidade(Modelo, id, activo) {
-  const entidade = await Modelo.findByPk(id);
+export async function definirEstadoEntidade(Modelo, id, activo, utilizador) {
+  const entidade = await Modelo.findOne({ where: { id, ...filtroEmpresa(utilizador) } });
   if (!entidade) {
     const erro = new Error('Registo não encontrado.');
     erro.statusCode = 404;

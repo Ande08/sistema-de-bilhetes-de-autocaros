@@ -21,5 +21,5 @@ export function auditarOperacaoAdministrativa(req, res, next) {
 export function ocultarDadosSensiveis(valor) {
   if (Array.isArray(valor)) return valor.map(ocultarDadosSensiveis);
   if (!valor || typeof valor !== 'object') return valor;
-  return Object.fromEntries(Object.entries(valor).map(([chave, conteudo]) => [chave, /password|palavraPasse|apiKey|secret|token/i.test(chave) ? '[PROTEGIDO]' : ocultarDadosSensiveis(conteudo)]));
+  return Object.fromEntries(Object.entries(valor).map(([chave, conteudo]) => [chave, /password|palavraPasse|apiKey|secret|token|logo/i.test(chave) ? '[PROTEGIDO]' : ocultarDadosSensiveis(conteudo)]));
 }

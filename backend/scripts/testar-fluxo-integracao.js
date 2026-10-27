@@ -1,7 +1,7 @@
 import '../src/config/carregar-ambiente.js';
 import bcrypt from 'bcryptjs';
 import { sequelize } from '../src/config/database.js';
-import { User } from '../src/models/index.js';
+import { Empresa, User } from '../src/models/index.js';
 
 const URL_API = process.env.URL_API_TESTE || 'http://localhost:3000/api';
 const ADMIN_TESTE = {
@@ -35,17 +35,21 @@ function corpo(dados) {
   return JSON.stringify(dados);
 }
 
-async function prepararAdministradorTeste() {
+async function prepararAdministradorTeste(sufixo) {
   const palavraPasseHash = await bcrypt.hash(ADMIN_TESTE.palavraPasse, 12);
+  const [empresa] = await Empresa.findOrCreate({
+    where: { slug: `empresa-integracao-${sufixo}` },
+    defaults: { nome: `Empresa Integração ${sufixo}`, activa: true }
+  });
   const [administrador, criado] = await User.findOrCreate({
     where: { telefone: ADMIN_TESTE.telefone },
     defaults: {
       nome: 'Administrador', apelido: 'Integração', palavraPasseHash,
-      perfil: 'ADMIN', activo: true
+      perfil: 'ADMIN', empresaId: empresa.id, activo: true
     }
   });
   if (!criado) {
-    await administrador.update({ palavraPasseHash, perfil: 'ADMIN', activo: true });
+    await administrador.update({ palavraPasseHash, perfil: 'ADMIN', empresaId: empresa.id, activo: true });
   }
 }
 
@@ -59,8 +63,8 @@ async function executar() {
   const dataPesquisa = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Africa/Maputo', year: 'numeric', month: '2-digit', day: '2-digit'
   }).format(partida);
-  const origem = `Origem Teste ${sufixo}`;
-  const destino = `Destino Teste ${sufixo}`;
+  const origem = 'Maputo';
+  const destino = 'Beira';
 
   await requisicao('/health');
   const respostaCors = await fetch(`${URL_API}/autenticacao/iniciar-sessao`, {
@@ -75,7 +79,7 @@ async function executar() {
   garantir(respostaCors.headers.get('access-control-allow-origin') === 'http://127.0.0.1:5173', 'O backend não autorizou o frontend aberto por 127.0.0.1.');
   console.log('1. API disponível e CORS local autorizado');
 
-  await prepararAdministradorTeste();
+  await prepararAdministradorTeste(sufixo);
 
   const sessaoAdmin = await requisicao('/autenticacao/iniciar-sessao', {
     method: 'POST',
@@ -101,12 +105,12 @@ async function executar() {
     token: sessaoAdmin.token,
     method: 'POST',
     estadoEsperado: 400,
-    body: corpo({ origem, destino: origem, distanciaKm: 10 })
+    body: corpo({ origemProvincia: 'Maputo Cidade', origem, destinoProvincia: 'Maputo Cidade', destino: origem, distanciaKm: 10 })
   });
   const rota = await requisicao('/gestao/rotas', {
     token: sessaoAdmin.token,
     method: 'POST',
-    body: corpo({ origem, destino, distanciaKm: 430 })
+    body: corpo({ origemProvincia: 'Maputo Cidade', origem, destinoProvincia: 'Sofala', destino, distanciaKm: 1190 })
   });
   console.log('4. Validação e registo de rota aprovados');
 

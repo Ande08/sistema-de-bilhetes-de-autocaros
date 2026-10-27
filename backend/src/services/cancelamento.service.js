@@ -1,6 +1,7 @@
 import { Op } from 'sequelize';
 import { Bilhete, Pagamento, Route, Trip, User } from '../models/index.js';
 import { enfileirarCancelamentoViagem } from './aviso-viagem.service.js';
+import { filtroEmpresa } from './empresa-escopo.service.js';
 
 export async function cancelarBilhete(codigo, utilizadorAutenticado, transacao) {
   const bilhete = await Bilhete.findOne({ where: { codigo }, include: [Pagamento, Trip], transaction: transacao, lock: transacao.LOCK.UPDATE });
@@ -9,7 +10,9 @@ export async function cancelarBilhete(codigo, utilizadorAutenticado, transacao) 
     erro.statusCode = 404;
     throw erro;
   }
-  if (utilizadorAutenticado.perfil !== 'ADMIN' && String(bilhete.utilizadorId) !== String(utilizadorAutenticado.id)) {
+  const gestorDaEmpresa = ['GESTOR_SUPORTE', 'EMPRESA_ADMIN'].includes(utilizadorAutenticado.perfil)
+    && String(bilhete.Trip?.empresaId) === String(utilizadorAutenticado.empresaId);
+  if (utilizadorAutenticado.perfil !== 'ADMIN' && !gestorDaEmpresa && String(bilhete.utilizadorId) !== String(utilizadorAutenticado.id)) {
     const erro = new Error('Não tem permissão para cancelar este bilhete.');
     erro.statusCode = 403;
     throw erro;
@@ -33,8 +36,8 @@ export async function cancelarBilhete(codigo, utilizadorAutenticado, transacao) 
   return bilhete;
 }
 
-export async function cancelarViagem(id, transacao) {
-  const viagem = await Trip.findByPk(id, { include: [Route], transaction: transacao, lock: transacao.LOCK.UPDATE });
+export async function cancelarViagem(id, utilizador, transacao) {
+  const viagem = await Trip.findOne({ where: { id, ...filtroEmpresa(utilizador) }, include: [Route], transaction: transacao, lock: transacao.LOCK.UPDATE });
   if (!viagem) {
     const erro = new Error('Viagem não encontrada.');
     erro.statusCode = 404;

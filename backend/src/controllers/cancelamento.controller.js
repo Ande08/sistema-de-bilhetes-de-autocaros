@@ -19,7 +19,7 @@ export async function cancelarViagemController(req, res, next) {
   let transacao;
   try {
     transacao = await sequelize.transaction();
-    const viagem = await cancelarViagem(req.params.id, transacao);
+    const viagem = await cancelarViagem(req.params.id, req.utilizador, transacao);
     await registarAuditoria({ utilizadorId: req.utilizador.id, operacao: 'CANCELAR', entidade: 'viagens', entidadeId: req.params.id, valoresNovos: { estado: 'CANCELADA' }, enderecoIp: req.ip }, { transaction: transacao });
     await transacao.commit();
     return res.json({ sucesso: true, mensagem: 'Viagem cancelada.', dados: viagem });

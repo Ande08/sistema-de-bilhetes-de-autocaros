@@ -1,11 +1,14 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { User } from '../models/index.js';
+import { Empresa, User } from '../models/index.js';
 import { normalizarTelefone, validarApelido, validarNome, validarPalavraPasse } from '../validacoes/utilizador.validacao.js';
 
 export class ServicoAutenticacao {
   async iniciarSessao({ telefone, palavraPasse }) {
-    const utilizador = await User.findOne({ where: { telefone: normalizarTelefone(telefone) } });
+    const utilizador = await User.findOne({
+      where: { telefone: normalizarTelefone(telefone) },
+      include: [{ model: Empresa, attributes: ['id', 'nome', 'slug', 'logoUrl', 'activa'] }]
+    });
     const palavraPasseValida = utilizador && typeof palavraPasse === 'string'
       && await bcrypt.compare(palavraPasse, utilizador.palavraPasseHash);
     if (!palavraPasseValida) {
@@ -18,10 +21,15 @@ export class ServicoAutenticacao {
       erro.statusCode = 403;
       throw erro;
     }
+    if (utilizador.empresaId && !utilizador.Empresa?.activa) {
+      const erro = new Error('A empresa associada a esta conta encontra-se desativada.');
+      erro.statusCode = 403;
+      throw erro;
+    }
 
     // O token identifica o utilizador nas próximas requisições.
     const token = jwt.sign(
-      { id: utilizador.id, perfil: utilizador.perfil },
+      { id: utilizador.id, perfil: utilizador.perfil, empresaId: utilizador.empresaId || null },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRACAO || '1d' }
     );
@@ -56,7 +64,9 @@ export class ServicoAutenticacao {
   }
 
   async _obterUtilizadorActivo(utilizadorId) {
-    const utilizador = await User.findByPk(utilizadorId);
+    const utilizador = await User.findByPk(utilizadorId, {
+      include: [{ model: Empresa, attributes: ['id', 'nome', 'slug', 'logoUrl', 'activa'] }]
+    });
     if (!utilizador || !utilizador.activo) {
       const erro = new Error('Utilizador não encontrado ou desativado.');
       erro.statusCode = 404;
@@ -66,6 +76,19 @@ export class ServicoAutenticacao {
   }
 
   _dadosPublicos(utilizador) {
-    return { id: utilizador.id, nome: utilizador.nome, apelido: utilizador.apelido, nomeCompleto: `${utilizador.nome} ${utilizador.apelido}`, telefone: utilizador.telefone, perfil: utilizador.perfil, activo: utilizador.activo };
+    return {
+      id: utilizador.id,
+      nome: utilizador.nome,
+      apelido: utilizador.apelido,
+      nomeCompleto: `${utilizador.nome} ${utilizador.apelido}`,
+      telefone: utilizador.telefone,
+      perfil: utilizador.perfil,
+      empresaId: utilizador.empresaId || null,
+      empresa: utilizador.Empresa ? {
+        id: utilizador.Empresa.id, nome: utilizador.Empresa.nome,
+        slug: utilizador.Empresa.slug, logoUrl: utilizador.Empresa.logoUrl || null
+      } : null,
+      activo: utilizador.activo
+    };
   }
 }
