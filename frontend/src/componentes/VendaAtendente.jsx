@@ -49,11 +49,16 @@ export default function VendaAtendente() {
       const dadosPagamento = metodo === 'CARTAO'
         ? { numeroCartao: campos.numeroCartao, validade: campos.validade, cvv: campos.cvv }
         : { telefone: campos.telefone };
-      const iniciada = await iniciarPagamentoSimulado({ viagemId: viagem.id, metodo, dadosPagamento });
+      const codigoCupao = String(campos.codigoCupao || '').trim().toUpperCase();
+      const iniciada = await iniciarPagamentoSimulado({
+        viagemId: viagem.id, utilizadorId: Number(clienteId), metodo, dadosPagamento,
+        codigoCupao: codigoCupao || null
+      });
       const aprovada = await processarPagamentoSimulado(iniciada.referencia);
       const compra = await comprarBilhete({
         utilizadorId: Number(clienteId), viagemId: viagem.id, assentoId: Number(assentoId),
-        metodoPagamento: metodo, referenciaPagamento: aprovada.referencia
+        metodoPagamento: metodo, referenciaPagamento: aprovada.referencia,
+        codigoCupao: codigoCupao || null
       });
       setResultado(compra.bilhete);
       await actualizarAssentos();
@@ -78,7 +83,7 @@ export default function VendaAtendente() {
       {viagens.length > 0 && <div className="lista-venda-viagens">{viagens.map((item) => <button key={item.id} className={String(viagem?.id) === String(item.id) ? 'seleccionada' : ''} onClick={() => escolherViagem(item)}><span><strong>{item.Route?.origin} → {item.Route?.destination}</strong><small>{item.Empresa?.nome} · {formatarData(item.departureAt)}</small></span><b>{formatarValor(item.price)}</b></button>)}</div>}
       {viagem && <form className="formulario-venda-final" onSubmit={vender}>
         <div><h3>Escolha do assento</h3><MapaAssentos assentos={assentos} assentoId={assentoId} aoSelecionar={seleccionarAssento} apenasSimples />{aReservar && <p className="estado-reserva-assento">A reservar o assento...</p>}</div>
-        <div className="pagamento-atendente"><h3>Pagamento simulado</h3><label>Método<select value={metodo} onChange={(evento) => setMetodo(evento.target.value)}><option value="MPESA">M-Pesa</option><option value="EMOLA">e-Mola</option><option value="CARTAO">Cartão</option></select></label>{metodo === 'CARTAO' ? <><label>Número do cartão<input name="numeroCartao" defaultValue="4242 4242 4242 4242" required /></label><label>Validade<input name="validade" defaultValue="12/30" required /></label><label>CVV<input name="cvv" type="password" defaultValue="123" required /></label></> : <label>Telefone do pagamento<input name="telefone" type="tel" defaultValue={cliente?.telefone || ''} key={cliente?.telefone} required /></label>}<button disabled={aProcessar || aReservar || !assentoId}>{aProcessar ? 'A emitir bilhete...' : `Concluir venda · ${formatarValor(viagem.price)}`}</button></div>
+        <div className="pagamento-atendente"><h3>Pagamento simulado</h3><label>Cupão opcional<input name="codigoCupao" maxLength="30" placeholder="Código do cupão" /></label><label>Método<select value={metodo} onChange={(evento) => setMetodo(evento.target.value)}><option value="MPESA">M-Pesa</option><option value="EMOLA">e-Mola</option><option value="CARTAO">Cartão</option></select></label>{metodo === 'CARTAO' ? <><label>Número do cartão<input name="numeroCartao" defaultValue="4242 4242 4242 4242" required /></label><label>Validade<input name="validade" defaultValue="12/30" required /></label><label>CVV<input name="cvv" type="password" defaultValue="123" required /></label></> : <label>Telefone do pagamento<input name="telefone" type="tel" defaultValue={cliente?.telefone || ''} key={cliente?.telefone} required /></label>}<button disabled={aProcessar || aReservar || !assentoId}>{aProcessar ? 'A emitir bilhete...' : `Concluir venda · ${formatarValor(viagem.price)}`}</button></div>
       </form>}
     </section>
   </main>;

@@ -11,6 +11,7 @@ import cancelamentoRoutes from './routes/cancelamento.routes.js';
 import contaRoutes from './routes/conta.routes.js';
 import suporteRoutes from './routes/suporte.routes.js';
 import pagamentoSimuladoRoutes from './routes/pagamento-simulado.routes.js';
+import cupaoRoutes from './routes/cupao.routes.js';
 import atendimentoRoutes from './routes/atendimento.routes.js';
 import catalogoRoutes from './routes/catalogo.routes.js';
 import { directorioAnexosSuporte } from './services/anexo-suporte.service.js';
@@ -71,6 +72,7 @@ app.use('/api', assentoRoutes);
 app.use('/api', cancelamentoRoutes);
 app.use('/api/suporte', suporteRoutes);
 app.use('/api/pagamentos-simulados', pagamentoSimuladoRoutes);
+app.use('/api/cupons', cupaoRoutes);
 app.use('/api/atendimento', atendimentoRoutes);
 app.use('/api/catalogo', catalogoRoutes);
 

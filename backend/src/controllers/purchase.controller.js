@@ -1,4 +1,4 @@
-import { Assento, Bilhete, Bus, Empresa, Pagamento, Route, Trip } from '../models/index.js';
+import { Assento, Bilhete, Bus, Cupao, Empresa, Pagamento, Route, Trip } from '../models/index.js';
 import { ServicoCompra } from '../services/compra.service.js';
 import { registarAuditoria } from '../services/auditoria.service.js';
 import { gerarBilhetePdf } from '../services/bilhete-pdf.service.js';
@@ -23,7 +23,8 @@ export async function criarCompra(req, res, next) {
       viagemId: req.body.viagemId,
       assentoId: req.body.assentoId,
       metodoPagamento: req.body.metodoPagamento,
-      referenciaPagamento: req.body.referenciaPagamento
+      referenciaPagamento: req.body.referenciaPagamento,
+      codigoCupao: req.body.codigoCupao
     });
     if (vendaAssistida) {
       await registarAuditoria({
@@ -58,7 +59,8 @@ export async function descarregarBilhetePdf(req, res, next) {
       rota: bilhete.Trip.Route,
       viagem: bilhete.Trip,
       assento: bilhete.Assento,
-      pagamento: bilhete.Pagamento
+      pagamento: bilhete.Pagamento,
+      cupao: bilhete.Cupao
     });
     const codigoSeguro = String(bilhete.codigo).replace(/[^a-zA-Z0-9_-]/g, '-');
     res.set({
@@ -74,7 +76,7 @@ export async function descarregarBilhetePdf(req, res, next) {
 async function obterBilheteAutorizado(codigo, utilizador) {
   const bilhete = await Bilhete.findOne({
     where: { codigo },
-    include: [Pagamento, Assento, { model: Trip, include: [Route, Bus, Empresa] }]
+    include: [Pagamento, Assento, Cupao, { model: Trip, include: [Route, Bus, Empresa] }]
   });
   if (!bilhete) {
     const erro = new Error('Bilhete não encontrado.');

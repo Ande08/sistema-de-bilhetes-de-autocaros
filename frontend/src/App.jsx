@@ -6,7 +6,7 @@ import PaginaSuportePassageiro from './componentes/PaginaSuportePassageiro.jsx';
 import MapaAssentos from './componentes/MapaAssentos.jsx';
 import SelecaoLocalidade from './componentes/SelecaoLocalidade.jsx';
 import { ModalConfirmacao } from './componentes/Modal.jsx';
-import { URL_SERVIDOR, actualizarPerfil, alterarPalavraPasse, cancelarBilhete, comprarBilhete, confirmarRecuperacaoPalavraPasse, confirmarRegistoUtilizador, guardarSessao, iniciarPagamentoSimulado, iniciarSessao, obterBilhetePdf, obterPerfil, obterResumoConta, obterSessaoGuardada, pesquisarViagens, processarPagamentoSimulado, registarUtilizador, solicitarRecuperacaoPalavraPasse, terminarSessao } from './servicos/api.js';
+import { URL_SERVIDOR, actualizarPerfil, alterarPalavraPasse, cancelarBilhete, comprarBilhete, confirmarRecuperacaoPalavraPasse, confirmarRegistoUtilizador, guardarSessao, iniciarPagamentoSimulado, iniciarSessao, obterBilhetePdf, obterPerfil, obterResumoConta, obterSessaoGuardada, pesquisarViagens, processarPagamentoSimulado, registarUtilizador, solicitarRecuperacaoPalavraPasse, terminarSessao, validarCupao } from './servicos/api.js';
 import useSelecaoAssentosTempoReal from './hooks/useSelecaoAssentosTempoReal.js';
 import { formatarValor } from './utilitarios/moeda.js';
 
@@ -361,6 +361,9 @@ function FluxoCompra({ utilizador, aoFechar, aoComprar }) {
   const [erro, setErro] = useState('');
   const [transacaoPagamento, setTransacaoPagamento] = useState(null);
   const [mensagemProcessamento, setMensagemProcessamento] = useState('A contactar o serviço de pagamento...');
+  const [codigoCupao, setCodigoCupao] = useState('');
+  const [cupaoAplicado, setCupaoAplicado] = useState(null);
+  const [aValidarCupao, setAValidarCupao] = useState(false);
   const { assentos, assentoId, aReservar, seleccionar: seleccionarAssento, libertar: libertarAssento, actualizar: actualizarAssentos } = useSelecaoAssentosTempoReal(viagem?.id, setErro);
 
   async function pesquisar(evento) {
@@ -378,7 +381,20 @@ function FluxoCompra({ utilizador, aoFechar, aoComprar }) {
   async function escolherViagem(seleccionada) {
     setErro('');
     setViagem(seleccionada);
+    setCodigoCupao(''); setCupaoAplicado(null);
     setEtapa('assentos');
+  }
+
+  async function aplicarCupao() {
+    setErro('');
+    if (!codigoCupao.trim()) { setCupaoAplicado(null); return; }
+    setAValidarCupao(true);
+    try {
+      const resumo = await validarCupao({ viagemId: viagem.id, codigo: codigoCupao });
+      setCupaoAplicado(resumo);
+      setCodigoCupao(resumo.codigo);
+    } catch (falha) { setCupaoAplicado(null); setErro(falha.message); }
+    finally { setAValidarCupao(false); }
   }
 
   async function concluirCompra(evento) {
@@ -393,13 +409,13 @@ function FluxoCompra({ utilizador, aoFechar, aoComprar }) {
         ? { numeroCartao: formulario.numeroCartao, validade: formulario.validade, cvv: formulario.cvv }
         : { telefone: formulario.telefone };
       setMensagemProcessamento(`A enviar o pedido para a API falsa ${nomeMetodoPagamento(metodoPagamento)}...`);
-      const iniciada = await iniciarPagamentoSimulado({ viagemId: viagem.id, metodo: metodoPagamento, dadosPagamento });
+      const iniciada = await iniciarPagamentoSimulado({ viagemId: viagem.id, metodo: metodoPagamento, dadosPagamento, codigoCupao: cupaoAplicado?.codigo || null });
       setTransacaoPagamento(iniciada);
       setMensagemProcessamento('Pedido recebido. A aguardar a confirmação simulada...');
       const aprovada = await processarPagamentoSimulado(iniciada.referencia);
       setTransacaoPagamento(aprovada);
       setMensagemProcessamento('Pagamento aprovado. A emitir o bilhete eletrónico...');
-      const compra = await comprarBilhete({ viagemId: viagem.id, assentoId, metodoPagamento, referenciaPagamento: aprovada.referencia });
+      const compra = await comprarBilhete({ viagemId: viagem.id, assentoId, metodoPagamento, referenciaPagamento: aprovada.referencia, codigoCupao: cupaoAplicado?.codigo || null });
       setBilhete(compra.bilhete);
       setEtapa('concluida');
       aoComprar();
@@ -408,6 +424,7 @@ function FluxoCompra({ utilizador, aoFechar, aoComprar }) {
   }
 
   const rota = viagem?.Route;
+  const valorPagamento = cupaoAplicado?.valorFinal ?? Number(viagem?.price || 0);
   return <div className="modal-fundo" onMouseDown={(evento) => evento.target === evento.currentTarget && !aProcessar && aoFechar()}>
     <section className="modal-nova-viagem vidro" role="dialog" aria-modal="true" aria-labelledby="titulo-nova-viagem">
       <div className="modal-topo"><div><p className="etiqueta">Comprar bilhete</p><h2 id="titulo-nova-viagem">{tituloEtapa(etapa)}</h2><p>{descricaoEtapa(etapa)}</p></div><button className="fechar-modal" disabled={aProcessar} onClick={aoFechar} aria-label="Fechar">×</button></div>
@@ -438,13 +455,14 @@ function FluxoCompra({ utilizador, aoFechar, aoComprar }) {
 
       {etapa === 'pagamento' && <form className="etapa-pagamento" onSubmit={concluirCompra}>
         <ResumoViagem viagem={viagem} assento={assentos.find((item) => String(item.id) === String(assentoId))} />
+        <div className="aplicar-cupao"><label>Cupão de desconto<input value={codigoCupao} onChange={(evento) => { setCodigoCupao(evento.target.value.toUpperCase()); setCupaoAplicado(null); }} maxLength="30" placeholder="Introduza o código" /></label><button type="button" disabled={aValidarCupao || !codigoCupao.trim()} onClick={aplicarCupao}>{aValidarCupao ? 'A validar...' : 'Aplicar cupão'}</button>{cupaoAplicado && <p><strong>{cupaoAplicado.percentagem}% de desconto aplicado.</strong> Poupa {formatarMeticais(cupaoAplicado.desconto)}. Total: {formatarMeticais(cupaoAplicado.valorFinal)}.</p>}</div>
         <div className="metodos-pagamento">{[['MPESA', 'M-Pesa'], ['EMOLA', 'e-Mola'], ['CARTAO', 'Cartão']].map(([valor, nome]) => <label className={metodoPagamento === valor ? 'seleccionado' : ''} key={valor}><input type="radio" name="pagamento" value={valor} checked={metodoPagamento === valor} onChange={() => setMetodoPagamento(valor)} /><span>{nome}</span><small>Pagamento simulado</small></label>)}</div>
         {metodoPagamento === 'CARTAO' ? <div className="dados-pagamento-simulado dados-cartao"><label>Número do cartão de demonstração<input name="numeroCartao" inputMode="numeric" placeholder="4242 4242 4242 4242" pattern="[0-9 ]{16,19}" required /></label><label>Validade<input name="validade" placeholder="12/30" pattern="[0-9]{2}/[0-9]{2}" required /></label><label>CVV<input name="cvv" type="password" inputMode="numeric" placeholder="123" pattern="[0-9]{3,4}" required /></label></div> : <div className="dados-pagamento-simulado"><label>Número associado ao {nomeMetodoPagamento(metodoPagamento)}<input name="telefone" type="tel" defaultValue={utilizador.telefone} placeholder="84 000 0000" required /></label></div>}
         <p className="aviso-simulacao">Ambiente académico: utilize dados fictícios. A API é simulada e não movimenta dinheiro real.</p>
-        <div className="rodape-etapa"><button type="button" className="botao-voltar" onClick={() => setEtapa('assentos')}>Voltar</button><button type="submit" className="botao-pesquisar">Simular pagamento de {formatarMeticais(viagem.price)}</button></div>
+        <div className="rodape-etapa"><button type="button" className="botao-voltar" onClick={() => setEtapa('assentos')}>Voltar</button><button type="submit" className="botao-pesquisar">Simular pagamento de {formatarMeticais(valorPagamento)}</button></div>
       </form>}
 
-      {etapa === 'processando' && <div className="pagamento-processando" role="status" aria-live="polite"><span className="animacao-pagamento"><i /><i /><i /></span><h3>Pagamento em processamento</h3><p>{mensagemProcessamento}</p><div className="detalhes-processamento"><span><small>Método</small><strong>{nomeMetodoPagamento(metodoPagamento)}</strong></span><span><small>Valor</small><strong>{formatarMeticais(viagem.price)}</strong></span>{transacaoPagamento && <span><small>Referência</small><strong>{transacaoPagamento.referencia}</strong></span>}</div><small>Não feche esta tela durante a simulação.</small></div>}
+      {etapa === 'processando' && <div className="pagamento-processando" role="status" aria-live="polite"><span className="animacao-pagamento"><i /><i /><i /></span><h3>Pagamento em processamento</h3><p>{mensagemProcessamento}</p><div className="detalhes-processamento"><span><small>Método</small><strong>{nomeMetodoPagamento(metodoPagamento)}</strong></span><span><small>Valor</small><strong>{formatarMeticais(transacaoPagamento?.valor ?? valorPagamento)}</strong></span>{transacaoPagamento?.cupaoCodigo && <span><small>Cupão</small><strong>{transacaoPagamento.cupaoCodigo}</strong></span>}{transacaoPagamento && <span><small>Referência</small><strong>{transacaoPagamento.referencia}</strong></span>}</div><small>Não feche esta tela durante a simulação.</small></div>}
 
       {etapa === 'concluida' && <div className="compra-concluida"><span className="icone-sucesso"><Icone nome="confirmado" /></span><h3>Bilhete emitido com sucesso</h3><p>O pagamento foi aprovado e o seu assento está confirmado.</p><div className="bilhete-resumo"><small>Código do bilhete</small><strong>{bilhete.codigo}</strong><span>{rota?.origin} → {rota?.destination}</span><span>Assento {bilhete.assento.numero} · {formatarMeticais(bilhete.preco)}</span></div><div className="acoes-bilhete-concluido"><BotaoPdfBilhete codigo={bilhete.codigo} className="botao-pesquisar" texto="Descarregar bilhete em PDF" /><button className="botao-voltar" onClick={aoFechar}>Concluir</button></div></div>}
 

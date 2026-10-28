@@ -1,4 +1,4 @@
-import { Assento, Auditoria, Bilhete, Bus, Empresa, Pagamento, Route, Trip, User } from '../models/index.js';
+import { Assento, Auditoria, Bilhete, Bus, Cupao, Empresa, Pagamento, Route, Trip, User } from '../models/index.js';
 import { filtroEmpresa } from './empresa-escopo.service.js';
 import { Op } from 'sequelize';
 
@@ -71,21 +71,22 @@ async function obterPainelPlataforma() {
 async function obterPainelEmpresa(utilizador) {
   const escopo = filtroEmpresa(utilizador);
   const filtroAuditoria = { model: User, attributes: ['id', 'nome', 'apelido', 'telefone'], where: { empresaId: utilizador.empresaId }, required: true };
-  const [usuarios, autocarros, rotas, viagens, bilhetes, auditorias, empresa] = await Promise.all([
+  const [usuarios, autocarros, rotas, viagens, bilhetes, auditorias, empresa, cupoes] = await Promise.all([
     User.findAll({ where: { eliminadoEm: null, empresaId: utilizador.empresaId }, attributes: ['id', 'nome', 'apelido', 'telefone', 'perfil', 'activo', 'empresaId'], order: [['id', 'DESC']], limit: 100 }),
     Bus.findAll({ where: escopo, order: [['id', 'DESC']], limit: 100 }),
     Route.findAll({ where: escopo, order: [['id', 'DESC']], limit: 100 }),
     Trip.findAll({ where: escopo, include: [Route, Bus], order: [['departureAt', 'DESC']], limit: 100 }),
-    Bilhete.findAll({ include: [{ model: User, attributes: ['id', 'nome', 'apelido', 'telefone'] }, Assento, { model: Trip, where: escopo, required: true, include: [Route, Bus] }, Pagamento], order: [['id', 'DESC']], limit: 100 }),
+    Bilhete.findAll({ include: [{ model: User, attributes: ['id', 'nome', 'apelido', 'telefone'] }, Assento, Cupao, { model: Trip, where: escopo, required: true, include: [Route, Bus] }, Pagamento], order: [['id', 'DESC']], limit: 100 }),
     Auditoria.findAll({ include: [filtroAuditoria], order: [['id', 'DESC']], limit: 100 }),
-    Empresa.findOne({ where: { id: utilizador.empresaId, eliminadaEm: null } })
+    Empresa.findOne({ where: { id: utilizador.empresaId, eliminadaEm: null } }),
+    Cupao.findAll({ where: escopo, order: [['criado_em', 'DESC']], limit: 200 })
   ]);
   const receitaAprovada = bilhetes.reduce((total, item) => total + (item.Pagamento?.estado === 'APROVADO' ? Number(item.Pagamento.valor) : 0), 0);
   const passageirosIndicador = [...new Set(bilhetes.map((item) => item.utilizadorId).filter(Boolean))].map(() => ({ perfil: 'PASSAGEIRO' }));
   return {
     tipoPainel: 'EMPRESA',
     indicadores: construirIndicadores({ passageiros: passageirosIndicador, autocarros, viagens, bilhetes, receitaAprovada }),
-    passageiros: usuarios, autocarros, rotas, viagens, bilhetes, auditorias, empresa,
+    passageiros: usuarios, autocarros, rotas, viagens, bilhetes, auditorias, empresa, cupoes,
     empresas: [], volumeVendas: []
   };
 }

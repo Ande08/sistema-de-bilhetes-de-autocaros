@@ -203,6 +203,22 @@ export function redefinirPalavraPasseAdministrativa(id, novaPalavraPasse) {
   return requisicao(`/gestao/utilizadores/${id}/palavra-passe`, { method: 'PUT', body: JSON.stringify({ novaPalavraPasse }) });
 }
 
+export function criarCupaoAdministrativo(dados) {
+  return requisicao('/gestao/cupons', { method: 'POST', body: JSON.stringify(dados) });
+}
+
+export function actualizarCupaoAdministrativo(id, dados) {
+  return requisicao(`/gestao/cupons/${id}`, { method: 'PUT', body: JSON.stringify(dados) });
+}
+
+export function definirEstadoCupaoAdministrativo(id, activo) {
+  return requisicao(`/gestao/cupons/${id}/estado`, { method: 'PATCH', body: JSON.stringify({ activo }) });
+}
+
+export function validarCupao(dados) {
+  return requisicao('/cupons/validar', { method: 'POST', body: JSON.stringify(dados) });
+}
+
 export function eliminarUtilizadorAdministrativo(id) {
   return requisicao(`/gestao/utilizadores/${id}`, { method: 'DELETE' });
 }

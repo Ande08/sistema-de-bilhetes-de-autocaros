@@ -31,6 +31,10 @@ Organiza o sistema em rotas, controladores, serviços, modelos Sequelize e base 
 
 É utilizado nos modelos `Empresa`, `User`, `Bus`, `Route`, `Trip` e `TicketSuporte`. O campo `empresaId` identifica o proprietário de cada registo operacional, enquanto `backend/src/services/empresa-escopo.service.js` aplica o filtro da empresa autenticada. Serve para várias transportadoras utilizarem a mesma aplicação e base de dados sem conseguirem consultar ou alterar dados umas das outras. O administrador da plataforma mantém visão global para supervisão.
 
+### Policy Object para cupões
+
+É utilizado em `backend/src/services/cupao.service.js`. A política reúne normalização do código, validade, percentagem, compra mínima, limites globais e por cliente e cálculo monetário. Serve para aplicar as mesmas regras na pré-visualização, no pagamento e novamente dentro da transação que emite o bilhete, evitando descontos manipulados ou utilização acima do limite em compras simultâneas.
+
 ### Eliminação lógica
 
 É utilizada na gestão de usuários e empresas. Em vez de remover fisicamente registos ligados a bilhetes, pagamentos, viagens, suporte e auditoria, o sistema marca a data de eliminação, desativa o acesso e oculta o registo das consultas operacionais. Serve para preservar o histórico e a integridade referencial, permitindo também que telefones e nomes comerciais possam voltar a ser registados com segurança.
@@ -133,9 +137,13 @@ Utilizado em `backend/src/realtime/suporte.socket.js`. Cada ticket possui uma sa
 - `EMPRESA_ADMIN`: administra os atendentes, autocarros, rotas, viagens, vendas, avisos e suporte exclusivamente da própria empresa;
 - `ADMIN`: supervisiona e aprova empresas, gere administradores da plataforma e das empresas, acompanha o volume agregado de vendas e configura serviços centrais como inteligência artificial e WhatsApp. Não gere frota, rotas, viagens, preços, bilhetes ou suporte comercial.
 
-Cada empresa solicita o cadastro com OTP e recebe um responsável com o perfil `EMPRESA_ADMIN`. O estado inicial é `PENDENTE`; apenas depois da aprovação passa a `APROVADA` e pode iniciar sessão. O administrador da plataforma também pode criar uma empresa juntamente com o seu primeiro administrador ou adicionar outro administrador a uma empresa existente. Pode aprovar, rejeitar, suspender, reativar, editar dados institucionais e eliminar logicamente a empresa. A suspensão bloqueia imediatamente todos os usuários da empresa, inclusive quando possuem um token ainda válido. Autocarros, rotas, viagens, preços, bilhetes e tickets continuam sob responsabilidade exclusiva da empresa.
+Na área **Atendentes**, o administrador empresarial cria, edita, ativa, desativa, redefine a palavra-passe ou elimina contas `GESTOR_SUPORTE` da própria empresa. Esses atendentes podem prestar assistência de compra, vender apenas os bilhetes da empresa, tratar dúvidas ou problemas relacionados com bilhetes, pagamentos e viagens e responder somente aos tickets que lhes forem atribuídos. Os filtros de `empresaId` impedem acesso a vendas, clientes ou atendimentos de outra transportadora.
 
-O administrador da empresa pode editar a identidade da transportadora na área **Dados da empresa**: nome, telefone institucional, descrição, website e logótipo. Os logótipos aceitam PNG, JPEG ou WebP até 2 MB, são validados pelo conteúdo do ficheiro e aparecem no painel e na pesquisa de viagens. Ao substituir ou remover um logótipo, o ficheiro antigo também é eliminado.
+Na área **Cupões**, cada administrador empresarial pode criar campanhas exclusivas da sua transportadora. Um cupão possui código, descrição, percentagem entre 1% e 90%, início e fim da validade, compra mínima, limite total opcional, limite por cliente e estado ativo ou desativado. O cliente pode validar o código antes de pagar e o atendente também pode aplicá-lo numa venda assistida. O desconto, o preço original e o preço final ficam registados no bilhete; cancelar um bilhete não devolve a utilização do cupão, o que evita ciclos de compra e cancelamento para contornar os limites.
+
+Cada empresa solicita o cadastro com OTP e recebe um responsável com o perfil `EMPRESA_ADMIN`. O estado inicial é `PENDENTE`; apenas depois da aprovação passa a `APROVADA` e pode iniciar sessão. O administrador da plataforma também pode criar uma empresa juntamente com o seu primeiro administrador ou adicionar outro administrador a uma empresa existente. Nesse fluxo, informa somente o nome da empresa e as credenciais do responsável; telefone institucional, descrição, website e logótipo são acrescentados pelo administrador empresarial depois de iniciar sessão. A plataforma pode aprovar, rejeitar, suspender, reativar, corrigir o nome e eliminar logicamente a empresa. A suspensão bloqueia imediatamente todos os usuários da empresa, inclusive quando possuem um token ainda válido. Autocarros, rotas, viagens, preços, bilhetes e tickets continuam sob responsabilidade exclusiva da empresa.
+
+O administrador da empresa pode editar a identidade da transportadora na área **Dados da empresa**: nome, telefone institucional, descrição, website e logótipo. Os logótipos aceitam PNG, JPEG ou WebP até 2 MB, são validados pelo conteúdo do ficheiro e aparecem no painel e na pesquisa de viagens. Ao substituir ou remover um logótipo, o ficheiro antigo também é eliminado. Na área **Minha conta**, pode alterar a própria palavra-passe sempre que necessário, confirmando primeiro a palavra-passe atual.
 
 O bilhete PDF é produzido no formato térmico POS de **80 × 210 mm**, em preto e branco, com QR Code no final dos detalhes. Esse formato pode ser impresso em rolos térmicos de 80 mm sem redução para uma página A4.
 
@@ -247,6 +255,7 @@ O backend está localizado em `backend/`, o frontend em `frontend/` e a document
 GET  /api/health
 GET  /api/catalogo/localidades
 GET  /api/catalogo/empresas
+POST /api/cupons/validar
 POST /api/autenticacao/solicitar-registo
 POST /api/autenticacao/confirmar-registo
 POST /api/autenticacao/solicitar-recuperacao
@@ -263,6 +272,10 @@ GET  /api/gestao/empresas/:id
 PUT  /api/gestao/empresas/:id
 PATCH /api/gestao/empresas/:id/estado
 PATCH /api/gestao/empresas/:id/aprovacao
+GET  /api/gestao/cupons
+POST /api/gestao/cupons
+PUT  /api/gestao/cupons/:id
+PATCH /api/gestao/cupons/:id/estado
 DELETE /api/gestao/empresas/:id
 GET  /api/gestao/empresa
 PUT  /api/gestao/empresa

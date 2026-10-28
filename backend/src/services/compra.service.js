@@ -4,13 +4,14 @@ import { Assento, Bilhete, Pagamento, Reserva, Route, Trip, User } from '../mode
 import { ServicoBilhete } from './ticket.service.js';
 import { gatewayPagamentoSimulado } from './gateway-pagamento-simulado.service.js';
 import { reservaPertenceAoUtilizador } from './reserva-assento.service.js';
+import { calcularPrecoComCupao } from './cupao.service.js';
 
 export class ServicoCompra {
   constructor() {
     this.servicoBilhete = new ServicoBilhete();
   }
 
-  async comprar({ utilizadorId, operador, operadorId = utilizadorId, viagemId, assentoId, metodoPagamento, referenciaPagamento }) {
+  async comprar({ utilizadorId, operador, operadorId = utilizadorId, viagemId, assentoId, metodoPagamento, referenciaPagamento, codigoCupao }) {
     if (!viagemId || !assentoId || !metodoPagamento || !referenciaPagamento) {
       const erro = new Error('Viagem, assento, método e referência de pagamento são obrigatórios.');
       erro.statusCode = 400;
@@ -55,9 +56,20 @@ export class ServicoCompra {
           throw erro;
         }
 
+        // O cupão é bloqueado e validado novamente dentro da transação. Isto
+        // impede ultrapassar limites quando várias compras ocorrem em paralelo.
+        const resumoCupao = await calcularPrecoComCupao({
+          codigo: codigoCupao,
+          viagem,
+          utilizadorId: utilizador.id,
+          transaction: transacao,
+          bloquear: true
+        });
+
         // A API falsa precisa aprovar a transação antes da atribuição do assento.
         if (pagamentoProcessado.metodo !== String(metodoPagamento).toUpperCase()
-          || Number(pagamentoProcessado.valor) !== Number(viagem.price)) {
+          || Number(pagamentoProcessado.valor) !== Number(resumoCupao.valorFinal)
+          || (pagamentoProcessado.cupaoCodigo || null) !== (resumoCupao.codigo || null)) {
           const erro = new Error('A referência não corresponde ao método ou ao valor desta viagem.');
           erro.statusCode = 409;
           throw erro;
@@ -69,7 +81,7 @@ export class ServicoCompra {
           viagem: { id: viagem.id, origem: viagem.Route.origin, destino: viagem.Route.destination, partidaEm: viagem.departureAt },
           assento: { id: assento.id, numero: assento.numero },
           pagamento: pagamentoProcessado,
-          preco: viagem.price
+          preco: resumoCupao.valorFinal
         });
 
         const bilhete = await Bilhete.create({
@@ -78,7 +90,10 @@ export class ServicoCompra {
           viagemId: viagem.id,
           assentoId: assento.id,
           nomePassageiro: nomeCompleto,
-          preco: viagem.price,
+          cupaoId: resumoCupao.cupao?.id || null,
+          preco: resumoCupao.valorFinal,
+          precoOriginal: resumoCupao.precoOriginal,
+          desconto: resumoCupao.desconto,
           estado: 'EMITIDO'
         }, { transaction: transacao });
         const pagamento = await Pagamento.create({
@@ -89,9 +104,17 @@ export class ServicoCompra {
           estado: pagamentoProcessado.estado
         }, { transaction: transacao });
 
+        if (resumoCupao.cupao) {
+          await resumoCupao.cupao.increment('totalUtilizacoes', { by: 1, transaction: transacao });
+        }
+
         await reserva.update({ estado: 'CONFIRMADA' }, { transaction: transacao });
 
-        return { pagamento, bilhete: { ...bilhete.toJSON(), viagem: bilheteConstruido.viagem, assento: bilheteConstruido.assento } };
+        return {
+          pagamento,
+          cupao: resumoCupao.cupao ? { codigo: resumoCupao.codigo, percentagem: resumoCupao.percentagem, desconto: resumoCupao.desconto } : null,
+          bilhete: { ...bilhete.toJSON(), viagem: bilheteConstruido.viagem, assento: bilheteConstruido.assento }
+        };
       });
       gatewayPagamentoSimulado.concluirUtilizacao(referenciaPagamento);
       return compra;

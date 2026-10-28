@@ -9,7 +9,7 @@ class GatewayPagamentoSimulado {
     this.servicoPagamento = new ServicoPagamento();
   }
 
-  iniciar({ utilizadorId, metodo, valor, dadosPagamento = {} }) {
+  iniciar({ utilizadorId, metodo, valor, dadosPagamento = {}, cupaoCodigo = null, precoOriginal = null, desconto = 0 }) {
     const metodoNormalizado = String(metodo || '').toUpperCase();
     if (!METODOS_SUPORTADOS.includes(metodoNormalizado)) {
       const erro = new Error('Selecione um método de pagamento válido.');
@@ -29,6 +29,9 @@ class GatewayPagamentoSimulado {
       utilizadorId: String(utilizadorId),
       metodo: metodoNormalizado,
       valor: Number(valor),
+      cupaoCodigo: cupaoCodigo || null,
+      precoOriginal: precoOriginal == null ? Number(valor) : Number(precoOriginal),
+      desconto: Number(desconto || 0),
       descricaoConta,
       estado: 'PENDENTE',
       criadoEm: new Date(),
@@ -74,7 +77,12 @@ class GatewayPagamentoSimulado {
       throw erro;
     }
     transacao.emUtilizacao = true;
-    return { ...transacao.resultado };
+    return {
+      ...transacao.resultado,
+      cupaoCodigo: transacao.cupaoCodigo,
+      precoOriginal: transacao.precoOriginal,
+      desconto: transacao.desconto
+    };
   }
 
   concluirUtilizacao(referencia) {
@@ -126,6 +134,9 @@ class GatewayPagamentoSimulado {
       referencia: transacao.referencia,
       metodo: transacao.metodo,
       valor: transacao.valor,
+      cupaoCodigo: transacao.cupaoCodigo,
+      precoOriginal: transacao.precoOriginal,
+      desconto: transacao.desconto,
       estado: transacao.estado,
       descricaoConta: transacao.descricaoConta,
       criadoEm: transacao.criadoEm,

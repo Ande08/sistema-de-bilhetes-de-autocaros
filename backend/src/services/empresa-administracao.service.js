@@ -22,9 +22,11 @@ export async function criarEmpresaAdministrativa(dados, administrador) {
     const empresa = await Empresa.create({
       nome: entrada.nome,
       slug: entrada.slug,
-      telefone: entrada.telefone,
-      descricao: entrada.descricao,
-      website: entrada.website,
+      // O perfil institucional pertence à empresa. O administrador empresarial
+      // acrescenta telefone, descrição, website e logótipo no primeiro acesso.
+      telefone: null,
+      descricao: null,
+      website: null,
       activa: true,
       estadoCadastro: 'APROVADA',
       aprovadaEm: new Date()
@@ -73,7 +75,14 @@ export async function obterEmpresaAdministrativa(id, administrador) {
 
 export async function actualizarEmpresaAdministrativa(id, dados, administrador) {
   const empresa = await obterEmpresaAdministrativa(id, administrador);
-  const alteracoes = validarDadosEdicaoEmpresa(dados);
+  // A plataforma pode corrigir o nome que identifica a empresa, mas não deve
+  // substituir o perfil institucional mantido pelo administrador empresarial.
+  const alteracoes = validarDadosEdicaoEmpresa({
+    nome: dados.nome,
+    telefone: empresa.telefone,
+    descricao: empresa.descricao,
+    website: empresa.website
+  });
   const repetida = await Empresa.findOne({
     where: { slug: alteracoes.slug, id: { [Op.ne]: id } }
   });

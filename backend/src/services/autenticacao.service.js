@@ -64,6 +64,11 @@ export class ServicoAutenticacao {
       erro.statusCode = 401;
       throw erro;
     }
+    if (palavraPasseActual === novaPalavraPasse) {
+      const erro = new Error('A nova palavra-passe deve ser diferente da palavra-passe atual.');
+      erro.statusCode = 400;
+      throw erro;
+    }
     const palavraPasseHash = await bcrypt.hash(novaPalavraPasse, 12);
     await utilizador.update({ palavraPasseHash });
   }

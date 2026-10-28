@@ -6,6 +6,7 @@ import { auditarOperacaoAdministrativa } from '../middlewares/auditoria.middlewa
 import { iniciarWhatsApp, obterEstadoWhatsApp, repetirEnvio } from '../controllers/whatsapp.controller.js';
 import { guardarConfiguracao, obterConfiguracao, obterModelos, testarLigacao } from '../controllers/configuracao-ia.controller.js';
 import { enviarAviso } from '../controllers/aviso-viagem.controller.js';
+import { actualizarCupao, criarCupao, definirEstadoCupao, listarCupoes } from '../controllers/cupao.controller.js';
 
 const router = Router();
 router.use(exigirAutenticacao);
@@ -34,6 +35,10 @@ router.patch('/rotas/:id/estado', exigirAdministradorEmpresa, definirEstadoRota)
 router.post('/viagens', exigirAdministradorEmpresa, criarViagem);
 router.put('/viagens/:id', exigirAdministradorEmpresa, actualizarViagem);
 router.post('/viagens/:id/avisos-whatsapp', exigirAdministradorEmpresa, enviarAviso);
+router.get('/cupons', exigirAdministradorEmpresa, listarCupoes);
+router.post('/cupons', exigirAdministradorEmpresa, criarCupao);
+router.put('/cupons/:id', exigirAdministradorEmpresa, actualizarCupao);
+router.patch('/cupons/:id/estado', exigirAdministradorEmpresa, definirEstadoCupao);
 router.post('/utilizadores', exigirAdministradorEmpresaOuPlataforma, criarUtilizador);
 router.put('/utilizadores/:id', exigirAdministradorEmpresaOuPlataforma, actualizarUtilizador);
 router.put('/utilizadores/:id/palavra-passe', exigirAdministradorEmpresaOuPlataforma, redefinirSenhaUtilizador);

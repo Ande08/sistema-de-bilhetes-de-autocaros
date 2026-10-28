@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { actualizarEmpresaAdministrativa, comprarBilhete, confirmarRecuperacaoPalavraPasse, confirmarRegistoUtilizador, decidirCadastroEmpresaAdministrativa, definirEstadoEmpresaAdministrativa, editarEmpresaAdministrativa, eliminarEmpresaAdministrativa, eliminarUtilizadorAdministrativo, enviarAvisoViagemAdministrativa, enviarMensagemSuporte, guardarConfiguracaoIa, guardarSessao, iniciarPagamentoSimulado, libertarReservaAssento, listarClientesAtendimento, listarLocalidades, obterBilhetePdf, obterResumoConta, obterSessaoGuardada, pesquisarViagens, processarPagamentoSimulado, registarUtilizador, reservarAssento, solicitarRecuperacaoPalavraPasse, terminarSessao } from './api.js';
+import { actualizarEmpresaAdministrativa, alterarPalavraPasse, comprarBilhete, confirmarRecuperacaoPalavraPasse, confirmarRegistoUtilizador, decidirCadastroEmpresaAdministrativa, definirEstadoEmpresaAdministrativa, editarEmpresaAdministrativa, eliminarEmpresaAdministrativa, eliminarUtilizadorAdministrativo, enviarAvisoViagemAdministrativa, enviarMensagemSuporte, guardarConfiguracaoIa, guardarSessao, iniciarPagamentoSimulado, libertarReservaAssento, listarClientesAtendimento, listarLocalidades, obterBilhetePdf, obterResumoConta, obterSessaoGuardada, pesquisarViagens, processarPagamentoSimulado, registarUtilizador, reservarAssento, solicitarRecuperacaoPalavraPasse, terminarSessao, validarCupao } from './api.js';
 
 describe('sessão do passageiro', () => {
   beforeEach(() => {
@@ -46,6 +46,30 @@ describe('sessão do passageiro', () => {
 
     expect(resumo.totalBilhetesActivos).toBe(2);
     expect(fetchSimulado).toHaveBeenCalledWith(expect.stringContaining('/conta/resumo'), expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer token-resumo' }) }));
+  });
+
+  it('permite ao usuário autenticado alterar a própria palavra-passe', async () => {
+    guardarSessao({ token: 'token-seguranca' });
+    const fetchSimulado = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ dados: { mensagem: 'Palavra-passe alterada com sucesso.' } }) });
+    vi.stubGlobal('fetch', fetchSimulado);
+
+    await alterarPalavraPasse({ palavraPasseActual: 'Empresa@123', novaPalavraPasse: 'NovaEmpresa@123' });
+
+    expect(fetchSimulado).toHaveBeenCalledWith(expect.stringContaining('/autenticacao/palavra-passe'), expect.objectContaining({
+      method: 'PUT',
+      headers: expect.objectContaining({ Authorization: 'Bearer token-seguranca' })
+    }));
+  });
+
+  it('valida o cupom no backend antes do pagamento', async () => {
+    guardarSessao({ token: 'token-cupom' });
+    const fetchSimulado = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ dados: { codigo: 'FERIAS10', percentagem: 10, valorFinal: 900 } }) });
+    vi.stubGlobal('fetch', fetchSimulado);
+
+    const resumo = await validarCupao({ viagemId: 4, codigo: 'FERIAS10' });
+
+    expect(resumo.valorFinal).toBe(900);
+    expect(fetchSimulado).toHaveBeenCalledWith(expect.stringContaining('/cupons/validar'), expect.objectContaining({ method: 'POST' }));
   });
 
   it('reserva e liberta um assento pela API autenticada', async () => {

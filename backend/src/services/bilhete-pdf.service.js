@@ -3,7 +3,7 @@ import QRCode from 'qrcode';
 // Gera um talão de 80 mm, largura usada pelas impressoras térmicas POS. O fundo
 // branco, o texto preto e as linhas simples reduzem o consumo e preservam a
 // leitura em equipamentos térmicos monocromáticos.
-export function gerarBilhetePdf({ bilhete, empresa, rota, viagem, assento, pagamento }) {
+export function gerarBilhetePdf({ bilhete, empresa, rota, viagem, assento, pagamento, cupao }) {
   const dataPartida = formatarDataHora(viagem.partidaEm || viagem.departureAt);
   const emitidoEm = formatarDataHora(bilhete.createdAt || new Date());
   const estadoPagamento = pagamento?.estado || 'NÃO INFORMADO';
@@ -14,6 +14,7 @@ export function gerarBilhetePdf({ bilhete, empresa, rota, viagem, assento, pagam
     ['Destino', `${rota.destinationProvince || ''}${rota.destinationProvince ? ' - ' : ''}${rota.destination}`],
     ['Partida', dataPartida],
     ['Assento', `${assento.numero}${assento.juntoJanela ? ' - junto à janela' : ''}`],
+    ...(cupao ? [['Cupão', `${cupao.codigo} - ${Number(cupao.percentagem)}% (-${formatarMeticais(bilhete.desconto)})`]] : []),
     ['Valor', formatarMeticais(bilhete.preco)],
     ['Estado do bilhete', traduzirEstado(bilhete.estado)],
     ['Pagamento', traduzirEstado(estadoPagamento)]
