@@ -50,7 +50,7 @@ export class ServicoCompra {
           lock: transacao.LOCK.UPDATE
         });
         if (!reservaPertenceAoUtilizador(reserva, operadorId)) {
-          const erro = new Error('A reserva temporária deste assento expirou ou pertence a outro utilizador. Selecione novamente.');
+          const erro = new Error('A reserva temporária deste assento expirou ou pertence a outro usuário. Selecione novamente.');
           erro.statusCode = 409;
           throw erro;
         }

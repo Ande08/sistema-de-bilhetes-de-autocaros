@@ -12,7 +12,7 @@ export async function cancelarBilhete(codigo, utilizadorAutenticado, transacao) 
   }
   const gestorDaEmpresa = ['GESTOR_SUPORTE', 'EMPRESA_ADMIN'].includes(utilizadorAutenticado.perfil)
     && String(bilhete.Trip?.empresaId) === String(utilizadorAutenticado.empresaId);
-  if (utilizadorAutenticado.perfil !== 'ADMIN' && !gestorDaEmpresa && String(bilhete.utilizadorId) !== String(utilizadorAutenticado.id)) {
+  if (!gestorDaEmpresa && String(bilhete.utilizadorId) !== String(utilizadorAutenticado.id)) {
     const erro = new Error('Não tem permissão para cancelar este bilhete.');
     erro.statusCode = 403;
     throw erro;

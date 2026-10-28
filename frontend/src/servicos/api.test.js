@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { actualizarEmpresaAdministrativa, comprarBilhete, confirmarRecuperacaoPalavraPasse, confirmarRegistoUtilizador, eliminarUtilizadorAdministrativo, enviarAvisoViagemAdministrativa, enviarMensagemSuporte, guardarConfiguracaoIa, guardarSessao, iniciarPagamentoSimulado, libertarReservaAssento, listarClientesAtendimento, listarLocalidades, obterBilhetePdf, obterResumoConta, obterSessaoGuardada, pesquisarViagens, processarPagamentoSimulado, registarUtilizador, reservarAssento, solicitarRecuperacaoPalavraPasse, terminarSessao } from './api.js';
+import { actualizarEmpresaAdministrativa, comprarBilhete, confirmarRecuperacaoPalavraPasse, confirmarRegistoUtilizador, decidirCadastroEmpresaAdministrativa, definirEstadoEmpresaAdministrativa, editarEmpresaAdministrativa, eliminarEmpresaAdministrativa, eliminarUtilizadorAdministrativo, enviarAvisoViagemAdministrativa, enviarMensagemSuporte, guardarConfiguracaoIa, guardarSessao, iniciarPagamentoSimulado, libertarReservaAssento, listarClientesAtendimento, listarLocalidades, obterBilhetePdf, obterResumoConta, obterSessaoGuardada, pesquisarViagens, processarPagamentoSimulado, registarUtilizador, reservarAssento, solicitarRecuperacaoPalavraPasse, terminarSessao } from './api.js';
 
 describe('sessão do passageiro', () => {
   beforeEach(() => {
@@ -89,6 +89,13 @@ describe('sessão do passageiro', () => {
     expect(fetchSimulado.mock.calls[1][0]).toContain('/autenticacao/confirmar-registo');
   });
 
+  it('envia o cadastro de empresa para aprovação através de OTP', async () => {
+    const fetchSimulado = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ dados: { telefone: '+258841234567', canal: 'WHATSAPP' } }) });
+    vi.stubGlobal('fetch', fetchSimulado);
+    await registarUtilizador({ tipoConta: 'EMPRESA', empresaNome: 'Transportes Sul', nome: 'Ana', apelido: 'Mabote', telefone: '841234567', palavraPasse: 'segura123', canal: 'WHATSAPP' });
+    expect(JSON.parse(fetchSimulado.mock.calls[0][1].body)).toEqual(expect.objectContaining({ tipoConta: 'EMPRESA', empresaNome: 'Transportes Sul' }));
+  });
+
   it('solicita e confirma a recuperação da palavra-passe através de OTP', async () => {
     const fetchSimulado = vi.fn()
       .mockResolvedValueOnce({ ok: true, json: async () => ({ dados: { telefone: '+258841234567' } }) })
@@ -162,6 +169,29 @@ describe('sessão do passageiro', () => {
     }));
   });
 
+  it('edita, desativa e elimina uma empresa pela gestão da plataforma', async () => {
+    guardarSessao({ token: 'token-administrador' });
+    const fetchSimulado = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ dados: { id: 7 } }) });
+    vi.stubGlobal('fetch', fetchSimulado);
+
+    await editarEmpresaAdministrativa(7, { nome: 'Transportes Atualizados' });
+    await definirEstadoEmpresaAdministrativa(7, false);
+    await eliminarEmpresaAdministrativa(7);
+
+    expect(fetchSimulado.mock.calls[0][0]).toContain('/gestao/empresas/7');
+    expect(fetchSimulado.mock.calls[0][1].method).toBe('PUT');
+    expect(fetchSimulado.mock.calls[1][1]).toEqual(expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ activa: false }) }));
+    expect(fetchSimulado.mock.calls[2][1].method).toBe('DELETE');
+  });
+
+  it('aprova um cadastro empresarial pendente', async () => {
+    guardarSessao({ token: 'token-administrador' });
+    const fetchSimulado = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ dados: { id: 9, estadoCadastro: 'APROVADA' } }) });
+    vi.stubGlobal('fetch', fetchSimulado);
+    await decidirCadastroEmpresaAdministrativa(9, 'APROVADA');
+    expect(fetchSimulado).toHaveBeenCalledWith(expect.stringContaining('/gestao/empresas/9/aprovacao'), expect.objectContaining({ method: 'PATCH' }));
+  });
+
   it('envia um aviso administrativo para os passageiros da viagem', async () => {
     guardarSessao({ token: 'token-administrador' });
     const fetchSimulado = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ dados: { totalDestinatarios: 3 } }) });
@@ -176,9 +206,9 @@ describe('sessão do passageiro', () => {
     }));
   });
 
-  it('elimina um utilizador pela rota administrativa autenticada', async () => {
+  it('elimina um usuário pela rota administrativa autenticada', async () => {
     guardarSessao({ token: 'token-administrador' });
-    const fetchSimulado = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ dados: { mensagem: 'Utilizador eliminado com sucesso.' } }) });
+    const fetchSimulado = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ dados: { mensagem: 'Usuário eliminado com sucesso.' } }) });
     vi.stubGlobal('fetch', fetchSimulado);
 
     await eliminarUtilizadorAdministrativo(23);

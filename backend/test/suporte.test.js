@@ -18,7 +18,7 @@ test('isola tickets por passageiro e por gestor atribuído', () => {
   const ticket = { utilizadorId: 10, gestorId: 20 };
   assert.doesNotThrow(() => garantirAcesso(ticket, { id: 10, perfil: 'PASSAGEIRO' }));
   assert.doesNotThrow(() => garantirAcesso(ticket, { id: 20, perfil: 'GESTOR_SUPORTE' }));
-  assert.doesNotThrow(() => garantirAcesso(ticket, { id: 99, perfil: 'ADMIN' }));
+  assert.throws(() => garantirAcesso(ticket, { id: 99, perfil: 'ADMIN' }), /acesso/i);
   assert.throws(() => garantirAcesso(ticket, { id: 11, perfil: 'PASSAGEIRO' }), /acesso/i);
   assert.throws(() => garantirAcesso(ticket, { id: 21, perfil: 'GESTOR_SUPORTE' }), /acesso/i);
 });

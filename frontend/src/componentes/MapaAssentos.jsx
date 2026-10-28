@@ -82,7 +82,7 @@ function BotaoAssento({ assento, assentoId, aoSelecionar }) {
     onClick={() => aoSelecionar(assento.id)}
     aria-pressed={seleccionado}
     aria-label={`Assento ${assento.numero}, ${posicao}, ${assento.reservadoTemporariamente ? 'temporariamente reservado' : assento.disponivel ? 'disponível' : 'ocupado'}`}
-    title={`Assento ${assento.numero} · ${posicao}${assento.reservadoTemporariamente ? ' · reservado por outro utilizador' : ''}`}
+    title={`Assento ${assento.numero} · ${posicao}${assento.reservadoTemporariamente ? ' · reservado por outro usuário' : ''}`}
   >
     <span>{assento.numero}</span>
     {assento.juntoJanela && <small>Janela</small>}

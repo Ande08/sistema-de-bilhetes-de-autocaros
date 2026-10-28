@@ -7,7 +7,12 @@ const servicoCompra = new ServicoCompra();
 
 export async function criarCompra(req, res, next) {
   try {
-    const vendaAssistida = ['GESTOR_SUPORTE', 'EMPRESA_ADMIN', 'ADMIN'].includes(req.utilizador.perfil);
+    if (req.utilizador.perfil === 'ADMIN') {
+      const erro = new Error('O administrador da plataforma não pode vender bilhetes.');
+      erro.statusCode = 403;
+      throw erro;
+    }
+    const vendaAssistida = ['GESTOR_SUPORTE', 'EMPRESA_ADMIN'].includes(req.utilizador.perfil);
     const passageiroId = vendaAssistida && req.body.utilizadorId
       ? req.body.utilizadorId
       : req.utilizador.id;
@@ -78,7 +83,7 @@ async function obterBilheteAutorizado(codigo, utilizador) {
   }
   const operadorEmpresa = ['GESTOR_SUPORTE', 'EMPRESA_ADMIN'].includes(utilizador.perfil);
   const viagemOutraEmpresa = operadorEmpresa && String(bilhete.Trip?.empresaId) !== String(utilizador.empresaId);
-  const podeGerir = ['ADMIN', 'GESTOR_SUPORTE', 'EMPRESA_ADMIN'].includes(utilizador.perfil) && !viagemOutraEmpresa;
+  const podeGerir = ['GESTOR_SUPORTE', 'EMPRESA_ADMIN'].includes(utilizador.perfil) && !viagemOutraEmpresa;
   if (!podeGerir && String(bilhete.utilizadorId) !== String(utilizador.id)) {
     const erro = new Error('Não tem permissão para consultar este bilhete.');
     erro.statusCode = 403;

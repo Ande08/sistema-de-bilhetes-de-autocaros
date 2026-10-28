@@ -242,6 +242,7 @@ function PaginaAutenticacao({ aoAutenticar }) {
   const [etapaRecuperacao, setEtapaRecuperacao] = useState('telefone');
   const [recuperacaoPendente, setRecuperacaoPendente] = useState(null);
   const [mostrarPalavraPasse, setMostrarPalavraPasse] = useState(false);
+  const [tipoConta, setTipoConta] = useState('PASSAGEIRO');
   const [aProcessar, setAProcessar] = useState(false);
   const [mensagem, setMensagem] = useState('');
   const [tipoMensagem, setTipoMensagem] = useState('erro');
@@ -260,9 +261,10 @@ function PaginaAutenticacao({ aoAutenticar }) {
         setTipoMensagem('sucesso');
         setMensagem(`Código enviado por ${pendente.canal === 'WHATSAPP' ? 'WhatsApp' : 'SMS'} para ${pendente.telefone}.`);
       } else if (modo === 'registar') {
-        await confirmarRegistoUtilizador({ telefone: registoPendente.telefone, codigo: dados.codigo });
+        const contaCriada = await confirmarRegistoUtilizador({ telefone: registoPendente.telefone, codigo: dados.codigo });
         setModo('entrar'); setEtapaRegisto('dados'); setRegistoPendente(null);
-        setTipoMensagem('sucesso'); setMensagem('Número confirmado e conta criada. Já pode iniciar sessão.');
+        setTipoMensagem('sucesso');
+        setMensagem(contaCriada.estadoCadastro === 'PENDENTE' ? contaCriada.mensagem : 'Número confirmado e conta criada. Já pode iniciar sessão.');
       } else if (modo === 'recuperar' && etapaRecuperacao === 'telefone') {
         const pendente = await solicitarRecuperacaoPalavraPasse(dados);
         setRecuperacaoPendente({ ...pendente, dadosOriginais: dados });
@@ -294,6 +296,7 @@ function PaginaAutenticacao({ aoAutenticar }) {
     setModo(novoModo);
     setMensagem('');
     setMostrarPalavraPasse(false);
+    setTipoConta('PASSAGEIRO');
     setEtapaRegisto('dados');
     setRegistoPendente(null);
     setEtapaRecuperacao('telefone');
@@ -331,7 +334,7 @@ function PaginaAutenticacao({ aoAutenticar }) {
       </div>
       <div className="titulo-autenticacao"><h2>{modo === 'entrar' ? 'Bem-vindo de volta' : modo === 'recuperar' ? etapaRecuperacao === 'otp' ? 'Defina uma nova palavra-passe' : 'Recupere o acesso' : etapaRegisto === 'otp' ? 'Confirme o seu número' : 'Crie a sua conta'}</h2><p>{modo === 'entrar' ? 'Introduza o telefone e a palavra-passe.' : modo === 'recuperar' ? etapaRecuperacao === 'otp' ? `Introduza o código enviado para ${recuperacaoPendente?.telefone}.` : 'Receba um código no número associado à sua conta.' : etapaRegisto === 'otp' ? `Introduza o código de 6 dígitos enviado para ${registoPendente?.telefone}.` : 'Não é necessário apresentar documento pessoal.'}</p></div>
       <form className="formulario-autenticacao" onSubmit={submeter}>
-        {modo === 'registar' && etapaRegisto === 'dados' && <><input type="hidden" name="tipoConta" value="PASSAGEIRO" /><div className="linha-nome-registo"><label>Nome<input name="nome" autoComplete="given-name" minLength="2" maxLength="80" required /></label><label>Apelido<input name="apelido" autoComplete="family-name" minLength="2" maxLength="120" required /></label></div></>}
+        {modo === 'registar' && etapaRegisto === 'dados' && <><label>Tipo de conta<select name="tipoConta" value={tipoConta} onChange={(evento) => setTipoConta(evento.target.value)}><option value="PASSAGEIRO">Cliente passageiro</option><option value="EMPRESA">Empresa de transporte</option></select></label>{tipoConta === 'EMPRESA' && <label>Nome da empresa<input name="empresaNome" minLength="3" maxLength="160" required /></label>}<div className="linha-nome-registo"><label>{tipoConta === 'EMPRESA' ? 'Nome do responsável' : 'Nome'}<input name="nome" autoComplete="given-name" minLength="2" maxLength="80" required /></label><label>Apelido<input name="apelido" autoComplete="family-name" minLength="2" maxLength="120" required /></label></div></>}
         {(modo === 'entrar' || (modo === 'registar' && etapaRegisto === 'dados') || (modo === 'recuperar' && etapaRecuperacao === 'telefone')) && <label>Número de telefone<input name="telefone" type="tel" inputMode="tel" autoComplete="tel" placeholder="84 000 0000" required /></label>}
         {((modo === 'registar' && etapaRegisto === 'dados') || (modo === 'recuperar' && etapaRecuperacao === 'telefone')) && <label>Receber código por<select name="canal" defaultValue="WHATSAPP"><option value="WHATSAPP">WhatsApp</option><option value="SMS">SMS</option></select></label>}
         {(modo === 'entrar' || (modo === 'registar' && etapaRegisto === 'dados')) && <label>Palavra-passe<div className="campo-palavra-passe"><input name="palavraPasse" type={mostrarPalavraPasse ? 'text' : 'password'} minLength="8" autoComplete={modo === 'entrar' ? 'current-password' : 'new-password'} required /><button type="button" onClick={() => setMostrarPalavraPasse((visivel) => !visivel)} aria-label={mostrarPalavraPasse ? 'Ocultar palavra-passe' : 'Mostrar palavra-passe'} title={mostrarPalavraPasse ? 'Ocultar palavra-passe' : 'Mostrar palavra-passe'}><Icone nome={mostrarPalavraPasse ? 'olhoFechado' : 'olho'} /></button></div></label>}

@@ -19,8 +19,8 @@ export async function criarUtilizadorAdministrativo({ nome, apelido, telefone, p
   if (administrador.perfil === 'EMPRESA_ADMIN' && dados.perfil !== 'GESTOR_SUPORTE') {
     const erro = new Error('O administrador da empresa só pode criar atendentes.'); erro.statusCode = 403; throw erro;
   }
-  if (administrador.perfil === 'ADMIN' && ['GESTOR_SUPORTE', 'EMPRESA_ADMIN'].includes(dados.perfil)) {
-    const erro = new Error('Crie a empresa e o respetivo administrador na área Empresas.'); erro.statusCode = 400; throw erro;
+  if (administrador.perfil === 'ADMIN' && dados.perfil !== 'ADMIN') {
+    const erro = new Error('O administrador da plataforma só pode criar outros administradores da plataforma.'); erro.statusCode = 403; throw erro;
   }
   dados.empresaId = dados.perfil === 'PASSAGEIRO' ? null : administrador.empresaId;
   validarPalavraPasse(palavraPasse);
@@ -47,6 +47,9 @@ export async function actualizarUtilizadorAdministrativo(id, { nome, apelido, te
     alteracoes.perfil = validarPerfil(perfil);
     if (administrador.perfil === 'EMPRESA_ADMIN' && !['GESTOR_SUPORTE', 'EMPRESA_ADMIN'].includes(alteracoes.perfil)) {
       const erro = new Error('Não pode atribuir este perfil dentro da empresa.'); erro.statusCode = 403; throw erro;
+    }
+    if (administrador.perfil === 'ADMIN' && alteracoes.perfil !== 'ADMIN') {
+      const erro = new Error('O administrador da plataforma não pode alterar perfis operacionais das empresas.'); erro.statusCode = 403; throw erro;
     }
     const perfilAdministrador = administrador.perfil === 'EMPRESA_ADMIN' ? 'EMPRESA_ADMIN' : 'ADMIN';
     if (String(id) === String(administrador.id) && alteracoes.perfil !== perfilAdministrador) {
@@ -114,9 +117,12 @@ export async function eliminarUtilizadorAdministrativo(id, administrador) {
 
 async function obterUtilizador(id, administrador = null) {
   const utilizador = await User.findByPk(id);
-  if (!utilizador || utilizador.eliminadoEm) { const erro = new Error('Utilizador não encontrado.'); erro.statusCode = 404; throw erro; }
+  if (!utilizador || utilizador.eliminadoEm) { const erro = new Error('Usuário não encontrado.'); erro.statusCode = 404; throw erro; }
   if (administrador?.perfil === 'EMPRESA_ADMIN' && String(utilizador.empresaId) !== String(administrador.empresaId)) {
-    const erro = new Error('Não pode gerir utilizadores de outra empresa.'); erro.statusCode = 403; throw erro;
+    const erro = new Error('Não pode gerir usuários de outra empresa.'); erro.statusCode = 403; throw erro;
+  }
+  if (administrador?.perfil === 'ADMIN' && utilizador.perfil !== 'ADMIN') {
+    const erro = new Error('A gestão desta conta pertence à respetiva empresa ou ao próprio usuário.'); erro.statusCode = 403; throw erro;
   }
   return utilizador;
 }

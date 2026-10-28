@@ -41,7 +41,7 @@ async function responderConta(utilizadorId, mensagem) {
 async function responderViagens(mensagem) {
   const viagens = await Trip.findAll({
     where: { status: 'AGENDADA', departureAt: { [Op.gt]: new Date() } },
-    include: [{ model: Route, where: { active: true } }, Bus, { model: Empresa, where: { activa: true }, attributes: ['nome'], required: true }],
+    include: [{ model: Route, where: { active: true } }, Bus, { model: Empresa, where: { activa: true, estadoCadastro: 'APROVADA', eliminadaEm: null }, attributes: ['nome'], required: true }],
     order: [['departureAt', 'ASC']], limit: 30
   });
   if (!viagens.length) return respostaBaseDados('Neste momento não existem viagens futuras disponíveis no sistema.');

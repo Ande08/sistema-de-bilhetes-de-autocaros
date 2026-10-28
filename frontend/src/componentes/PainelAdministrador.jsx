@@ -3,13 +3,14 @@ import Icone from './Icone.jsx';
 import ChatTicketSuporte, { traduzirEstado } from './ChatTicketSuporte.jsx';
 import { ModalCampo, ModalConfirmacao } from './Modal.jsx';
 import SelecaoLocalidade from './SelecaoLocalidade.jsx';
-import { URL_SERVIDOR, actualizarEmpresaAdministrativa, actualizarUtilizadorAdministrativo, actualizarViagemAdministrativa, atribuirTicketSuporte, cancelarViagemAdministrativa, criarAutocarro, criarEmpresaAdministrativa, criarRota, criarUtilizadorAdministrativo, criarViagem, definirEstadoAdministrativo, eliminarUtilizadorAdministrativo, enviarAvisoViagemAdministrativa, guardarConfiguracaoIa, iniciarWhatsApp, listarGestoresSuporte, listarModelosIa, listarTicketsSuporte, obterConfiguracaoIa, obterEstadoWhatsApp, obterPainelAdministrativo, redefinirPalavraPasseAdministrativa, repetirEnvioWhatsapp, testarLigacaoIa } from '../servicos/api.js';
+import { URL_SERVIDOR, actualizarEmpresaAdministrativa, actualizarUtilizadorAdministrativo, actualizarViagemAdministrativa, atribuirTicketSuporte, cancelarViagemAdministrativa, criarAutocarro, criarRota, criarUtilizadorAdministrativo, criarViagem, decidirCadastroEmpresaAdministrativa, definirEstadoAdministrativo, definirEstadoEmpresaAdministrativa, editarEmpresaAdministrativa, eliminarEmpresaAdministrativa, eliminarUtilizadorAdministrativo, enviarAvisoViagemAdministrativa, guardarConfiguracaoIa, iniciarWhatsApp, listarGestoresSuporte, listarModelosIa, listarTicketsSuporte, obterConfiguracaoIa, obterEstadoWhatsApp, obterPainelAdministrativo, redefinirPalavraPasseAdministrativa, repetirEnvioWhatsapp, testarLigacaoIa } from '../servicos/api.js';
 import { formatarValor } from '../utilitarios/moeda.js';
 
-const secoesGlobais = ['Visão geral', 'Empresas', 'Utilizadores', 'Autocarros', 'Rotas', 'Viagens', 'Bilhetes', 'Suporte', 'Inteligência artificial', 'WhatsApp', 'Auditoria'];
+const secoesPlataforma = ['Visão geral', 'Empresas', 'Administradores', 'Volume de vendas', 'Inteligência artificial', 'WhatsApp', 'Auditoria'];
+const secoesEmpresa = ['Dados da empresa', 'Visão geral', 'Usuários', 'Autocarros', 'Rotas', 'Viagens', 'Bilhetes', 'Suporte', 'Auditoria'];
 
 export default function PainelAdministrador({ utilizador, aoSair }) {
-  const secoes = utilizador.perfil === 'ADMIN' ? secoesGlobais : ['Dados da empresa', ...secoesGlobais.filter((item) => !['Empresas', 'Inteligência artificial', 'WhatsApp'].includes(item))];
+  const secoes = utilizador.perfil === 'ADMIN' ? secoesPlataforma : secoesEmpresa;
   const [secao, setSecao] = useState(utilizador.perfil === 'EMPRESA_ADMIN' ? 'Dados da empresa' : 'Visão geral');
   const [dados, setDados] = useState(null);
   const [versao, setVersao] = useState(0);
@@ -58,7 +59,9 @@ export default function PainelAdministrador({ utilizador, aoSair }) {
 function ConteudoAdministrativo({ secao, dados, executar, submeter, utilizador }) {
   if (secao === 'Dados da empresa') return <PaginaDadosEmpresa empresa={dados.empresa} executar={executar} />;
   if (secao === 'Empresas') return <PaginaEmpresas empresas={dados.empresas || []} executar={executar} />;
-  if (secao === 'Utilizadores') return <PaginaUtilizadores utilizadores={dados.passageiros} executar={executar} administrador={utilizador} />;
+  if (secao === 'Administradores') return <PaginaUtilizadores utilizadores={dados.passageiros} executar={executar} administrador={utilizador} />;
+  if (secao === 'Usuários') return <PaginaUtilizadores utilizadores={dados.passageiros} executar={executar} administrador={utilizador} />;
+  if (secao === 'Volume de vendas') return <TabelaGestao titulo="Volume de vendas por empresa" colunas={['Empresa', 'Emitidos', 'Utilizados', 'Cancelados', 'Total válido']} linhas={(dados.volumeVendas || []).map((item) => [item.empresa, item.emitidos, item.utilizados, item.cancelados, item.total])} />;
   if (secao === 'Autocarros') return <><FormularioAutocarro aoSubmeter={(e) => submeter(e, criarAutocarro, 'Autocarro criado com sucesso.')} /><TabelaGestao titulo="Frota" colunas={['ID', 'Matrícula', 'Modelo', 'Capacidade', 'Distribuição', 'Estado', 'Criado em', 'Ação']} linhas={dados.autocarros.map((item) => [item.id, item.registration, item.model, item.capacity, `${item.seatsLeft || 2} + ${item.seatsRight || 2}`, item.active ? 'Ativo' : 'Inativo', formatarData(item.criado_em), <BotaoEstado activo={item.active} aoClicar={() => executar(() => definirEstadoAdministrativo('autocarros', item.id, !item.active), 'Estado do autocarro atualizado.')} />])} /></>;
   if (secao === 'Rotas') return <><FormularioRota aoSubmeter={(e) => submeter(e, criarRota, 'Rota criada com sucesso.')} /><TabelaGestao titulo="Rotas" colunas={['ID', 'Origem', 'Destino', 'Distância', 'Estado', 'Criada em', 'Ação']} linhas={dados.rotas.map((item) => [item.id, `${item.origin} (${item.originProvince})`, `${item.destination} (${item.destinationProvince})`, item.distanceKm ? `${item.distanceKm} km` : '—', item.active ? 'Ativa' : 'Inativa', formatarData(item.criado_em), <BotaoEstado activo={item.active} aoClicar={() => executar(() => definirEstadoAdministrativo('rotas', item.id, !item.active), 'Estado da rota atualizado.')} />])} /></>;
   if (secao === 'Viagens') return <><FormularioViagem rotas={dados.rotas.filter((item) => item.active)} autocarros={dados.autocarros.filter((item) => item.active)} aoSubmeter={(e) => submeter(e, criarViagem, 'Viagem criada com sucesso.')} /><TabelaGestao titulo="Viagens" colunas={['ID', 'Rota', 'Autocarro', 'Partida', 'Chegada', 'Preço', 'Estado', 'Ações']} linhas={dados.viagens.map((item) => [item.id, `${item.Route?.origin} → ${item.Route?.destination}`, `${item.Bus?.registration || '—'} · ${item.Bus?.model || ''}`, formatarData(item.departureAt), item.arrivalExpectedAt ? formatarData(item.arrivalExpectedAt) : '—', formatarValor(item.price), item.status, <AcoesViagem viagem={item} executar={executar} />])} /></>;
@@ -71,6 +74,10 @@ function ConteudoAdministrativo({ secao, dados, executar, submeter, utilizador }
 }
 
 function VisaoGeral({ dados }) {
+  if (dados.tipoPainel === 'PLATAFORMA') {
+    const itensPlataforma = [['autocarro', 'Empresas ativas', dados.indicadores.empresasActivas], ['autocarro', 'Cadastros pendentes', dados.indicadores.empresasPendentes], ['utilizador', 'Usuários ativos', dados.indicadores.usuariosActivos], ['bilhete', 'Vendas hoje', dados.indicadores.vendasHoje], ['bilhete', 'Vendas no mês', dados.indicadores.vendasMes], ['viagens', 'Viagens agendadas', dados.indicadores.viagensAgendadas]];
+    return <><section className="admin-indicadores">{itensPlataforma.map(([icone, titulo, valor]) => <article className="vidro" key={titulo}><span className="resumo-icone"><Icone nome={icone} /></span><small>{titulo}</small><strong>{valor}</strong></article>)}</section><TabelaGestao titulo="Volume de vendas por empresa" colunas={['Empresa', 'Emitidos', 'Utilizados', 'Cancelados', 'Total válido']} linhas={(dados.volumeVendas || []).map((item) => [item.empresa, item.emitidos, item.utilizados, item.cancelados, item.total])} /></>;
+  }
   const itens = [['utilizador', 'Passageiros', dados.indicadores.passageiros], ['autocarro', 'Autocarros ativos', dados.indicadores.autocarrosActivos], ['viagens', 'Viagens agendadas', dados.indicadores.viagensAgendadas], ['bilhete', 'Bilhetes emitidos', dados.indicadores.bilhetesEmitidos], ['cartao', 'Receita aprovada', formatarValor(dados.indicadores.receitaAprovada)]];
   return <><section className="admin-indicadores">{itens.map(([icone, titulo, valor]) => <article className="vidro" key={titulo}><span className="resumo-icone"><Icone nome={icone} /></span><small>{titulo}</small><strong>{valor}</strong></article>)}</section><TabelaGestao titulo="Viagens recentes" colunas={['Rota', 'Partida', 'Preço', 'Estado']} linhas={dados.viagens.slice(0, 6).map((item) => [`${item.Route?.origin} → ${item.Route?.destination}`, formatarData(item.departureAt), formatarValor(item.price), item.status])} /></>;
 }
@@ -87,8 +94,8 @@ function PaginaUtilizadores({ utilizadores, executar, administrador }) {
     const formulario = evento.currentTarget;
     const valores = Object.fromEntries(new FormData(formulario));
     const concluido = emEdicao
-      ? await executar(() => actualizarUtilizadorAdministrativo(emEdicao.id, { nome: valores.nome, apelido: valores.apelido, telefone: valores.telefone, perfil: valores.perfil }), 'Utilizador atualizado com sucesso.')
-      : await executar(() => criarUtilizadorAdministrativo(valores), 'Utilizador criado com sucesso.');
+      ? await executar(() => actualizarUtilizadorAdministrativo(emEdicao.id, { nome: valores.nome, apelido: valores.apelido, telefone: valores.telefone, perfil: valores.perfil }), 'Usuário atualizado com sucesso.')
+      : await executar(() => criarUtilizadorAdministrativo(valores), 'Usuário criado com sucesso.');
     if (concluido) { formulario.reset(); setEmEdicao(null); }
   }
 
@@ -101,25 +108,25 @@ function PaginaUtilizadores({ utilizadores, executar, administrador }) {
 
   async function eliminar() {
     setAEliminar(true);
-    const concluido = await executar(() => eliminarUtilizadorAdministrativo(utilizadorEliminar.id), 'Utilizador eliminado com sucesso.');
+    const concluido = await executar(() => eliminarUtilizadorAdministrativo(utilizadorEliminar.id), 'Usuário eliminado com sucesso.');
     if (concluido) setUtilizadorEliminar(null);
     setAEliminar(false);
   }
 
   return <>
     <form className="admin-formulario admin-formulario-utilizador vidro" onSubmit={guardar} key={emEdicao?.id || 'novo'}>
-      <h3>{emEdicao ? 'Editar utilizador' : 'Novo utilizador'}</h3>
+      <h3>{emEdicao ? `Editar ${administrador.perfil === 'ADMIN' ? 'administrador' : 'usuário'}` : `Novo ${administrador.perfil === 'ADMIN' ? 'administrador da plataforma' : 'usuário'}`}</h3>
       <label>Nome<input name="nome" defaultValue={emEdicao?.nome || ''} required minLength="3" /></label>
       <label>Apelido<input name="apelido" defaultValue={emEdicao?.apelido || ''} required minLength="2" /></label>
       <label>Telefone<input name="telefone" type="tel" defaultValue={emEdicao?.telefone || ''} placeholder="+258840000000" required /></label>
-      <label>Perfil<select name="perfil" defaultValue={emEdicao?.perfil || (administrador.perfil === 'ADMIN' ? 'PASSAGEIRO' : 'GESTOR_SUPORTE')}>{(administrador.perfil === 'EMPRESA_ADMIN' || emEdicao?.perfil === 'GESTOR_SUPORTE') && <option value="GESTOR_SUPORTE">Atendente</option>}{emEdicao?.perfil === 'EMPRESA_ADMIN' && <option value="EMPRESA_ADMIN">Administrador da empresa</option>}{administrador.perfil === 'ADMIN' && <><option value="PASSAGEIRO">Cliente</option><option value="ADMIN">Administrador da plataforma</option></>}</select></label>
+      <label>Perfil<select name="perfil" defaultValue={emEdicao?.perfil || (administrador.perfil === 'ADMIN' ? 'ADMIN' : 'GESTOR_SUPORTE')}>{administrador.perfil === 'EMPRESA_ADMIN' && <><option value="GESTOR_SUPORTE">Atendente</option>{emEdicao?.perfil === 'EMPRESA_ADMIN' && <option value="EMPRESA_ADMIN">Administrador da empresa</option>}</>}{administrador.perfil === 'ADMIN' && <option value="ADMIN">Administrador da plataforma</option>}</select></label>
       {!emEdicao && <label>Palavra-passe<input name="palavraPasse" type="password" minLength="8" required /></label>}
-      <button>{emEdicao ? 'Guardar alterações' : 'Criar utilizador'}</button>
+      <button>{emEdicao ? 'Guardar alterações' : 'Criar usuário'}</button>
       {emEdicao && <button type="button" className="botao-voltar" onClick={() => setEmEdicao(null)}>Cancelar edição</button>}
     </form>
-    <TabelaGestao titulo="Utilizadores" colunas={['ID', 'Nome', 'Apelido', 'Telefone', 'Perfil', 'Estado', 'Ações']} linhas={utilizadores.map((item) => [item.id, item.nome, item.apelido, item.telefone, nomePerfil(item.perfil), item.activo ? 'Ativo' : 'Inativo', <span className="admin-acoes"><button onClick={() => setEmEdicao(item)}>Editar</button><button onClick={() => setUtilizadorRedefinir(item)}>Redefinir senha</button><BotaoEstado activo={item.activo} aoClicar={() => executar(() => definirEstadoAdministrativo('utilizadores', item.id, !item.activo), 'Estado do utilizador atualizado.')} /><button className="admin-eliminar" onClick={() => setUtilizadorEliminar(item)}>Eliminar</button></span>])} />
+    <TabelaGestao titulo={administrador.perfil === 'ADMIN' ? 'Administradores da plataforma' : 'Usuários da empresa'} colunas={['ID', 'Nome', 'Apelido', 'Telefone', 'Perfil', 'Estado', 'Ações']} linhas={utilizadores.map((item) => [item.id, item.nome, item.apelido, item.telefone, nomePerfil(item.perfil), item.activo ? 'Ativo' : 'Inativo', <span className="admin-acoes"><button onClick={() => setEmEdicao(item)}>Editar</button><button onClick={() => setUtilizadorRedefinir(item)}>Redefinir senha</button><BotaoEstado activo={item.activo} aoClicar={() => executar(() => definirEstadoAdministrativo('utilizadores', item.id, !item.activo), 'Estado do usuário atualizado.')} /><button className="admin-eliminar" onClick={() => setUtilizadorEliminar(item)}>Eliminar</button></span>])} />
     {utilizadorRedefinir && <ModalCampo titulo="Redefinir palavra-passe" texto={`Defina uma nova palavra-passe para ${nomePessoa(utilizadorRedefinir)}.`} etiquetaCampo="Nova palavra-passe" tipo="password" minLength={8} textoConfirmar="Redefinir" aProcessar={aRedefinir} aoConfirmar={redefinir} aoFechar={() => setUtilizadorRedefinir(null)} />}
-    {utilizadorEliminar && <ModalConfirmacao titulo="Eliminar utilizador" texto={`Deseja eliminar ${nomePessoa(utilizadorEliminar)}? A conta será anonimizada e perderá o acesso, mas o histórico de bilhetes, pagamentos, suporte e auditoria será preservado.`} textoConfirmar="Eliminar utilizador" perigo aProcessar={aEliminar} aoConfirmar={eliminar} aoFechar={() => setUtilizadorEliminar(null)} />}
+    {utilizadorEliminar && <ModalConfirmacao titulo="Eliminar usuário" texto={`Deseja eliminar ${nomePessoa(utilizadorEliminar)}? A conta será anonimizada e perderá o acesso, mas o histórico de bilhetes, pagamentos, suporte e auditoria será preservado.`} textoConfirmar="Eliminar usuário" perigo aProcessar={aEliminar} aoConfirmar={eliminar} aoFechar={() => setUtilizadorEliminar(null)} />}
   </>;
 }
 
@@ -141,39 +148,53 @@ function PaginaGestaoSuporte() {
     catch (falha) { setErro(falha.message); }
   }
 
-  if (ticketActivo) return <><button className="botao-voltar-suporte" onClick={() => { setTicketActivo(null); carregar(); }}>Voltar aos tickets</button><ChatTicketSuporte ticketId={ticketActivo} perfil="ADMIN" aoActualizar={carregar} /></>;
+  if (ticketActivo) return <><button className="botao-voltar-suporte" onClick={() => { setTicketActivo(null); carregar(); }}>Voltar aos tickets</button><ChatTicketSuporte ticketId={ticketActivo} perfil="EMPRESA_ADMIN" aoActualizar={carregar} /></>;
   return <section className="admin-tabela vidro"><div className="titulo-secao"><div><h3>Gestão de suporte</h3><p>Atribua os pedidos à equipa e acompanhe os atendimentos.</p></div><span>{tickets.length} tickets</span></div>{erro && <p className="mensagem-formulario erro">{erro}</p>}<div className="admin-tabela-scroll"><table><thead><tr><th>Código</th><th>Passageiro</th><th>Assunto</th><th>Prioridade</th><th>Estado</th><th>Gestor responsável</th><th>Ação</th></tr></thead><tbody>{tickets.map((ticket) => <tr key={ticket.id}><td>{ticket.codigo}</td><td>{nomePessoa(ticket.Passageiro)}</td><td>{ticket.assunto}</td><td>{ticket.prioridade}</td><td><b className={`estado-suporte estado-${ticket.estado.toLowerCase()}`}>{traduzirEstado(ticket.estado)}</b></td><td><select value={ticket.gestorId || ''} onChange={(evento) => atribuir(evento, ticket.id)}><option value="">Não atribuído</option>{gestores.map((gestor) => <option key={gestor.id} value={gestor.id}>{nomePessoa(gestor)}</option>)}</select></td><td><button className="admin-activar" onClick={() => setTicketActivo(ticket.id)}>Abrir</button></td></tr>)}</tbody></table></div></section>;
 }
 
 function PaginaEmpresas({ empresas, executar }) {
+  const [emEdicao, setEmEdicao] = useState(null);
+  const [empresaEliminar, setEmpresaEliminar] = useState(null);
+  const [empresaRejeitar, setEmpresaRejeitar] = useState(null);
+  const [aProcessar, setAProcessar] = useState(false);
+
   async function guardar(evento) {
     evento.preventDefault();
     const formulario = evento.currentTarget;
     const dados = Object.fromEntries(new FormData(formulario));
-    const concluido = await executar(
-      () => criarEmpresaAdministrativa(dados),
-      'Empresa e administrador responsável criados com sucesso.'
-    );
-    if (concluido) formulario.reset();
+    const concluido = await executar(() => editarEmpresaAdministrativa(emEdicao.id, dados), 'Empresa atualizada com sucesso.');
+    if (concluido) { formulario.reset(); setEmEdicao(null); }
+  }
+
+  async function eliminar() {
+    setAProcessar(true);
+    const concluido = await executar(() => eliminarEmpresaAdministrativa(empresaEliminar.id), 'Empresa eliminada com sucesso.');
+    if (concluido) setEmpresaEliminar(null);
+    setAProcessar(false);
+  }
+
+  async function rejeitar(motivo) {
+    setAProcessar(true);
+    const concluido = await executar(() => decidirCadastroEmpresaAdministrativa(empresaRejeitar.id, 'REJEITADA', motivo), 'Cadastro da empresa rejeitado.');
+    if (concluido) setEmpresaRejeitar(null);
+    setAProcessar(false);
   }
 
   return <>
-    <form className="admin-formulario admin-formulario-empresa vidro" onSubmit={guardar}>
-      <div className="cabecalho-formulario-empresa"><h3>Nova empresa</h3><p>A transportadora e o seu administrador são criados na mesma operação.</p></div>
-      <label>Nome da empresa<input name="nome" minLength="3" maxLength="160" required /></label>
-      <label>Telefone institucional<input name="telefone" type="tel" placeholder="+258840000000" /></label>
-      <label>Website<input name="website" type="url" placeholder="https://empresa.co.mz" /></label>
-      <label>Nome do responsável<input name="administradorNome" minLength="2" maxLength="80" required /></label>
-      <label>Apelido do responsável<input name="administradorApelido" minLength="2" maxLength="120" required /></label>
-      <label>Telefone de acesso<input name="administradorTelefone" type="tel" placeholder="+258840000000" required /></label>
-      <label>Palavra-passe inicial<input name="administradorPalavraPasse" type="password" minLength="8" required /></label>
-      <label className="descricao-nova-empresa">Descrição<textarea name="descricao" maxLength="500" rows="3" /></label>
-      <button type="submit">Criar empresa</button>
-    </form>
-    <TabelaGestao titulo="Empresas registadas" colunas={['ID', 'Empresa', 'Telefone', 'Administrador responsável', 'Telefone de acesso', 'Estado']} linhas={empresas.map((empresa) => {
+    {emEdicao && <form className="admin-formulario admin-formulario-empresa vidro" onSubmit={guardar} key={emEdicao.id}>
+      <div className="cabecalho-formulario-empresa"><h3>Editar empresa</h3><p>Atualize apenas os dados institucionais necessários para a administração da plataforma.</p></div>
+      <label>Nome da empresa<input name="nome" defaultValue={emEdicao.nome || ''} minLength="3" maxLength="160" required /></label>
+      <label>Telefone institucional<input name="telefone" type="tel" defaultValue={emEdicao.telefone || ''} placeholder="+258840000000" /></label>
+      <label>Website<input name="website" type="url" defaultValue={emEdicao.website || ''} placeholder="https://empresa.co.mz" /></label>
+      <label className="descricao-nova-empresa">Descrição<textarea name="descricao" defaultValue={emEdicao.descricao || ''} maxLength="500" rows="3" /></label>
+      <button type="submit">Guardar alterações</button><button type="button" className="botao-voltar" onClick={() => setEmEdicao(null)}>Cancelar edição</button>
+    </form>}
+    <TabelaGestao titulo="Empresas registadas" colunas={['ID', 'Empresa', 'Administrador responsável', 'Telefone', 'Cadastro', 'Acesso', 'Ações']} linhas={empresas.map((empresa) => {
       const responsavel = empresa.Users?.[0];
-      return [empresa.id, empresa.nome, empresa.telefone || '—', responsavel ? nomePessoa(responsavel) : 'Sem responsável', responsavel?.telefone || '—', empresa.activa ? 'Ativa' : 'Inativa'];
+      return [empresa.id, empresa.nome, responsavel ? nomePessoa(responsavel) : 'Sem responsável', responsavel?.telefone || empresa.telefone || '—', nomeEstadoEmpresa(empresa.estadoCadastro), empresa.activa ? 'Ativo' : 'Bloqueado', <span className="admin-acoes"><button onClick={() => setEmEdicao(empresa)}>Editar</button>{empresa.estadoCadastro === 'PENDENTE' ? <><button className="admin-activar" onClick={() => executar(() => decidirCadastroEmpresaAdministrativa(empresa.id, 'APROVADA'), 'Empresa aprovada e acesso liberado.')}>Aprovar</button><button className="admin-desactivar" onClick={() => setEmpresaRejeitar(empresa)}>Rejeitar</button></> : empresa.estadoCadastro !== 'REJEITADA' && <BotaoEstado activo={empresa.activa} aoClicar={() => executar(() => definirEstadoEmpresaAdministrativa(empresa.id, !empresa.activa), `Empresa ${empresa.activa ? 'suspensa' : 'reativada'} com sucesso.`)} />}<button className="admin-eliminar" onClick={() => setEmpresaEliminar(empresa)}>Eliminar</button></span>];
     })} />
+    {empresaRejeitar && <ModalCampo titulo="Rejeitar cadastro da empresa" texto={`Explique por que o cadastro de ${empresaRejeitar.nome} não foi aprovado.`} etiquetaCampo="Motivo da rejeição" multilinha minLength={5} maxLength={500} textoConfirmar="Rejeitar cadastro" aProcessar={aProcessar} aoConfirmar={rejeitar} aoFechar={() => setEmpresaRejeitar(null)} />}
+    {empresaEliminar && <ModalConfirmacao titulo="Eliminar empresa" texto={`Deseja eliminar ${empresaEliminar.nome}? A empresa deixará de aparecer no sistema e perderá o acesso, mas todo o histórico será preservado.`} textoConfirmar="Eliminar empresa" perigo aProcessar={aProcessar} aoConfirmar={eliminar} aoFechar={() => setEmpresaEliminar(null)} />}
   </>;
 }
 
@@ -438,3 +459,4 @@ function nomePerfil(perfil) { return { PASSAGEIRO: 'Cliente', GESTOR_SUPORTE: 'A
 function nomePessoa(pessoa) { return pessoa ? `${pessoa.nome || ''} ${pessoa.apelido || ''}`.trim() : '—'; }
 function nomeEstadoWhatsApp(estado) { return { NAO_INICIADO: 'Não iniciado', A_INICIAR: 'A iniciar', PROCESSO_PARADO: 'Processo parado', ERRO_PROCESSO: 'Erro no processo', A_LIGAR: 'A ligar', AGUARDA_QR: 'Aguarda QR Code', LIGADO: 'Ligado', A_RECONECTAR: 'A reconectar', SESSAO_TERMINADA: 'Sessão terminada', ERRO_RECONEXAO: 'Falha na reconexão' }[estado] || estado; }
 function nomeEstadoEnvio(estado) { return { PENDENTE: 'Pendente', PROCESSANDO: 'A enviar', ENVIADO: 'Enviado', FALHADO: 'Falhado', EXPIRADO: 'Expirado' }[estado] || estado; }
+function nomeEstadoEmpresa(estado) { return { PENDENTE: 'Pendente de aprovação', APROVADA: 'Aprovada', REJEITADA: 'Rejeitada', SUSPENSA: 'Suspensa' }[estado] || estado || 'Aprovada'; }

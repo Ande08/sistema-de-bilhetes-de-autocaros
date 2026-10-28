@@ -53,7 +53,7 @@ export async function repetirEnvioWhatsapp(id) {
   const envio = await EnvioWhatsapp.findByPk(id);
   if (!envio) erroHttp('Envio WhatsApp não encontrado.', 404);
   if (!['FALHADO', 'EXPIRADO'].includes(envio.estado)) erroHttp('Apenas envios falhados ou expirados podem ser repetidos.', 409);
-  if (envio.tipo === 'OTP') erroHttp('Um OTP expirado deve ser solicitado novamente pelo utilizador.', 409);
+  if (envio.tipo === 'OTP') erroHttp('Um OTP expirado deve ser solicitado novamente pelo usuário.', 409);
   await envio.update({ estado: 'PENDENTE', tentativas: 0, proximaTentativaEm: new Date(), expiraEm: null, ultimoErro: null });
   processadorFilaWhatsapp.acordar();
   return envio;

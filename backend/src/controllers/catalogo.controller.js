@@ -8,7 +8,7 @@ export function listarLocalidades(_req, res) {
 export async function listarEmpresas(_req, res, next) {
   try {
     const empresas = await Empresa.findAll({
-      where: { activa: true },
+      where: { activa: true, estadoCadastro: 'APROVADA', eliminadaEm: null },
       attributes: ['id', 'nome', 'slug', 'logoUrl', 'descricao', 'website'],
       order: [['nome', 'ASC']]
     });

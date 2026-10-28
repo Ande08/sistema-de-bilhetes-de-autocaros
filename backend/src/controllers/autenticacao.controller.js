@@ -13,6 +13,18 @@ export async function solicitarRegisto(req, res, next) {
 export async function confirmarRegisto(req, res, next) {
   try {
     const utilizador = await servicoOtp.confirmarCriacaoConta(req.body);
+    if (utilizador.perfil === 'EMPRESA_ADMIN') {
+      return res.status(201).json({
+        sucesso: true,
+        dados: {
+          id: utilizador.id,
+          perfil: utilizador.perfil,
+          empresaId: utilizador.empresaId,
+          estadoCadastro: 'PENDENTE',
+          mensagem: 'Empresa registada. Aguarde a aprovação do administrador da plataforma antes de iniciar sessão.'
+        }
+      });
+    }
     return res.status(201).json({ sucesso: true, dados: await servico.obterPerfil(utilizador.id) });
   } catch (erro) { return next(erro); }
 }

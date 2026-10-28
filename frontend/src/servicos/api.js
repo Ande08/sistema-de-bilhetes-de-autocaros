@@ -135,6 +135,30 @@ export function criarEmpresaAdministrativa(dados) {
   return requisicao('/gestao/empresas', { method: 'POST', body: JSON.stringify(dados) });
 }
 
+export function listarEmpresasAdministrativas() {
+  return requisicao('/gestao/empresas');
+}
+
+export function obterEmpresaAdministrativaPorId(id) {
+  return requisicao(`/gestao/empresas/${id}`);
+}
+
+export function editarEmpresaAdministrativa(id, dados) {
+  return requisicao(`/gestao/empresas/${id}`, { method: 'PUT', body: JSON.stringify(dados) });
+}
+
+export function definirEstadoEmpresaAdministrativa(id, activa) {
+  return requisicao(`/gestao/empresas/${id}/estado`, { method: 'PATCH', body: JSON.stringify({ activa }) });
+}
+
+export function decidirCadastroEmpresaAdministrativa(id, decisao, motivo = '') {
+  return requisicao(`/gestao/empresas/${id}/aprovacao`, { method: 'PATCH', body: JSON.stringify({ decisao, motivo }) });
+}
+
+export function eliminarEmpresaAdministrativa(id) {
+  return requisicao(`/gestao/empresas/${id}`, { method: 'DELETE' });
+}
+
 export function obterEmpresaAdministrativa() {
   return requisicao('/gestao/empresa');
 }

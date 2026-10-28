@@ -27,7 +27,7 @@ export async function listTrips(req, res, next) {
     where: filtro,
     include: [
       { model: Route, where: filtroRota, required: true },
-      { model: Empresa, where: { activa: true }, attributes: ['id', 'nome', 'slug', 'logoUrl'], required: true }
+      { model: Empresa, where: { activa: true, estadoCadastro: 'APROVADA', eliminadaEm: null }, attributes: ['id', 'nome', 'slug', 'logoUrl'], required: true }
     ],
     order: [['departureAt', 'ASC']]
   });
@@ -38,7 +38,7 @@ export async function listTrips(req, res, next) {
 export async function getTrip(req, res, next) {
   try {
   const viagem = await Trip.findByPk(req.params.id, {
-    include: [Route, { model: Empresa, where: { activa: true }, attributes: ['id', 'nome', 'slug', 'logoUrl'], required: true }]
+    include: [Route, { model: Empresa, where: { activa: true, estadoCadastro: 'APROVADA', eliminadaEm: null }, attributes: ['id', 'nome', 'slug', 'logoUrl'], required: true }]
   });
   if (!viagem) {
     const error = new Error('Viagem não encontrada');

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validarDadosNovaEmpresa } from '../src/services/empresa-administracao.service.js';
+import { validarDadosEdicaoEmpresa, validarDadosNovaEmpresa } from '../src/services/empresa-administracao.service.js';
 import { ServicoOtp } from '../src/services/otp.service.js';
 
 test('valida e normaliza os dados de uma nova empresa', () => {
@@ -25,10 +25,22 @@ test('rejeita website inseguro ou inválido', () => {
   }), /website válido/);
 });
 
-test('bloqueia o cadastro público de empresa antes de consultar a base de dados', async () => {
+test('valida e normaliza os dados de edição de uma empresa', () => {
+  const dados = validarDadosEdicaoEmpresa({
+    nome: '  Expresso Maputo Sul  ',
+    telefone: '84 222 3344',
+    descricao: 'Transporte interprovincial.',
+    website: 'https://expresso.example.com'
+  });
+  assert.equal(dados.nome, 'Expresso Maputo Sul');
+  assert.equal(dados.slug, 'expresso-maputo-sul');
+  assert.equal(dados.telefone, '+258842223344');
+});
+
+test('exige o nome da empresa no cadastro empresarial', async () => {
   const servico = new ServicoOtp();
   await assert.rejects(
     () => servico.solicitarCriacaoConta({ tipoConta: 'EMPRESA' }),
-    (erro) => erro.statusCode === 403 && /administrador da plataforma/.test(erro.message)
+    (erro) => erro.statusCode === 400 && /nome da empresa/.test(erro.message)
   );
 });

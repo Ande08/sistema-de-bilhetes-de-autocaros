@@ -7,7 +7,7 @@ export class ServicoAutenticacao {
   async iniciarSessao({ telefone, palavraPasse }) {
     const utilizador = await User.findOne({
       where: { telefone: normalizarTelefone(telefone) },
-      include: [{ model: Empresa, attributes: ['id', 'nome', 'slug', 'logoUrl', 'activa'] }]
+      include: [{ model: Empresa, attributes: ['id', 'nome', 'slug', 'logoUrl', 'activa', 'estadoCadastro', 'motivoEstado', 'eliminadaEm'] }]
     });
     const palavraPasseValida = utilizador && typeof palavraPasse === 'string'
       && await bcrypt.compare(palavraPasse, utilizador.palavraPasseHash);
@@ -21,13 +21,18 @@ export class ServicoAutenticacao {
       erro.statusCode = 403;
       throw erro;
     }
-    if (utilizador.empresaId && !utilizador.Empresa?.activa) {
-      const erro = new Error('A empresa associada a esta conta encontra-se desativada.');
+    if (utilizador.empresaId && (!utilizador.Empresa?.activa || utilizador.Empresa?.eliminadaEm || utilizador.Empresa?.estadoCadastro !== 'APROVADA')) {
+      const mensagens = {
+        PENDENTE: 'O cadastro da empresa está pendente de aprovação.',
+        REJEITADA: `O cadastro da empresa foi rejeitado${utilizador.Empresa?.motivoEstado ? `: ${utilizador.Empresa.motivoEstado}` : '.'}`,
+        SUSPENSA: 'A empresa associada a esta conta encontra-se suspensa.'
+      };
+      const erro = new Error(mensagens[utilizador.Empresa?.estadoCadastro] || 'A empresa associada a esta conta encontra-se desativada.');
       erro.statusCode = 403;
       throw erro;
     }
 
-    // O token identifica o utilizador nas próximas requisições.
+    // O token identifica o usuário nas próximas requisições.
     const token = jwt.sign(
       { id: utilizador.id, perfil: utilizador.perfil, empresaId: utilizador.empresaId || null },
       process.env.JWT_SECRET,
@@ -65,11 +70,16 @@ export class ServicoAutenticacao {
 
   async _obterUtilizadorActivo(utilizadorId) {
     const utilizador = await User.findByPk(utilizadorId, {
-      include: [{ model: Empresa, attributes: ['id', 'nome', 'slug', 'logoUrl', 'activa'] }]
+      include: [{ model: Empresa, attributes: ['id', 'nome', 'slug', 'logoUrl', 'activa', 'estadoCadastro', 'motivoEstado', 'eliminadaEm'] }]
     });
     if (!utilizador || !utilizador.activo) {
-      const erro = new Error('Utilizador não encontrado ou desativado.');
+      const erro = new Error('Usuário não encontrado ou desativado.');
       erro.statusCode = 404;
+      throw erro;
+    }
+    if (utilizador.empresaId && (!utilizador.Empresa?.activa || utilizador.Empresa?.eliminadaEm || utilizador.Empresa?.estadoCadastro !== 'APROVADA')) {
+      const erro = new Error('A empresa associada a esta conta encontra-se desativada.');
+      erro.statusCode = 403;
       throw erro;
     }
     return utilizador;

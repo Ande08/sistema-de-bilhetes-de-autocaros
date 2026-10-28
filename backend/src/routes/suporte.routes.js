@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { abrirTicket, atribuir, consultarAssistente, enviarMensagem, mudarEstado, obterGestores, obterTicket, obterTickets } from '../controllers/suporte.controller.js';
 import { exigirAutenticacao } from '../middlewares/autenticacao.middleware.js';
-import { exigirAdministradorEmpresaOuPlataforma } from '../middlewares/autorizacao.middleware.js';
+import { exigirAdministradorEmpresa } from '../middlewares/autorizacao.middleware.js';
 
 const router = Router();
 router.use(exigirAutenticacao);
@@ -11,7 +11,7 @@ router.post('/tickets', abrirTicket);
 router.get('/tickets/:id', obterTicket);
 router.post('/tickets/:id/mensagens', enviarMensagem);
 router.patch('/tickets/:id/estado', mudarEstado);
-router.get('/gestores', exigirAdministradorEmpresaOuPlataforma, obterGestores);
-router.patch('/tickets/:id/atribuir', exigirAdministradorEmpresaOuPlataforma, atribuir);
+router.get('/gestores', exigirAdministradorEmpresa, obterGestores);
+router.patch('/tickets/:id/atribuir', exigirAdministradorEmpresa, atribuir);
 
 export default router;

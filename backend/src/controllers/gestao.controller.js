@@ -6,7 +6,7 @@ import { actualizarUtilizadorAdministrativo, criarUtilizadorAdministrativo, defi
 import { filtroEmpresa, obterEmpresaParaCriacao } from '../services/empresa-escopo.service.js';
 import { obterLocalidadeValida } from '../services/localidades.service.js';
 import { actualizarPerfilEmpresa, obterPerfilEmpresa } from '../services/empresa-perfil.service.js';
-import { criarEmpresaAdministrativa } from '../services/empresa-administracao.service.js';
+import { actualizarEmpresaAdministrativa, criarEmpresaAdministrativa, decidirCadastroEmpresaAdministrativa, definirEstadoEmpresaAdministrativa, eliminarEmpresaAdministrativa, listarEmpresasAdministrativas, obterEmpresaAdministrativa } from '../services/empresa-administracao.service.js';
 
 export async function obterPainel(req, res, next) {
   try { return res.json({ sucesso: true, dados: await obterPainelAdministrativo(req.utilizador) }); }
@@ -124,6 +124,38 @@ export async function criarEmpresa(req, res, next) {
   } catch (erro) { return next(erro); }
 }
 
+export async function listarEmpresasGestao(req, res, next) {
+  try { return res.json({ sucesso: true, dados: await listarEmpresasAdministrativas(req.utilizador) }); }
+  catch (erro) { return next(erro); }
+}
+
+export async function obterEmpresaGestao(req, res, next) {
+  try { return res.json({ sucesso: true, dados: await obterEmpresaAdministrativa(req.params.id, req.utilizador) }); }
+  catch (erro) { return next(erro); }
+}
+
+export async function actualizarEmpresaGestao(req, res, next) {
+  try { return res.json({ sucesso: true, dados: await actualizarEmpresaAdministrativa(req.params.id, req.body, req.utilizador) }); }
+  catch (erro) { return next(erro); }
+}
+
+export async function definirEstadoEmpresa(req, res, next) {
+  try { return res.json({ sucesso: true, dados: await definirEstadoEmpresaAdministrativa(req.params.id, req.body.activa, req.utilizador) }); }
+  catch (erro) { return next(erro); }
+}
+
+export async function decidirCadastroEmpresa(req, res, next) {
+  try { return res.json({ sucesso: true, dados: await decidirCadastroEmpresaAdministrativa(req.params.id, req.body.decisao, req.body.motivo, req.utilizador) }); }
+  catch (erro) { return next(erro); }
+}
+
+export async function eliminarEmpresa(req, res, next) {
+  try {
+    await eliminarEmpresaAdministrativa(req.params.id, req.utilizador);
+    return res.json({ sucesso: true, dados: { mensagem: 'Empresa eliminada com sucesso.' } });
+  } catch (erro) { return next(erro); }
+}
+
 export async function obterEmpresa(req, res, next) {
   try { return res.json({ sucesso: true, dados: await obterPerfilEmpresa(req.utilizador) }); }
   catch (erro) { return next(erro); }
@@ -137,7 +169,7 @@ export async function actualizarEmpresa(req, res, next) {
 export async function eliminarUtilizador(req, res, next) {
   try {
     await eliminarUtilizadorAdministrativo(req.params.id, req.utilizador);
-    return res.json({ sucesso: true, dados: { mensagem: 'Utilizador eliminado com sucesso.' } });
+    return res.json({ sucesso: true, dados: { mensagem: 'Usuário eliminado com sucesso.' } });
   } catch (erro) { return next(erro); }
 }
 

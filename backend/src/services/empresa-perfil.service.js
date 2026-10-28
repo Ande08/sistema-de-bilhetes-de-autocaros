@@ -4,14 +4,14 @@ import { guardarLogotipoEmpresa, removerLogotipoEmpresa } from './logotipo-empre
 
 export async function obterPerfilEmpresa(utilizador) {
   garantirAdministradorEmpresa(utilizador);
-  const empresa = await Empresa.findByPk(utilizador.empresaId);
+  const empresa = await Empresa.findOne({ where: { id: utilizador.empresaId, eliminadaEm: null } });
   if (!empresa) throw erroNaoEncontrado();
   return empresa;
 }
 
 export async function actualizarPerfilEmpresa(utilizador, dados) {
   garantirAdministradorEmpresa(utilizador);
-  const empresa = await Empresa.findByPk(utilizador.empresaId);
+  const empresa = await Empresa.findOne({ where: { id: utilizador.empresaId, eliminadaEm: null } });
   if (!empresa) throw erroNaoEncontrado();
 
   const alteracoes = validarDadosEmpresa(dados);

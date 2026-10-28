@@ -1,11 +1,18 @@
 import jwt from 'jsonwebtoken';
 import { adicionarMensagem, obterTicketPorId } from '../services/suporte.service.js';
-import { Trip } from '../models/index.js';
+import { Empresa, Trip, User } from '../models/index.js';
 
 export function configurarSuporteEmTempoReal(io) {
-  io.use((socket, next) => {
+  io.use(async (socket, next) => {
     try {
-      socket.utilizador = jwt.verify(socket.handshake.auth?.token || '', process.env.JWT_SECRET);
+      const identidade = jwt.verify(socket.handshake.auth?.token || '', process.env.JWT_SECRET);
+      const utilizador = await User.findByPk(identidade.id, {
+        attributes: ['id', 'perfil', 'empresaId', 'activo', 'eliminadoEm'],
+        include: [{ model: Empresa, attributes: ['id', 'activa', 'estadoCadastro', 'eliminadaEm'], required: false }]
+      });
+      if (!utilizador || !utilizador.activo || utilizador.eliminadoEm) throw new Error();
+      if (utilizador.empresaId && (!utilizador.Empresa?.activa || utilizador.Empresa?.estadoCadastro !== 'APROVADA' || utilizador.Empresa?.eliminadaEm)) throw new Error();
+      socket.utilizador = { id: utilizador.id, perfil: utilizador.perfil, empresaId: utilizador.empresaId || null };
       return next();
     } catch {
       return next(new Error('Autenticação inválida.'));

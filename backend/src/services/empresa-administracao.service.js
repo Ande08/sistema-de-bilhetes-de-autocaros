@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { Op } from 'sequelize';
 import { sequelize } from '../config/database.js';
 import { Empresa, User } from '../models/index.js';
 import { normalizarTelefone, validarApelido, validarNome, validarPalavraPasse } from '../validacoes/utilizador.validacao.js';
@@ -6,11 +7,7 @@ import { normalizarTelefone, validarApelido, validarNome, validarPalavraPasse } 
 // A empresa e a conta do seu primeiro administrador são criadas juntas. Assim,
 // nunca fica uma transportadora sem alguém responsável por a configurar.
 export async function criarEmpresaAdministrativa(dados, administrador) {
-  if (administrador?.perfil !== 'ADMIN') {
-    const erro = new Error('Apenas o administrador da plataforma pode criar empresas.');
-    erro.statusCode = 403;
-    throw erro;
-  }
+  garantirAdministradorPlataforma(administrador);
 
   const entrada = validarDadosNovaEmpresa(dados);
   const [empresaExistente, telefoneExistente] = await Promise.all([
@@ -18,7 +15,7 @@ export async function criarEmpresaAdministrativa(dados, administrador) {
     User.findOne({ where: { telefone: entrada.administradorTelefone } })
   ]);
   if (empresaExistente) throw erroConflito('Já existe uma empresa registada com este nome.');
-  if (telefoneExistente) throw erroConflito('O telefone do responsável já pertence a outro utilizador.');
+  if (telefoneExistente) throw erroConflito('O telefone do responsável já pertence a outro usuário.');
 
   const palavraPasseHash = await bcrypt.hash(entrada.administradorPalavraPasse, 12);
   return sequelize.transaction(async (transaction) => {
@@ -28,7 +25,9 @@ export async function criarEmpresaAdministrativa(dados, administrador) {
       telefone: entrada.telefone,
       descricao: entrada.descricao,
       website: entrada.website,
-      activa: true
+      activa: true,
+      estadoCadastro: 'APROVADA',
+      aprovadaEm: new Date()
     }, { transaction });
     const responsavel = await User.create({
       nome: entrada.administradorNome,
@@ -40,6 +39,85 @@ export async function criarEmpresaAdministrativa(dados, administrador) {
       activo: true
     }, { transaction });
     return { empresa, responsavel };
+  });
+}
+
+export async function listarEmpresasAdministrativas(administrador) {
+  garantirAdministradorPlataforma(administrador);
+  return Empresa.findAll({
+    where: { eliminadaEm: null },
+    include: [{
+      model: User,
+      where: { perfil: 'EMPRESA_ADMIN', eliminadoEm: null },
+      required: false,
+      attributes: ['id', 'nome', 'apelido', 'telefone', 'activo']
+    }],
+    order: [['nome', 'ASC']]
+  });
+}
+
+export async function obterEmpresaAdministrativa(id, administrador) {
+  garantirAdministradorPlataforma(administrador);
+  const empresa = await Empresa.findOne({
+    where: { id, eliminadaEm: null },
+    include: [{
+      model: User,
+      where: { perfil: 'EMPRESA_ADMIN', eliminadoEm: null },
+      required: false,
+      attributes: ['id', 'nome', 'apelido', 'telefone', 'activo']
+    }]
+  });
+  if (!empresa) throw erroNaoEncontrado();
+  return empresa;
+}
+
+export async function actualizarEmpresaAdministrativa(id, dados, administrador) {
+  const empresa = await obterEmpresaAdministrativa(id, administrador);
+  const alteracoes = validarDadosEdicaoEmpresa(dados);
+  const repetida = await Empresa.findOne({
+    where: { slug: alteracoes.slug, id: { [Op.ne]: id } }
+  });
+  if (repetida) throw erroConflito('Já existe uma empresa registada com este nome.');
+  await empresa.update(alteracoes);
+  return obterEmpresaAdministrativa(id, administrador);
+}
+
+export async function definirEstadoEmpresaAdministrativa(id, activa, administrador) {
+  const empresa = await obterEmpresaAdministrativa(id, administrador);
+  if (typeof activa !== 'boolean') throw erroValidacao('O estado da empresa deve ser verdadeiro ou falso.');
+  await empresa.update({
+    activa,
+    estadoCadastro: activa ? 'APROVADA' : 'SUSPENSA',
+    motivoEstado: activa ? null : 'Empresa suspensa pela administração da plataforma.',
+    ...(activa && { aprovadaEm: empresa.aprovadaEm || new Date() })
+  });
+  return obterEmpresaAdministrativa(id, administrador);
+}
+
+export async function decidirCadastroEmpresaAdministrativa(id, decisao, motivo, administrador) {
+  const empresa = await obterEmpresaAdministrativa(id, administrador);
+  const estado = String(decisao || '').toUpperCase();
+  if (!['APROVADA', 'REJEITADA'].includes(estado)) throw erroValidacao('A decisão deve ser APROVADA ou REJEITADA.');
+  const justificacao = String(motivo || '').trim();
+  if (estado === 'REJEITADA' && justificacao.length < 5) throw erroValidacao('Indique o motivo da rejeição.');
+  await empresa.update({
+    estadoCadastro: estado,
+    activa: estado === 'APROVADA',
+    motivoEstado: estado === 'REJEITADA' ? justificacao.slice(0, 500) : null,
+    aprovadaEm: estado === 'APROVADA' ? new Date() : null
+  });
+  return obterEmpresaAdministrativa(id, administrador);
+}
+
+export async function eliminarEmpresaAdministrativa(id, administrador) {
+  const empresa = await obterEmpresaAdministrativa(id, administrador);
+  // O slug recebe um sufixo para permitir que uma nova empresa legítima use o
+  // mesmo nome, sem apagar o histórico associado à empresa antiga.
+  const sufixo = `-eliminada-${empresa.id}-${Date.now()}`;
+  await empresa.update({
+    activa: false,
+    eliminadaEm: new Date(),
+    slug: `${empresa.slug.slice(0, 180 - sufixo.length)}${sufixo}`
   });
 }
 
@@ -58,6 +136,17 @@ export function validarDadosNovaEmpresa(dados = {}) {
     administradorApelido: validarApelido(dados.administradorApelido),
     administradorTelefone: normalizarTelefone(dados.administradorTelefone),
     administradorPalavraPasse
+  };
+}
+
+export function validarDadosEdicaoEmpresa(dados = {}) {
+  const nome = validarNomeEmpresa(dados.nome);
+  return {
+    nome,
+    slug: criarSlug(nome),
+    telefone: dados.telefone ? normalizarTelefone(dados.telefone) : null,
+    descricao: textoOpcional(dados.descricao, 500, 'descrição'),
+    website: validarWebsite(dados.website)
   };
 }
 
@@ -92,5 +181,14 @@ function validarWebsite(valor) {
   return website;
 }
 
+function garantirAdministradorPlataforma(administrador) {
+  if (administrador?.perfil !== 'ADMIN') {
+    const erro = new Error('Apenas o administrador da plataforma pode gerir empresas.');
+    erro.statusCode = 403;
+    throw erro;
+  }
+}
+
 function erroValidacao(mensagem) { const erro = new Error(mensagem); erro.statusCode = 400; return erro; }
 function erroConflito(mensagem) { const erro = new Error(mensagem); erro.statusCode = 409; return erro; }
+function erroNaoEncontrado() { const erro = new Error('Empresa não encontrada.'); erro.statusCode = 404; return erro; }
