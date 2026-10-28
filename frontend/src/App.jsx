@@ -6,7 +6,7 @@ import PaginaSuportePassageiro from './componentes/PaginaSuportePassageiro.jsx';
 import MapaAssentos from './componentes/MapaAssentos.jsx';
 import SelecaoLocalidade from './componentes/SelecaoLocalidade.jsx';
 import { ModalConfirmacao } from './componentes/Modal.jsx';
-import { URL_SERVIDOR, actualizarPerfil, alterarPalavraPasse, cancelarBilhete, comprarBilhete, confirmarRecuperacaoPalavraPasse, confirmarRegistoUtilizador, guardarSessao, iniciarPagamentoSimulado, iniciarSessao, obterBilhetePdf, obterPerfil, obterResumoConta, obterSessaoGuardada, pesquisarViagens, processarPagamentoSimulado, registarUtilizador, solicitarRecuperacaoPalavraPasse, terminarSessao, validarCupao } from './servicos/api.js';
+import { URL_SERVIDOR, actualizarPerfil, alterarPalavraPasse, cancelarBilhete, comprarBilhete, confirmarRecuperacaoPalavraPasse, confirmarRegistoUtilizador, guardarSessao, iniciarPagamentoSimulado, iniciarSessao, obterBilhetePdf, obterPerfil, obterResumoConta, obterSessaoGuardada, pesquisarViagens, processarPagamentoSimulado, registarUtilizador, solicitarOtpAlteracaoPalavraPasse, solicitarRecuperacaoPalavraPasse, terminarSessao, validarCupao } from './servicos/api.js';
 import useSelecaoAssentosTempoReal from './hooks/useSelecaoAssentosTempoReal.js';
 import { formatarValor } from './utilitarios/moeda.js';
 
@@ -211,6 +211,8 @@ function PaginaPagamentos({ pagamentos }) {
 function PaginaPerfil({ utilizador, aoActualizarUtilizador }) {
   const [mensagem, setMensagem] = useState('');
   const [erro, setErro] = useState('');
+  const [pedidoOtp, setPedidoOtp] = useState(null);
+  const [aProcessarOtp, setAProcessarOtp] = useState(false);
 
   async function guardarPerfil(evento) {
     evento.preventDefault(); setMensagem(''); setErro('');
@@ -218,13 +220,28 @@ function PaginaPerfil({ utilizador, aoActualizarUtilizador }) {
     catch (falha) { setErro(falha.message); }
   }
 
-  async function guardarPalavraPasse(evento) {
-    evento.preventDefault(); setMensagem(''); setErro('');
-    try { const resposta = await alterarPalavraPasse(Object.fromEntries(new FormData(evento.currentTarget))); setMensagem(resposta.mensagem); evento.currentTarget.reset(); }
+  async function solicitarCodigoAlteracao() {
+    setMensagem(''); setErro(''); setAProcessarOtp(true);
+    try { const pedido = await solicitarOtpAlteracaoPalavraPasse(); setPedidoOtp(pedido); setMensagem(pedido.mensagem); }
     catch (falha) { setErro(falha.message); }
+    finally { setAProcessarOtp(false); }
   }
 
-  return <section className="grelha-perfil"><form className="pagina-dados vidro formulario-perfil" onSubmit={guardarPerfil}><p className="etiqueta">Dados pessoais</p><h3>Informações da conta</h3><label>Nome<input name="nome" defaultValue={utilizador.nome} required minLength="2" /></label><label>Apelido<input name="apelido" defaultValue={utilizador.apelido} required minLength="2" /></label><label>Número de telefone<input value={utilizador.telefone} readOnly /></label><small>O telefone identifica a conta e só pode ser alterado através de verificação.</small><button className="botao-pesquisar">Guardar alterações</button></form><form className="pagina-dados vidro formulario-perfil" onSubmit={guardarPalavraPasse}><p className="etiqueta">Segurança</p><h3>Alterar palavra-passe</h3><label>Palavra-passe atual<input name="palavraPasseActual" type="password" required /></label><label>Nova palavra-passe<input name="novaPalavraPasse" type="password" minLength="8" required /></label><button className="botao-pesquisar">Alterar palavra-passe</button></form>{mensagem && <p className="mensagem-formulario sucesso mensagem-perfil">{mensagem}</p>}{erro && <p className="mensagem-formulario erro mensagem-perfil">{erro}</p>}</section>;
+  async function guardarPalavraPasse(evento) {
+    evento.preventDefault(); setMensagem(''); setErro(''); setAProcessarOtp(true);
+    const formulario = evento.currentTarget;
+    const valores = Object.fromEntries(new FormData(formulario));
+    if (valores.novaPalavraPasse !== valores.confirmarPalavraPasse) {
+      setErro('A confirmação da nova palavra-passe não corresponde.'); setAProcessarOtp(false); return;
+    }
+    try {
+      const resposta = await alterarPalavraPasse({ codigo: valores.codigo, novaPalavraPasse: valores.novaPalavraPasse });
+      setMensagem(resposta.mensagem); setPedidoOtp(null); formulario.reset();
+    } catch (falha) { setErro(falha.message); }
+    finally { setAProcessarOtp(false); }
+  }
+
+  return <section className="grelha-perfil"><form className="pagina-dados vidro formulario-perfil" onSubmit={guardarPerfil}><p className="etiqueta">Dados pessoais</p><h3>Informações da conta</h3><label>Nome<input name="nome" defaultValue={utilizador.nome} required minLength="2" /></label><label>Apelido<input name="apelido" defaultValue={utilizador.apelido} required minLength="2" /></label><label>Número de telefone<input value={utilizador.telefone} readOnly /></label><small>O telefone identifica a conta e só pode ser alterado através de verificação.</small><button className="botao-pesquisar">Guardar alterações</button></form><div className="pagina-dados vidro formulario-perfil"><p className="etiqueta">Segurança</p><h3>Alterar palavra-passe</h3><p>O código de segurança será enviado para o seu WhatsApp.</p>{!pedidoOtp && <button type="button" className="botao-pesquisar" disabled={aProcessarOtp} onClick={solicitarCodigoAlteracao}>{aProcessarOtp ? 'A enviar...' : 'Enviar código pelo WhatsApp'}</button>}{pedidoOtp && <form className="formulario-perfil" onSubmit={guardarPalavraPasse}><label>Código recebido<input className="campo-otp" name="codigo" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength="6" required /></label>{pedidoOtp.codigoDemonstracao && <p className="codigo-demonstracao">Código de demonstração: <strong>{pedidoOtp.codigoDemonstracao}</strong></p>}<label>Nova palavra-passe<input name="novaPalavraPasse" type="password" minLength="8" autoComplete="new-password" required /></label><label>Confirmar nova palavra-passe<input name="confirmarPalavraPasse" type="password" minLength="8" autoComplete="new-password" required /></label><button className="botao-pesquisar" disabled={aProcessarOtp}>{aProcessarOtp ? 'A alterar...' : 'Confirmar nova palavra-passe'}</button><button type="button" className="botao-voltar" disabled={aProcessarOtp} onClick={solicitarCodigoAlteracao}>Reenviar código</button></form>}</div>{mensagem && <p className="mensagem-formulario sucesso mensagem-perfil">{mensagem}</p>}{erro && <p className="mensagem-formulario erro mensagem-perfil">{erro}</p>}</section>;
 }
 
 function EstadoVazio({ texto }) {

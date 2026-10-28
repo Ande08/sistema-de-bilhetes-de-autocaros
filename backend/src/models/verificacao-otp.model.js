@@ -5,7 +5,7 @@ export class VerificacaoOtp extends Model {}
 
 VerificacaoOtp.init({
   telefone: { type: DataTypes.STRING(20), allowNull: false },
-  finalidade: { type: DataTypes.ENUM('CRIAR_CONTA', 'RECUPERAR_PALAVRA_PASSE'), allowNull: false, defaultValue: 'CRIAR_CONTA' },
+  finalidade: { type: DataTypes.ENUM('CRIAR_CONTA', 'RECUPERAR_PALAVRA_PASSE', 'ALTERAR_PALAVRA_PASSE'), allowNull: false, defaultValue: 'CRIAR_CONTA' },
   canal: { type: DataTypes.ENUM('WHATSAPP', 'SMS'), allowNull: false },
   codigoHash: { type: DataTypes.STRING(255), allowNull: false, field: 'codigo_hash' },
   nome: { type: DataTypes.STRING(80), allowNull: true },

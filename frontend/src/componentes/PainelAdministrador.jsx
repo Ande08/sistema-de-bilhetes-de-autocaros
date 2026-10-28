@@ -3,7 +3,7 @@ import Icone from './Icone.jsx';
 import ChatTicketSuporte, { traduzirEstado } from './ChatTicketSuporte.jsx';
 import { ModalCampo, ModalConfirmacao } from './Modal.jsx';
 import SelecaoLocalidade from './SelecaoLocalidade.jsx';
-import { URL_SERVIDOR, actualizarCupaoAdministrativo, actualizarEmpresaAdministrativa, actualizarUtilizadorAdministrativo, actualizarViagemAdministrativa, alterarPalavraPasse, atribuirTicketSuporte, cancelarViagemAdministrativa, criarAutocarro, criarCupaoAdministrativo, criarEmpresaAdministrativa, criarRota, criarUtilizadorAdministrativo, criarViagem, decidirCadastroEmpresaAdministrativa, definirEstadoAdministrativo, definirEstadoCupaoAdministrativo, definirEstadoEmpresaAdministrativa, editarEmpresaAdministrativa, eliminarEmpresaAdministrativa, eliminarUtilizadorAdministrativo, enviarAvisoViagemAdministrativa, guardarConfiguracaoIa, iniciarWhatsApp, listarGestoresSuporte, listarModelosIa, listarTicketsSuporte, obterConfiguracaoIa, obterEstadoWhatsApp, obterPainelAdministrativo, redefinirPalavraPasseAdministrativa, repetirEnvioWhatsapp, testarLigacaoIa } from '../servicos/api.js';
+import { URL_SERVIDOR, actualizarCupaoAdministrativo, actualizarEmpresaAdministrativa, actualizarUtilizadorAdministrativo, actualizarViagemAdministrativa, alterarPalavraPasse, atribuirTicketSuporte, cancelarViagemAdministrativa, criarAutocarro, criarCupaoAdministrativo, criarEmpresaAdministrativa, criarRota, criarUtilizadorAdministrativo, criarViagem, decidirCadastroEmpresaAdministrativa, definirEstadoAdministrativo, definirEstadoCupaoAdministrativo, definirEstadoEmpresaAdministrativa, editarEmpresaAdministrativa, eliminarEmpresaAdministrativa, eliminarUtilizadorAdministrativo, enviarAvisoViagemAdministrativa, guardarConfiguracaoIa, iniciarWhatsApp, listarGestoresSuporte, listarModelosIa, listarTicketsSuporte, obterConfiguracaoIa, obterEstadoWhatsApp, obterPainelAdministrativo, redefinirPalavraPasseAdministrativa, repetirEnvioWhatsapp, solicitarOtpAlteracaoPalavraPasse, testarLigacaoIa } from '../servicos/api.js';
 import { formatarValor } from '../utilitarios/moeda.js';
 
 const secoesPlataforma = ['Visão geral', 'Empresas', 'Administradores', 'Volume de vendas', 'Inteligência artificial', 'WhatsApp', 'Auditoria', 'Minha conta'];
@@ -71,7 +71,7 @@ function ConteudoAdministrativo({ secao, dados, executar, submeter, utilizador }
   if (secao === 'Inteligência artificial') return <PaginaInteligenciaArtificial />;
   if (secao === 'WhatsApp') return <PaginaWhatsApp />;
   if (secao === 'Auditoria') return <PaginaAuditoria auditorias={dados.auditorias} />;
-  if (secao === 'Minha conta') return <PaginaSegurancaConta executar={executar} />;
+  if (secao === 'Minha conta') return <PaginaSegurancaConta />;
   return <VisaoGeral dados={dados} />;
 }
 
@@ -123,41 +123,54 @@ function PaginaCupons({ cupoes, executar }) {
   </>;
 }
 
-function PaginaSegurancaConta({ executar }) {
-  const [mostrarActual, setMostrarActual] = useState(false);
+function PaginaSegurancaConta() {
   const [mostrarNova, setMostrarNova] = useState(false);
+  const [pedidoOtp, setPedidoOtp] = useState(null);
   const [erroLocal, setErroLocal] = useState('');
+  const [mensagemLocal, setMensagemLocal] = useState('');
+  const [aProcessar, setAProcessar] = useState(false);
+
+  async function solicitarCodigo() {
+    setAProcessar(true); setErroLocal(''); setMensagemLocal('');
+    try {
+      const pedido = await solicitarOtpAlteracaoPalavraPasse();
+      setPedidoOtp(pedido);
+      setMensagemLocal(pedido.mensagem);
+    } catch (falha) { setErroLocal(falha.message); }
+    finally { setAProcessar(false); }
+  }
 
   async function guardar(evento) {
     evento.preventDefault();
-    setErroLocal('');
+    setErroLocal(''); setMensagemLocal('');
     const formulario = evento.currentTarget;
     const valores = Object.fromEntries(new FormData(formulario));
     if (valores.novaPalavraPasse !== valores.confirmarPalavraPasse) {
       setErroLocal('A confirmação da nova palavra-passe não corresponde.');
       return;
     }
-    if (valores.palavraPasseActual === valores.novaPalavraPasse) {
-      setErroLocal('A nova palavra-passe deve ser diferente da palavra-passe atual.');
-      return;
-    }
-    const concluido = await executar(
-      () => alterarPalavraPasse({ palavraPasseActual: valores.palavraPasseActual, novaPalavraPasse: valores.novaPalavraPasse }),
-      'Palavra-passe alterada com sucesso.'
-    );
-    if (concluido) formulario.reset();
+    setAProcessar(true);
+    try {
+      const resposta = await alterarPalavraPasse({ codigo: valores.codigo, novaPalavraPasse: valores.novaPalavraPasse });
+      formulario.reset(); setPedidoOtp(null); setMensagemLocal(resposta.mensagem);
+    } catch (falha) { setErroLocal(falha.message); }
+    finally { setAProcessar(false); }
   }
 
   return <section className="pagina-dados vidro">
     <p className="etiqueta">Segurança da conta</p><h3>Alterar palavra-passe</h3>
-    <p>Confirme a palavra-passe atual antes de definir uma nova.</p>
-    <form className="formulario-perfil" onSubmit={guardar}>
-      <label>Palavra-passe atual<span className="campo-palavra-passe"><input name="palavraPasseActual" type={mostrarActual ? 'text' : 'password'} autoComplete="current-password" required /><button type="button" aria-label={mostrarActual ? 'Ocultar palavra-passe atual' : 'Mostrar palavra-passe atual'} title={mostrarActual ? 'Ocultar' : 'Mostrar'} onClick={() => setMostrarActual((valor) => !valor)}><Icone nome={mostrarActual ? 'olhoFechado' : 'olho'} /></button></span></label>
+    <p>Enviaremos um código de segurança para o WhatsApp associado à sua conta.</p>
+    {!pedidoOtp && <button type="button" className="botao-pesquisar" disabled={aProcessar} onClick={solicitarCodigo}>{aProcessar ? 'A enviar...' : 'Enviar código pelo WhatsApp'}</button>}
+    {pedidoOtp && <form className="formulario-perfil" onSubmit={guardar}>
+      <label>Código recebido no WhatsApp<input className="campo-otp" name="codigo" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength="6" placeholder="000000" required /></label>
+      {pedidoOtp.codigoDemonstracao && <p className="codigo-demonstracao">Código de demonstração: <strong>{pedidoOtp.codigoDemonstracao}</strong></p>}
       <label>Nova palavra-passe<span className="campo-palavra-passe"><input name="novaPalavraPasse" type={mostrarNova ? 'text' : 'password'} autoComplete="new-password" minLength="8" required /><button type="button" aria-label={mostrarNova ? 'Ocultar nova palavra-passe' : 'Mostrar nova palavra-passe'} title={mostrarNova ? 'Ocultar' : 'Mostrar'} onClick={() => setMostrarNova((valor) => !valor)}><Icone nome={mostrarNova ? 'olhoFechado' : 'olho'} /></button></span></label>
       <label>Confirmar nova palavra-passe<input name="confirmarPalavraPasse" type={mostrarNova ? 'text' : 'password'} autoComplete="new-password" minLength="8" required /></label>
-      {erroLocal && <p className="mensagem-formulario erro">{erroLocal}</p>}
-      <button className="botao-pesquisar">Alterar palavra-passe</button>
-    </form>
+      <button className="botao-pesquisar" disabled={aProcessar}>{aProcessar ? 'A alterar...' : 'Confirmar nova palavra-passe'}</button>
+      <button type="button" className="botao-voltar" disabled={aProcessar} onClick={solicitarCodigo}>Reenviar código</button>
+    </form>}
+    {mensagemLocal && <p className="mensagem-formulario sucesso">{mensagemLocal}</p>}
+    {erroLocal && <p className="mensagem-formulario erro">{erroLocal}</p>}
   </section>;
 }
 

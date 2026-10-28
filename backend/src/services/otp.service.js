@@ -8,6 +8,7 @@ import { normalizarTelefone, validarApelido, validarNome, validarPalavraPasse } 
 
 const FINALIDADE_CRIAR_CONTA = 'CRIAR_CONTA';
 const FINALIDADE_RECUPERAR = 'RECUPERAR_PALAVRA_PASSE';
+const FINALIDADE_ALTERAR = 'ALTERAR_PALAVRA_PASSE';
 
 export class ServicoOtp {
   async solicitarCriacaoConta({ nome, apelido, telefone, palavraPasse, canal = 'WHATSAPP', tipoConta = 'PASSAGEIRO', empresaNome }) {
@@ -217,6 +218,115 @@ export class ServicoOtp {
     });
     return { mensagem: 'Palavra-passe redefinida com sucesso.' };
   }
+
+  async solicitarAlteracaoPalavraPasse(utilizadorId) {
+    const utilizador = await User.findOne({
+      where: { id: utilizadorId, activo: true, eliminadoEm: null }
+    });
+    if (!utilizador) {
+      const erro = new Error('Usuário não encontrado ou desativado.');
+      erro.statusCode = 404;
+      throw erro;
+    }
+
+    const esperaSegundos = Number(process.env.OTP_REENVIO_SEGUNDOS) || 60;
+    const recente = await VerificacaoOtp.findOne({
+      where: {
+        telefone: utilizador.telefone,
+        finalidade: FINALIDADE_ALTERAR,
+        criado_em: { [Op.gt]: new Date(Date.now() - esperaSegundos * 1000) }
+      },
+      order: [['id', 'DESC']]
+    });
+    if (recente) {
+      const erro = new Error(`Aguarde ${esperaSegundos} segundos antes de pedir outro código.`);
+      erro.statusCode = 429;
+      throw erro;
+    }
+
+    const codigo = String(randomInt(100000, 1000000));
+    const validadeMinutos = Number(process.env.OTP_VALIDADE_MINUTOS) || 10;
+    const codigoHash = await bcrypt.hash(codigo, 10);
+    await VerificacaoOtp.update({ consumidoEm: new Date() }, {
+      where: { telefone: utilizador.telefone, finalidade: FINALIDADE_ALTERAR, consumidoEm: null }
+    });
+    const verificacao = await VerificacaoOtp.create({
+      telefone: utilizador.telefone,
+      finalidade: FINALIDADE_ALTERAR,
+      canal: 'WHATSAPP',
+      codigoHash,
+      expiraEm: new Date(Date.now() + validadeMinutos * 60 * 1000)
+    });
+
+    try {
+      await obterAdaptadorOtp().enviar({
+        telefone: utilizador.telefone,
+        codigo,
+        canal: 'WHATSAPP',
+        verificacaoId: verificacao.id,
+        expiraEm: verificacao.expiraEm
+      });
+    } catch (erro) {
+      await verificacao.update({ consumidoEm: new Date() });
+      throw erro;
+    }
+
+    return {
+      telefone: mascararTelefone(utilizador.telefone),
+      canal: 'WHATSAPP',
+      expiraEm: verificacao.expiraEm,
+      mensagem: 'Código de segurança enviado pelo WhatsApp.',
+      ...((process.env.OTP_FORNECEDOR || 'SIMULADO') === 'SIMULADO'
+        && process.env.NODE_ENV !== 'production'
+        && process.env.OTP_EXIBIR_CODIGO !== 'false'
+        && { codigoDemonstracao: codigo })
+    };
+  }
+
+  async confirmarAlteracaoPalavraPasse(utilizadorId, { codigo, novaPalavraPasse }) {
+    if (!/^\d{6}$/.test(String(codigo || ''))) throw erroValidacao('O código deve conter 6 dígitos.');
+    validarPalavraPasse(novaPalavraPasse);
+
+    const utilizador = await User.findOne({
+      where: { id: utilizadorId, activo: true, eliminadoEm: null }
+    });
+    if (!utilizador) {
+      const erro = new Error('Usuário não encontrado ou desativado.');
+      erro.statusCode = 404;
+      throw erro;
+    }
+    const verificacao = await VerificacaoOtp.findOne({
+      where: {
+        telefone: utilizador.telefone,
+        finalidade: FINALIDADE_ALTERAR,
+        consumidoEm: null,
+        expiraEm: { [Op.gt]: new Date() }
+      },
+      order: [['id', 'DESC']]
+    });
+    if (!verificacao || verificacao.tentativas >= 5) {
+      throw erroValidacao('Código inválido ou expirado. Solicite um novo código.');
+    }
+
+    const codigoValido = await bcrypt.compare(String(codigo), verificacao.codigoHash);
+    if (!codigoValido) {
+      await verificacao.increment('tentativas');
+      throw erroValidacao('Código inválido ou expirado. Solicite um novo código.');
+    }
+    if (await bcrypt.compare(novaPalavraPasse, utilizador.palavraPasseHash)) {
+      throw erroValidacao('A nova palavra-passe deve ser diferente da palavra-passe atual.');
+    }
+
+    const palavraPasseHash = await bcrypt.hash(novaPalavraPasse, 12);
+    await sequelize.transaction(async (transaction) => {
+      await utilizador.update({ palavraPasseHash }, { transaction });
+      await VerificacaoOtp.update({ consumidoEm: new Date() }, {
+        where: { telefone: utilizador.telefone, finalidade: FINALIDADE_ALTERAR, consumidoEm: null },
+        transaction
+      });
+    });
+    return { mensagem: 'Palavra-passe alterada com sucesso.' };
+  }
 }
 
 function erroValidacao(mensagem) { const erro = new Error(mensagem); erro.statusCode = 400; return erro; }
@@ -231,4 +341,9 @@ function validarNomeEmpresa(valor) {
 function criarSlug(valor) {
   return String(valor).normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
+function mascararTelefone(telefone) {
+  const valor = String(telefone || '');
+  return valor.length > 4 ? `${valor.slice(0, 5)}***${valor.slice(-3)}` : valor;
 }

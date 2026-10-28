@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { actualizarEmpresaAdministrativa, alterarPalavraPasse, comprarBilhete, confirmarRecuperacaoPalavraPasse, confirmarRegistoUtilizador, decidirCadastroEmpresaAdministrativa, definirEstadoEmpresaAdministrativa, editarEmpresaAdministrativa, eliminarEmpresaAdministrativa, eliminarUtilizadorAdministrativo, enviarAvisoViagemAdministrativa, enviarMensagemSuporte, guardarConfiguracaoIa, guardarSessao, iniciarPagamentoSimulado, libertarReservaAssento, listarClientesAtendimento, listarLocalidades, obterBilhetePdf, obterResumoConta, obterSessaoGuardada, pesquisarViagens, processarPagamentoSimulado, registarUtilizador, reservarAssento, solicitarRecuperacaoPalavraPasse, terminarSessao, validarCupao } from './api.js';
+import { actualizarEmpresaAdministrativa, alterarPalavraPasse, comprarBilhete, confirmarRecuperacaoPalavraPasse, confirmarRegistoUtilizador, decidirCadastroEmpresaAdministrativa, definirEstadoEmpresaAdministrativa, editarEmpresaAdministrativa, eliminarEmpresaAdministrativa, eliminarUtilizadorAdministrativo, enviarAvisoViagemAdministrativa, enviarMensagemSuporte, guardarConfiguracaoIa, guardarSessao, iniciarPagamentoSimulado, libertarReservaAssento, listarClientesAtendimento, listarLocalidades, obterBilhetePdf, obterResumoConta, obterSessaoGuardada, pesquisarViagens, processarPagamentoSimulado, registarUtilizador, reservarAssento, solicitarOtpAlteracaoPalavraPasse, solicitarRecuperacaoPalavraPasse, terminarSessao, validarCupao } from './api.js';
 
 describe('sessão do passageiro', () => {
   beforeEach(() => {
@@ -48,14 +48,19 @@ describe('sessão do passageiro', () => {
     expect(fetchSimulado).toHaveBeenCalledWith(expect.stringContaining('/conta/resumo'), expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer token-resumo' }) }));
   });
 
-  it('permite ao usuário autenticado alterar a própria palavra-passe', async () => {
+  it('solicita OTP e permite ao usuário autenticado alterar a própria palavra-passe', async () => {
     guardarSessao({ token: 'token-seguranca' });
     const fetchSimulado = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ dados: { mensagem: 'Palavra-passe alterada com sucesso.' } }) });
     vi.stubGlobal('fetch', fetchSimulado);
 
-    await alterarPalavraPasse({ palavraPasseActual: 'Empresa@123', novaPalavraPasse: 'NovaEmpresa@123' });
+    await solicitarOtpAlteracaoPalavraPasse();
+    await alterarPalavraPasse({ codigo: '123456', novaPalavraPasse: 'NovaEmpresa@123' });
 
-    expect(fetchSimulado).toHaveBeenCalledWith(expect.stringContaining('/autenticacao/palavra-passe'), expect.objectContaining({
+    expect(fetchSimulado).toHaveBeenNthCalledWith(1, expect.stringContaining('/autenticacao/palavra-passe/solicitar-otp'), expect.objectContaining({
+      method: 'POST',
+      headers: expect.objectContaining({ Authorization: 'Bearer token-seguranca' })
+    }));
+    expect(fetchSimulado).toHaveBeenNthCalledWith(2, expect.stringContaining('/autenticacao/palavra-passe'), expect.objectContaining({
       method: 'PUT',
       headers: expect.objectContaining({ Authorization: 'Bearer token-seguranca' })
     }));

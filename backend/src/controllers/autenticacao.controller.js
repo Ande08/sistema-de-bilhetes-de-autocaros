@@ -64,7 +64,14 @@ export async function actualizarPerfil(req, res, next) {
 
 export async function alterarPalavraPasse(req, res, next) {
   try {
-    await servico.alterarPalavraPasse(req.utilizador.id, req.body);
-    return res.json({ sucesso: true, dados: { mensagem: 'Palavra-passe alterada com sucesso.' } });
+    const resultado = await servicoOtp.confirmarAlteracaoPalavraPasse(req.utilizador.id, req.body);
+    return res.json({ sucesso: true, dados: resultado });
+  } catch (erro) { return next(erro); }
+}
+
+export async function solicitarOtpAlteracaoPalavraPasse(req, res, next) {
+  try {
+    const resultado = await servicoOtp.solicitarAlteracaoPalavraPasse(req.utilizador.id);
+    return res.json({ sucesso: true, dados: resultado });
   } catch (erro) { return next(erro); }
 }

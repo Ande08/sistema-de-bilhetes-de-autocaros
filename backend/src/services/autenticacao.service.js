@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { Empresa, User } from '../models/index.js';
-import { normalizarTelefone, validarApelido, validarNome, validarPalavraPasse } from '../validacoes/utilizador.validacao.js';
+import { normalizarTelefone, validarApelido, validarNome } from '../validacoes/utilizador.validacao.js';
 
 export class ServicoAutenticacao {
   async iniciarSessao({ telefone, palavraPasse }) {
@@ -53,24 +53,6 @@ export class ServicoAutenticacao {
     const apelidoValidado = validarApelido(apelido);
     await utilizador.update({ nome: nomeValidado, apelido: apelidoValidado });
     return this._dadosPublicos(utilizador);
-  }
-
-  async alterarPalavraPasse(utilizadorId, { palavraPasseActual, novaPalavraPasse }) {
-    const utilizador = await this._obterUtilizadorActivo(utilizadorId);
-    validarPalavraPasse(novaPalavraPasse);
-    const palavraPasseValida = await bcrypt.compare(palavraPasseActual || '', utilizador.palavraPasseHash);
-    if (!palavraPasseValida) {
-      const erro = new Error('A palavra-passe atual está incorreta.');
-      erro.statusCode = 401;
-      throw erro;
-    }
-    if (palavraPasseActual === novaPalavraPasse) {
-      const erro = new Error('A nova palavra-passe deve ser diferente da palavra-passe atual.');
-      erro.statusCode = 400;
-      throw erro;
-    }
-    const palavraPasseHash = await bcrypt.hash(novaPalavraPasse, 12);
-    await utilizador.update({ palavraPasseHash });
   }
 
   async _obterUtilizadorActivo(utilizadorId) {

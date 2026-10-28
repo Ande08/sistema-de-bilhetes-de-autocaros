@@ -4,7 +4,7 @@ Plataforma multiempresa para consulta e comparação de viagens, seleção de as
 
 Todos os valores monetários são apresentados em **MT**.
 
-O cadastro público utiliza nome, apelido e número de telefone, com confirmação de um código OTP enviado por WhatsApp ou SMS. Passageiros ficam ativos imediatamente. Uma transportadora pode selecionar **Empresa de transporte**, informar o nome comercial e criar a conta do responsável; nesse caso, a empresa fica pendente até o administrador da plataforma aprovar o cadastro. O mesmo canal permite recuperar a palavra-passe sem revelar se um telefone está registado. Em desenvolvimento, o envio é simulado e o código aparece na tela para permitir testes sem um fornecedor externo.
+O cadastro público utiliza nome, apelido e número de telefone, com confirmação de um código OTP enviado por WhatsApp ou SMS. Passageiros ficam ativos imediatamente. Uma transportadora pode selecionar **Empresa de transporte**, informar o nome comercial e criar a conta do responsável; nesse caso, a empresa fica pendente até o administrador da plataforma aprovar o cadastro. O mesmo canal permite recuperar a palavra-passe sem revelar se um telefone está registado. A alteração de palavra-passe dentro de qualquer conta autenticada também exige um OTP exclusivo enviado pelo bot de WhatsApp. Em desenvolvimento, o envio é simulado e o código aparece na tela para permitir testes sem um fornecedor externo.
 
 ## Tecnologias
 
@@ -45,7 +45,7 @@ Organiza o sistema em rotas, controladores, serviços, modelos Sequelize e base 
 
 ### Service Layer
 
-É utilizado nos serviços do backend, incluindo `otp.service.js` e `bilhete-pdf.service.js`. O primeiro concentra o cadastro e a recuperação de palavra-passe por OTP; o segundo gera o documento PDF sem expor consultas ou regras de autorização ao frontend. Serve para manter regras de negócio reutilizáveis e independentes das rotas HTTP.
+É utilizado nos serviços do backend, incluindo `otp.service.js` e `bilhete-pdf.service.js`. O primeiro concentra o cadastro, a recuperação e a alteração autenticada de palavra-passe por OTP; o segundo gera o documento PDF sem expor consultas ou regras de autorização ao frontend. Serve para manter regras de negócio reutilizáveis e independentes das rotas HTTP.
 
 ## Padrões criacionais
 
@@ -143,7 +143,7 @@ Na área **Cupões**, cada administrador empresarial pode criar campanhas exclus
 
 Cada empresa solicita o cadastro com OTP e recebe um responsável com o perfil `EMPRESA_ADMIN`. O estado inicial é `PENDENTE`; apenas depois da aprovação passa a `APROVADA` e pode iniciar sessão. O administrador da plataforma também pode criar uma empresa juntamente com o seu primeiro administrador ou adicionar outro administrador a uma empresa existente. Nesse fluxo, informa somente o nome da empresa e as credenciais do responsável; telefone institucional, descrição, website e logótipo são acrescentados pelo administrador empresarial depois de iniciar sessão. A plataforma pode aprovar, rejeitar, suspender, reativar, corrigir o nome e eliminar logicamente a empresa. A suspensão bloqueia imediatamente todos os usuários da empresa, inclusive quando possuem um token ainda válido. Autocarros, rotas, viagens, preços, bilhetes e tickets continuam sob responsabilidade exclusiva da empresa.
 
-O administrador da empresa pode editar a identidade da transportadora na área **Dados da empresa**: nome, telefone institucional, descrição, website e logótipo. Os logótipos aceitam PNG, JPEG ou WebP até 2 MB, são validados pelo conteúdo do ficheiro e aparecem no painel e na pesquisa de viagens. Ao substituir ou remover um logótipo, o ficheiro antigo também é eliminado. Na área **Minha conta**, pode alterar a própria palavra-passe sempre que necessário, confirmando primeiro a palavra-passe atual.
+O administrador da empresa pode editar a identidade da transportadora na área **Dados da empresa**: nome, telefone institucional, descrição, website e logótipo. Os logótipos aceitam PNG, JPEG ou WebP até 2 MB, são validados pelo conteúdo do ficheiro e aparecem no painel e na pesquisa de viagens. Ao substituir ou remover um logótipo, o ficheiro antigo também é eliminado. Na área **Minha conta**, pode alterar a própria palavra-passe depois de confirmar o OTP enviado pelo bot para o WhatsApp associado à conta.
 
 O bilhete PDF é produzido no formato térmico POS de **80 × 210 mm**, em preto e branco, com QR Code no final dos detalhes. Esse formato pode ser impresso em rolos térmicos de 80 mm sem redução para uma página A4.
 
@@ -263,6 +263,7 @@ POST /api/autenticacao/confirmar-recuperacao
 POST /api/autenticacao/iniciar-sessao
 GET  /api/autenticacao/perfil
 PUT  /api/autenticacao/perfil
+POST /api/autenticacao/palavra-passe/solicitar-otp
 PUT  /api/autenticacao/palavra-passe
 GET  /api/conta/resumo
 GET  /api/gestao/painel

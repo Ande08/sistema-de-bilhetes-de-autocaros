@@ -66,6 +66,10 @@ export function alterarPalavraPasse(dados) {
   return requisicao('/autenticacao/palavra-passe', { method: 'PUT', body: JSON.stringify(dados) });
 }
 
+export function solicitarOtpAlteracaoPalavraPasse() {
+  return requisicao('/autenticacao/palavra-passe/solicitar-otp', { method: 'POST' });
+}
+
 export function pesquisarViagens(filtros) {
   const parametros = new URLSearchParams(filtros);
   const utilizador = obterSessaoGuardada()?.utilizador;

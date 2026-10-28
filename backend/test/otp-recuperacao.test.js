@@ -41,6 +41,57 @@ test('redefine a palavra-passe depois de confirmar um OTP válido', async (conte
   assert.equal(await bcrypt.compare('NovaSenha@123', novaHash), true);
 });
 
+test('envia pelo WhatsApp um OTP exclusivo para alteração autenticada', async (contexto) => {
+  const originais = guardarMetodos();
+  const fornecedorOriginal = process.env.OTP_FORNECEDOR;
+  contexto.after(() => {
+    restaurarMetodos(originais);
+    if (fornecedorOriginal === undefined) delete process.env.OTP_FORNECEDOR;
+    else process.env.OTP_FORNECEDOR = fornecedorOriginal;
+  });
+  process.env.OTP_FORNECEDOR = 'SIMULADO';
+  let dadosCriados;
+  User.findOne = async () => ({ id: 7, telefone: '+258841234567', activo: true });
+  VerificacaoOtp.findOne = async () => null;
+  VerificacaoOtp.update = async () => [1];
+  VerificacaoOtp.create = async (dados) => {
+    dadosCriados = dados;
+    return { id: 20, ...dados, update: async () => {} };
+  };
+
+  const resultado = await new ServicoOtp().solicitarAlteracaoPalavraPasse(7);
+
+  assert.equal(dadosCriados.finalidade, 'ALTERAR_PALAVRA_PASSE');
+  assert.equal(dadosCriados.canal, 'WHATSAPP');
+  assert.equal(resultado.canal, 'WHATSAPP');
+  assert.equal(resultado.telefone, '+2588***567');
+});
+
+test('altera a palavra-passe somente depois de validar o OTP autenticado', async (contexto) => {
+  const originais = guardarMetodos();
+  contexto.after(() => restaurarMetodos(originais));
+  const [codigoHash, palavraPasseActualHash] = await Promise.all([
+    bcrypt.hash('654321', 4),
+    bcrypt.hash('SenhaActual@123', 4)
+  ]);
+  let novaHash = '';
+  const utilizador = {
+    telefone: '+258841234567', palavraPasseHash: palavraPasseActualHash,
+    update: async ({ palavraPasseHash }) => { novaHash = palavraPasseHash; }
+  };
+  User.findOne = async () => utilizador;
+  VerificacaoOtp.findOne = async () => ({ codigoHash, tentativas: 0, increment: async () => {} });
+  VerificacaoOtp.update = async () => [1];
+  sequelize.transaction = async (executar) => executar({});
+
+  const resultado = await new ServicoOtp().confirmarAlteracaoPalavraPasse(7, {
+    codigo: '654321', novaPalavraPasse: 'NovaSenha@456'
+  });
+
+  assert.match(resultado.mensagem, /alterada com sucesso/);
+  assert.equal(await bcrypt.compare('NovaSenha@456', novaHash), true);
+});
+
 function guardarMetodos() {
   return {
     verificacaoFindOne: VerificacaoOtp.findOne,
