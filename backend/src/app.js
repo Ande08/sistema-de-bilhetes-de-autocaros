@@ -19,6 +19,11 @@ import { directorioLogotiposEmpresas } from './services/logotipo-empresa.service
 
 const app = express();
 
+// A aplicação recebe tráfego do Nginx pela interface local. Confiar apenas em
+// proxies de loopback permite obter o IP real pelo X-Forwarded-For sem aceitar
+// cabeçalhos forjados de clientes que acedam diretamente ao backend.
+app.set('trust proxy', 'loopback');
+
 const origensPermitidas = new Set(
   (process.env.CLIENT_URL || 'http://localhost:5173')
     .split(',')

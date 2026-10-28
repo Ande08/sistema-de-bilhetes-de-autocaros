@@ -539,7 +539,7 @@ function PaginaAuditoria({ auditorias }) {
         <button type="button" onClick={limparFiltros} disabled={!Object.values(filtros).some(Boolean)}>Limpar filtros</button>
       </div>
     </section>
-    <TabelaGestao key={JSON.stringify(filtros)} titulo="Registo de auditoria" colunas={['Data', 'Administrador', 'Operação', 'Entidade', 'Identificador', 'Endereço IP', 'Valores']} linhas={auditoriasFiltradas.map((item) => [formatarData(item.criado_em), item.User ? nomePessoa(item.User) : 'Sistema', item.operacao, item.entidade, item.entidadeId || '—', item.enderecoIp || '—', JSON.stringify(item.valoresNovos || {})])} />
+    <TabelaGestao key={JSON.stringify(filtros)} titulo="Registo de auditoria" colunas={['Data', 'Administrador', 'Operação', 'Entidade', 'Identificador', 'Endereço IP', 'Valores']} linhas={auditoriasFiltradas.map((item) => [formatarData(item.criado_em), item.User ? nomePessoa(item.User) : 'Sistema', item.operacao, item.entidade, item.entidadeId || '—', formatarEnderecoIp(item.enderecoIp), JSON.stringify(item.valoresNovos || {})])} />
   </>;
 }
 
@@ -585,6 +585,11 @@ function TabelaGestao({ titulo, colunas, linhas }) {
 }
 function BotaoEstado({ activo, aoClicar }) { return <button className={activo ? 'admin-desactivar' : 'admin-activar'} onClick={aoClicar}>{activo ? 'Desativar' : 'Ativar'}</button>; }
 function formatarData(valor) { return new Intl.DateTimeFormat('pt-MZ', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(valor)); }
+function formatarEnderecoIp(valor) {
+  if (!valor) return '—';
+  if (valor.startsWith('::ffff:')) return valor.slice(7);
+  return valor === '::1' ? '127.0.0.1' : valor;
+}
 function formatarDataFormulario(valor) {
   if (!valor) return '';
   const data = new Date(valor);
