@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { createHash } from 'node:crypto';
 import { Op } from 'sequelize';
-import { User } from '../models/index.js';
+import { Empresa, User } from '../models/index.js';
 import { normalizarTelefone, validarApelido, validarNome, validarPalavraPasse } from '../validacoes/utilizador.validacao.js';
 
 function validarPerfil(perfil) {
@@ -14,15 +14,10 @@ function validarPerfil(perfil) {
   return normalizado;
 }
 
-export async function criarUtilizadorAdministrativo({ nome, apelido, telefone, palavraPasse, perfil = 'GESTOR_SUPORTE' }, administrador) {
+export async function criarUtilizadorAdministrativo({ nome, apelido, telefone, palavraPasse, perfil = 'GESTOR_SUPORTE', empresaId }, administrador) {
   const dados = { nome: validarNome(nome), apelido: validarApelido(apelido), telefone: normalizarTelefone(telefone), perfil: validarPerfil(perfil) };
-  if (administrador.perfil === 'EMPRESA_ADMIN' && dados.perfil !== 'GESTOR_SUPORTE') {
-    const erro = new Error('O administrador da empresa só pode criar atendentes.'); erro.statusCode = 403; throw erro;
-  }
-  if (administrador.perfil === 'ADMIN' && dados.perfil !== 'ADMIN') {
-    const erro = new Error('O administrador da plataforma só pode criar outros administradores da plataforma.'); erro.statusCode = 403; throw erro;
-  }
-  dados.empresaId = dados.perfil === 'PASSAGEIRO' ? null : administrador.empresaId;
+  dados.empresaId = validarVinculoCriacaoAdministrativa({ administrador, perfil: dados.perfil, empresaId });
+  if (dados.perfil === 'EMPRESA_ADMIN') await garantirEmpresaDisponivel(dados.empresaId);
   validarPalavraPasse(palavraPasse);
   if (await User.findOne({ where: { telefone: dados.telefone } })) {
     const erro = new Error('Este número de telefone já está registado.'); erro.statusCode = 409; throw erro;
@@ -31,7 +26,7 @@ export async function criarUtilizadorAdministrativo({ nome, apelido, telefone, p
   return User.create(dados);
 }
 
-export async function actualizarUtilizadorAdministrativo(id, { nome, apelido, telefone, perfil }, administrador) {
+export async function actualizarUtilizadorAdministrativo(id, { nome, apelido, telefone, perfil, empresaId }, administrador) {
   const utilizador = await obterUtilizador(id, administrador);
   const alteracoes = {};
   if (nome !== undefined) alteracoes.nome = validarNome(nome);
@@ -48,12 +43,21 @@ export async function actualizarUtilizadorAdministrativo(id, { nome, apelido, te
     if (administrador.perfil === 'EMPRESA_ADMIN' && !['GESTOR_SUPORTE', 'EMPRESA_ADMIN'].includes(alteracoes.perfil)) {
       const erro = new Error('Não pode atribuir este perfil dentro da empresa.'); erro.statusCode = 403; throw erro;
     }
-    if (administrador.perfil === 'ADMIN' && alteracoes.perfil !== 'ADMIN') {
-      const erro = new Error('O administrador da plataforma não pode alterar perfis operacionais das empresas.'); erro.statusCode = 403; throw erro;
+    if (administrador.perfil === 'ADMIN' && !['ADMIN', 'EMPRESA_ADMIN'].includes(alteracoes.perfil)) {
+      const erro = new Error('O administrador da plataforma só pode gerir administradores da plataforma ou das empresas.'); erro.statusCode = 403; throw erro;
     }
     const perfilAdministrador = administrador.perfil === 'EMPRESA_ADMIN' ? 'EMPRESA_ADMIN' : 'ADMIN';
     if (String(id) === String(administrador.id) && alteracoes.perfil !== perfilAdministrador) {
       const erro = new Error('Não pode remover o seu próprio perfil de administrador.'); erro.statusCode = 409; throw erro;
+    }
+  }
+  const perfilFinal = alteracoes.perfil || utilizador.perfil;
+  if (administrador.perfil === 'ADMIN') {
+    if (perfilFinal === 'EMPRESA_ADMIN') {
+      alteracoes.empresaId = empresaId || utilizador.empresaId;
+      await garantirEmpresaDisponivel(alteracoes.empresaId);
+    } else if (perfilFinal === 'ADMIN') {
+      alteracoes.empresaId = null;
     }
   }
   await utilizador.update(alteracoes);
@@ -121,10 +125,39 @@ async function obterUtilizador(id, administrador = null) {
   if (administrador?.perfil === 'EMPRESA_ADMIN' && String(utilizador.empresaId) !== String(administrador.empresaId)) {
     const erro = new Error('Não pode gerir usuários de outra empresa.'); erro.statusCode = 403; throw erro;
   }
-  if (administrador?.perfil === 'ADMIN' && utilizador.perfil !== 'ADMIN') {
+  if (administrador?.perfil === 'ADMIN' && !['ADMIN', 'EMPRESA_ADMIN'].includes(utilizador.perfil)) {
     const erro = new Error('A gestão desta conta pertence à respetiva empresa ou ao próprio usuário.'); erro.statusCode = 403; throw erro;
   }
   return utilizador;
+}
+
+// Centraliza a regra de criação para impedir que um administrador empresarial
+// crie contas noutra empresa e para exigir uma empresa ao administrador local.
+export function validarVinculoCriacaoAdministrativa({ administrador, perfil, empresaId }) {
+  if (administrador?.perfil === 'EMPRESA_ADMIN') {
+    if (perfil !== 'GESTOR_SUPORTE') {
+      const erro = new Error('O administrador da empresa só pode criar atendentes.'); erro.statusCode = 403; throw erro;
+    }
+    return administrador.empresaId;
+  }
+  if (administrador?.perfil === 'ADMIN') {
+    if (!['ADMIN', 'EMPRESA_ADMIN'].includes(perfil)) {
+      const erro = new Error('O administrador da plataforma só pode criar administradores da plataforma ou das empresas.'); erro.statusCode = 403; throw erro;
+    }
+    if (perfil === 'EMPRESA_ADMIN' && !empresaId) {
+      const erro = new Error('Selecione a empresa do novo administrador.'); erro.statusCode = 400; throw erro;
+    }
+    return perfil === 'EMPRESA_ADMIN' ? empresaId : null;
+  }
+  const erro = new Error('Não possui permissão para criar usuários administrativos.'); erro.statusCode = 403; throw erro;
+}
+
+async function garantirEmpresaDisponivel(empresaId) {
+  const empresa = await Empresa.findOne({ where: { id: empresaId, eliminadaEm: null } });
+  if (!empresa) {
+    const erro = new Error('A empresa selecionada não foi encontrada.'); erro.statusCode = 404; throw erro;
+  }
+  return empresa;
 }
 
 export { validarPerfil };

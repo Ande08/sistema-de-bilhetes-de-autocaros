@@ -1,5 +1,6 @@
 import { Assento, Auditoria, Bilhete, Bus, Empresa, Pagamento, Route, Trip, User } from '../models/index.js';
 import { filtroEmpresa } from './empresa-escopo.service.js';
+import { Op } from 'sequelize';
 
 export function construirIndicadores({ passageiros, autocarros, viagens, bilhetes, receitaAprovada }) {
   return {
@@ -33,7 +34,12 @@ export async function obterPainelAdministrativo(utilizador) {
 
 async function obterPainelPlataforma() {
   const [administradores, empresas, bilhetes, viagens, auditorias, usuariosActivos] = await Promise.all([
-    User.findAll({ where: { perfil: 'ADMIN', eliminadoEm: null }, attributes: ['id', 'nome', 'apelido', 'telefone', 'perfil', 'activo'], order: [['id', 'DESC']] }),
+    User.findAll({
+      where: { perfil: { [Op.in]: ['ADMIN', 'EMPRESA_ADMIN'] }, eliminadoEm: null },
+      attributes: ['id', 'nome', 'apelido', 'telefone', 'perfil', 'activo', 'empresaId'],
+      include: [{ model: Empresa, attributes: ['id', 'nome'], required: false }],
+      order: [['id', 'DESC']]
+    }),
     Empresa.findAll({
       where: { eliminadaEm: null },
       include: [{ model: User, where: { perfil: 'EMPRESA_ADMIN', eliminadoEm: null }, required: false, attributes: ['id', 'nome', 'apelido', 'telefone', 'activo'] }],
