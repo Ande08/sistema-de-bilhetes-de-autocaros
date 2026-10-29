@@ -7,6 +7,7 @@ import { filtroEmpresa, obterEmpresaParaCriacao } from '../services/empresa-esco
 import { obterLocalidadeValida } from '../services/localidades.service.js';
 import { actualizarPerfilEmpresa, obterPerfilEmpresa } from '../services/empresa-perfil.service.js';
 import { actualizarEmpresaAdministrativa, criarEmpresaAdministrativa, decidirCadastroEmpresaAdministrativa, definirEstadoEmpresaAdministrativa, eliminarEmpresaAdministrativa, listarEmpresasAdministrativas, obterEmpresaAdministrativa } from '../services/empresa-administracao.service.js';
+import { criarOcorrenciaUnica, garantirAutocarroDisponivel, gerarOcorrenciasRecorrentes } from '../services/agendamento-viagem.service.js';
 
 export async function obterPainel(req, res, next) {
   try { return res.json({ sucesso: true, dados: await obterPainelAdministrativo(req.utilizador) }); }
@@ -62,31 +63,46 @@ export async function criarRota(req, res, next) {
 }
 
 export async function criarViagem(req, res, next) {
+  let transacao;
   try {
-    const { rotaId, autocarroId, partidaEm, chegadaPrevistaEm, preco } = req.body;
-    if (!rotaId || !autocarroId || !partidaEm || !Number(preco) || Number(preco) <= 0) {
-      const erro = new Error('Rota, autocarro, partida e preço válido são obrigatórios.');
+    const { rotaId, autocarroId, partidaEm, chegadaPrevistaEm, preco, tipoAgendamento = 'UNICA' } = req.body;
+    if (!rotaId || !autocarroId || !Number(preco) || Number(preco) <= 0) {
+      const erro = new Error('Rota, autocarro e preço válido são obrigatórios.');
       erro.statusCode = 400;
       throw erro;
     }
-    if (new Date(partidaEm) <= new Date()) {
-      const erro = new Error('A partida deve estar no futuro.');
-      erro.statusCode = 400;
-      throw erro;
-    }
+    const recorrente = String(tipoAgendamento).toUpperCase() !== 'UNICA';
+    if (!recorrente && !partidaEm) { const erro = new Error('A partida é obrigatória.'); erro.statusCode = 400; throw erro; }
+    const ocorrencias = recorrente
+      ? gerarOcorrenciasRecorrentes({ ...req.body, tipoAgendamento })
+      : criarOcorrenciaUnica({ partidaEm, chegadaPrevistaEm });
+
     const empresaId = obterEmpresaParaCriacao(req.utilizador);
-    const [autocarro, rota] = await Promise.all([
-      Bus.findOne({ where: { id: autocarroId, empresaId } }),
-      Route.findOne({ where: { id: rotaId, empresaId } })
-    ]);
+    transacao = await sequelize.transaction();
+    // O bloqueio do autocarro serializa agendamentos concorrentes para a mesma viatura.
+    const autocarro = await Bus.findOne({ where: { id: autocarroId, empresaId }, transaction: transacao, lock: transacao.LOCK.UPDATE });
+    const rota = await Route.findOne({ where: { id: rotaId, empresaId }, transaction: transacao });
     if (!autocarro || !rota || !autocarro.active || !rota.active) {
       const erro = new Error('A rota ou o autocarro não foram encontrados.');
       erro.statusCode = 404;
       throw erro;
     }
-    const viagem = await Trip.create({ empresaId, routeId: rotaId, busId: autocarroId, departureAt: partidaEm, arrivalExpectedAt: chegadaPrevistaEm, price: preco });
-    return res.status(201).json({ sucesso: true, dados: viagem });
-  } catch (erro) { return next(erro); }
+    const ocorrenciasParaConflito = ocorrencias.map((item) => ({
+      ...item,
+      arrivalExpectedAt: item.arrivalExpectedAt || item.fimParaConflito
+    }));
+    await garantirAutocarroDisponivel({ empresaId, autocarroId, ocorrencias: ocorrenciasParaConflito, transaction: transacao });
+    const viagens = await Trip.bulkCreate(ocorrencias.map((item) => ({
+      empresaId, routeId: rotaId, busId: autocarroId,
+      departureAt: item.departureAt, arrivalExpectedAt: item.arrivalExpectedAt,
+      price: Number(preco)
+    })), { transaction: transacao });
+    await transacao.commit();
+    return res.status(201).json({ sucesso: true, dados: viagens.length === 1 ? viagens[0] : viagens, totalCriadas: viagens.length });
+  } catch (erro) {
+    if (transacao && !transacao.finished) await transacao.rollback();
+    return next(erro);
+  }
 }
 
 export async function definirEstadoPassageiro(req, res, next) {

@@ -116,13 +116,8 @@ describe('sessão do passageiro', () => {
 
     expect(fetchSimulado.mock.calls[0][0]).toContain('/autenticacao/solicitar-registo');
     expect(fetchSimulado.mock.calls[1][0]).toContain('/autenticacao/confirmar-registo');
-  });
-
-  it('envia o cadastro de empresa para aprovação através de OTP', async () => {
-    const fetchSimulado = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ dados: { telefone: '+258841234567', canal: 'WHATSAPP' } }) });
-    vi.stubGlobal('fetch', fetchSimulado);
-    await registarUtilizador({ tipoConta: 'EMPRESA', empresaNome: 'Transportes Sul', nome: 'Ana', apelido: 'Mabote', telefone: '841234567', palavraPasse: 'segura123', canal: 'WHATSAPP' });
-    expect(JSON.parse(fetchSimulado.mock.calls[0][1].body)).toEqual(expect.objectContaining({ tipoConta: 'EMPRESA', empresaNome: 'Transportes Sul' }));
+    expect(JSON.parse(fetchSimulado.mock.calls[0][1].body)).not.toHaveProperty('tipoConta');
+    expect(JSON.parse(fetchSimulado.mock.calls[0][1].body)).not.toHaveProperty('empresaNome');
   });
 
   it('solicita e confirma a recuperação da palavra-passe através de OTP', async () => {

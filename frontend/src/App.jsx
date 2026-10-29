@@ -9,6 +9,7 @@ import { ModalConfirmacao } from './componentes/Modal.jsx';
 import { URL_SERVIDOR, actualizarPerfil, alterarPalavraPasse, cancelarBilhete, comprarBilhete, confirmarRecuperacaoPalavraPasse, confirmarRegistoUtilizador, guardarSessao, iniciarPagamentoSimulado, iniciarSessao, obterBilhetePdf, obterPerfil, obterResumoConta, obterSessaoGuardada, pesquisarViagens, processarPagamentoSimulado, registarUtilizador, solicitarOtpAlteracaoPalavraPasse, solicitarRecuperacaoPalavraPasse, terminarSessao, validarCupao } from './servicos/api.js';
 import useSelecaoAssentosTempoReal from './hooks/useSelecaoAssentosTempoReal.js';
 import { formatarValor } from './utilitarios/moeda.js';
+import { normalizarLocalizacaoHabitual, temViagemActivaHoje } from './utilitarios/viagens-inicio.js';
 
 const itensMenu = [
   ['inicio', 'Início'], ['viagens', 'Minhas Viagens'], ['bilhete', 'Bilhetes'],
@@ -20,7 +21,7 @@ export default function App() {
   const [aVerificarSessao, setAVerificarSessao] = useState(Boolean(obterSessaoGuardada()));
   const [menuAberto, setMenuAberto] = useState(false);
   const [paginaAtiva, setPaginaAtiva] = useState('Início');
-  const [novaViagemAberta, setNovaViagemAberta] = useState(false);
+  const [novaViagemAberta, setNovaViagemAberta] = useState(null);
   const [resumoConta, setResumoConta] = useState(null);
   const [erroConta, setErroConta] = useState('');
   const [versaoConta, setVersaoConta] = useState(0);
@@ -122,29 +123,30 @@ export default function App() {
 
         {erroConta && <p className="mensagem-formulario erro" role="alert">{erroConta}</p>}
         {!resumoConta ? <div className="painel-carregando vidro">A carregar os dados da sua conta...</div> :
-          <ConteudoConta pagina={paginaAtiva} resumo={resumoConta} utilizador={utilizador} aoNovaViagem={() => setNovaViagemAberta(true)} aoAbrirSuporte={() => selecionarPagina('Suporte')} aoActualizar={actualizarConta} aoActualizarUtilizador={(novoUtilizador) => {
+          <ConteudoConta pagina={paginaAtiva} resumo={resumoConta} utilizador={utilizador} aoNovaViagem={() => setNovaViagemAberta(true)} aoEscolherViagem={(viagem) => setNovaViagemAberta({ viagem })} aoAbrirSuporte={() => selecionarPagina('Suporte')} aoActualizar={actualizarConta} aoActualizarUtilizador={(novoUtilizador) => {
             const sessaoActualizada = { ...sessao, utilizador: novoUtilizador };
             guardarSessao(sessaoActualizada);
             setSessao(sessaoActualizada);
           }} />}
       </main>
       <button className="botao-flutuante" onClick={() => setNovaViagemAberta(true)} aria-label="Comprar bilhete para uma nova viagem">+</button>
-      {novaViagemAberta && <FluxoCompra utilizador={utilizador} aoFechar={() => setNovaViagemAberta(false)} aoComprar={actualizarConta} />}
+      {novaViagemAberta && <FluxoCompra utilizador={utilizador} viagemInicial={novaViagemAberta?.viagem} aoFechar={() => setNovaViagemAberta(null)} aoComprar={actualizarConta} />}
     </div>
   );
 }
 
-function ConteudoConta({ pagina, resumo, utilizador, aoNovaViagem, aoAbrirSuporte, aoActualizar, aoActualizarUtilizador }) {
+function ConteudoConta({ pagina, resumo, utilizador, aoNovaViagem, aoEscolherViagem, aoAbrirSuporte, aoActualizar, aoActualizarUtilizador }) {
   if (pagina === 'Perfil') return <PaginaPerfil utilizador={utilizador} aoActualizarUtilizador={aoActualizarUtilizador} />;
   if (pagina === 'Suporte') return <PaginaSuportePassageiro />;
   if (pagina === 'Pagamentos') return <PaginaPagamentos pagamentos={resumo.pagamentos} />;
   if (pagina === 'Bilhetes') return <PaginaBilhetes bilhetes={resumo.bilhetes} aoActualizar={aoActualizar} />;
   if (pagina === 'Minhas Viagens') return <PaginaViagens viagens={resumo.bilhetes} aoActualizar={aoActualizar} />;
-  return <PaginaInicio resumo={resumo} aoNovaViagem={aoNovaViagem} aoAbrirSuporte={aoAbrirSuporte} aoActualizar={aoActualizar} />;
+  return <PaginaInicio resumo={resumo} aoNovaViagem={aoNovaViagem} aoEscolherViagem={aoEscolherViagem} aoAbrirSuporte={aoAbrirSuporte} aoActualizar={aoActualizar} />;
 }
 
-function PaginaInicio({ resumo, aoNovaViagem, aoAbrirSuporte, aoActualizar }) {
+function PaginaInicio({ resumo, aoNovaViagem, aoEscolherViagem, aoAbrirSuporte, aoActualizar }) {
   const proxima = resumo.proximaViagem;
+  const mostrarPesquisa = !temViagemActivaHoje(resumo.bilhetes);
   return <>
     {proxima ? <section className="proxima-viagem" aria-label="Próxima viagem">
       <div className="viagem-conteudo">
@@ -159,6 +161,8 @@ function PaginaInicio({ resumo, aoNovaViagem, aoAbrirSuporte, aoActualizar }) {
       </div><div className="arte-autocarro" aria-hidden="true"><Icone nome="autocarroGrande" /></div>
     </section> : <section className="sem-proxima-viagem vidro"><span><Icone nome="autocarro" /></span><div><h3>Ainda não tem uma viagem marcada</h3><p>Pesquise destinos disponíveis e compre o seu próximo bilhete.</p></div><button className="botao-nova-viagem" onClick={aoNovaViagem}>Nova viagem</button></section>}
 
+    {mostrarPesquisa && <PesquisaViagensInicio aoEscolherViagem={aoEscolherViagem} />}
+
     <section className="resumos">
       <CartaoResumo icone="autocarro" titulo="Próxima viagem" valor={proxima ? `${proxima.viagem.origem} → ${proxima.viagem.destino}` : 'Sem viagem'} detalhe={proxima ? formatarDataHora(proxima.viagem.partidaEm) : 'Compre um novo bilhete'} />
       <CartaoResumo icone="bilhete" titulo="Bilhetes ativos" valor={String(resumo.totalBilhetesActivos)} detalhe="Viagens futuras" />
@@ -169,6 +173,59 @@ function PaginaInicio({ resumo, aoNovaViagem, aoAbrirSuporte, aoActualizar }) {
       <aside className="suporte"><span className="suporte-icone"><Icone nome="suporte" /></span><h3>Precisa de ajuda?</h3><p>A nossa equipa está pronta para ajudar com as suas viagens, bilhetes ou pagamentos.</p><button className="botao-claro" onClick={aoAbrirSuporte}>Falar com o suporte <Icone nome="seta" /></button><div className="links-suporte"><button onClick={aoAbrirSuporte}><Icone nome="ajuda" /> Perguntas frequentes</button><button><Icone nome="documento" /> Políticas e termos</button></div></aside>
     </section>
   </>;
+}
+
+function PesquisaViagensInicio({ aoEscolherViagem }) {
+  const [localizacao, setLocalizacao] = useState(() => {
+    try { return normalizarLocalizacaoHabitual(JSON.parse(localStorage.getItem('viagemBus.localizacaoHabitual'))); }
+    catch { return null; }
+  });
+  const [viagens, setViagens] = useState([]);
+  const [tituloResultados, setTituloResultados] = useState('Viagens próximas de si');
+  const [aPesquisar, setAPesquisar] = useState(false);
+  const [erro, setErro] = useState('');
+
+  useEffect(() => {
+    if (!localizacao) return;
+    setAPesquisar(true);
+    pesquisarViagens({ origemProvincia: localizacao.provincia, origem: localizacao.cidade, limite: 6 })
+      .then((resultados) => { setViagens(resultados); setTituloResultados(`Próximas partidas de ${localizacao.cidade}`); })
+      .catch((falha) => setErro(falha.message))
+      .finally(() => setAPesquisar(false));
+  // As recomendações automáticas são carregadas ao abrir a página. Depois de
+  // uma pesquisa manual, preservamos os resultados escolhidos pelo cliente.
+  }, []);
+
+  async function pesquisar(evento) {
+    evento.preventDefault(); setAPesquisar(true); setErro('');
+    const filtros = Object.fromEntries(new FormData(evento.currentTarget));
+    const habitual = normalizarLocalizacaoHabitual({ provincia: filtros.origemProvincia, cidade: filtros.origem });
+    try {
+      const resultados = await pesquisarViagens(filtros);
+      setViagens(resultados); setTituloResultados('Resultados da pesquisa');
+      if (habitual) {
+        localStorage.setItem('viagemBus.localizacaoHabitual', JSON.stringify(habitual));
+        setLocalizacao(habitual);
+      }
+    } catch (falha) { setErro(falha.message); }
+    finally { setAPesquisar(false); }
+  }
+
+  return <section className="pesquisa-inicio vidro">
+    <div className="titulo-secao"><div><p className="etiqueta">Encontre a sua próxima viagem</p><h3>Para onde deseja viajar?</h3><p>A origem fica guardada neste dispositivo para mostrarmos partidas da sua localização.</p></div>{localizacao && <span className="localizacao-habitual"><Icone nome="localizacao" /> {localizacao.cidade}</span>}</div>
+    <form className="formulario-pesquisa-inicio" onSubmit={pesquisar}>
+      <SelecaoLocalidade prefixo="origem" titulo="Origem" valorInicialProvincia={localizacao?.provincia} valorInicialCidade={localizacao?.cidade} />
+      <SelecaoLocalidade prefixo="destino" titulo="Destino" />
+      <label>Data da viagem <small>Opcional</small><input name="data" type="date" min={new Date().toISOString().slice(0, 10)} /></label>
+      <button className="botao-pesquisar" disabled={aPesquisar}><Icone nome="pesquisa" /> {aPesquisar ? 'A pesquisar...' : 'Pesquisar'}</button>
+    </form>
+    {erro && <p className="mensagem-formulario erro" role="alert">{erro}</p>}
+    <div className="cabecalho-recomendacoes"><h3>{tituloResultados}</h3>{localizacao && <small>Ordenadas pela partida mais próxima</small>}</div>
+    {!localizacao && viagens.length === 0 ? <p className="aviso-localizacao">Escolha a sua origem e destino para vermos as viagens disponíveis. Depois disso, as próximas partidas da sua cidade aparecerão aqui automaticamente.</p> : viagens.length === 0 && !aPesquisar ? <EstadoVazio texto="Não existem partidas futuras para esta localização." /> : <div className="lista-viagens-inicio">{viagens.map((item) => <article className="opcao-viagem vidro" key={item.id}>
+      <div className="identidade-viagem">{item.Empresa?.logoUrl ? <img src={`${URL_SERVIDOR}${item.Empresa.logoUrl}`} alt={`Logótipo da ${item.Empresa.nome}`} /> : <span className="logo-empresa-generico"><Icone nome="autocarro" /></span>}<div><strong>{item.Route?.origin} → {item.Route?.destination}</strong><span>{item.Empresa?.nome || 'Empresa de transporte'} · {formatarDataHora(item.departureAt)}</span></div></div>
+      <div className="preco-viagem"><small>Preço</small><strong>{formatarMeticais(item.price)}</strong></div><button onClick={() => aoEscolherViagem(item)}>Escolher</button>
+    </article>)}</div>}
+  </section>;
 }
 
 function PaginaViagens({ viagens, aoActualizar }) {
@@ -259,7 +316,6 @@ function PaginaAutenticacao({ aoAutenticar }) {
   const [etapaRecuperacao, setEtapaRecuperacao] = useState('telefone');
   const [recuperacaoPendente, setRecuperacaoPendente] = useState(null);
   const [mostrarPalavraPasse, setMostrarPalavraPasse] = useState(false);
-  const [tipoConta, setTipoConta] = useState('PASSAGEIRO');
   const [aProcessar, setAProcessar] = useState(false);
   const [mensagem, setMensagem] = useState('');
   const [tipoMensagem, setTipoMensagem] = useState('erro');
@@ -278,10 +334,10 @@ function PaginaAutenticacao({ aoAutenticar }) {
         setTipoMensagem('sucesso');
         setMensagem(`Código enviado por ${pendente.canal === 'WHATSAPP' ? 'WhatsApp' : 'SMS'} para ${pendente.telefone}.`);
       } else if (modo === 'registar') {
-        const contaCriada = await confirmarRegistoUtilizador({ telefone: registoPendente.telefone, codigo: dados.codigo });
+        await confirmarRegistoUtilizador({ telefone: registoPendente.telefone, codigo: dados.codigo });
         setModo('entrar'); setEtapaRegisto('dados'); setRegistoPendente(null);
         setTipoMensagem('sucesso');
-        setMensagem(contaCriada.estadoCadastro === 'PENDENTE' ? contaCriada.mensagem : 'Número confirmado e conta criada. Já pode iniciar sessão.');
+        setMensagem('Número confirmado e conta criada. Já pode iniciar sessão.');
       } else if (modo === 'recuperar' && etapaRecuperacao === 'telefone') {
         const pendente = await solicitarRecuperacaoPalavraPasse(dados);
         setRecuperacaoPendente({ ...pendente, dadosOriginais: dados });
@@ -313,7 +369,6 @@ function PaginaAutenticacao({ aoAutenticar }) {
     setModo(novoModo);
     setMensagem('');
     setMostrarPalavraPasse(false);
-    setTipoConta('PASSAGEIRO');
     setEtapaRegisto('dados');
     setRegistoPendente(null);
     setEtapaRecuperacao('telefone');
@@ -351,7 +406,7 @@ function PaginaAutenticacao({ aoAutenticar }) {
       </div>
       <div className="titulo-autenticacao"><h2>{modo === 'entrar' ? 'Bem-vindo de volta' : modo === 'recuperar' ? etapaRecuperacao === 'otp' ? 'Defina uma nova palavra-passe' : 'Recupere o acesso' : etapaRegisto === 'otp' ? 'Confirme o seu número' : 'Crie a sua conta'}</h2><p>{modo === 'entrar' ? 'Introduza o telefone e a palavra-passe.' : modo === 'recuperar' ? etapaRecuperacao === 'otp' ? `Introduza o código enviado para ${recuperacaoPendente?.telefone}.` : 'Receba um código no número associado à sua conta.' : etapaRegisto === 'otp' ? `Introduza o código de 6 dígitos enviado para ${registoPendente?.telefone}.` : 'Não é necessário apresentar documento pessoal.'}</p></div>
       <form className="formulario-autenticacao" onSubmit={submeter}>
-        {modo === 'registar' && etapaRegisto === 'dados' && <><label>Tipo de conta<select name="tipoConta" value={tipoConta} onChange={(evento) => setTipoConta(evento.target.value)}><option value="PASSAGEIRO">Cliente passageiro</option><option value="EMPRESA">Empresa de transporte</option></select></label>{tipoConta === 'EMPRESA' && <label>Nome da empresa<input name="empresaNome" minLength="3" maxLength="160" required /></label>}<div className="linha-nome-registo"><label>{tipoConta === 'EMPRESA' ? 'Nome do responsável' : 'Nome'}<input name="nome" autoComplete="given-name" minLength="2" maxLength="80" required /></label><label>Apelido<input name="apelido" autoComplete="family-name" minLength="2" maxLength="120" required /></label></div></>}
+        {modo === 'registar' && etapaRegisto === 'dados' && <div className="linha-nome-registo"><label>Nome<input name="nome" autoComplete="given-name" minLength="2" maxLength="80" required /></label><label>Apelido<input name="apelido" autoComplete="family-name" minLength="2" maxLength="120" required /></label></div>}
         {(modo === 'entrar' || (modo === 'registar' && etapaRegisto === 'dados') || (modo === 'recuperar' && etapaRecuperacao === 'telefone')) && <label>Número de telefone<input name="telefone" type="tel" inputMode="tel" autoComplete="tel" placeholder="84 000 0000" required /></label>}
         {((modo === 'registar' && etapaRegisto === 'dados') || (modo === 'recuperar' && etapaRecuperacao === 'telefone')) && <label>Receber código por<select name="canal" defaultValue="WHATSAPP"><option value="WHATSAPP">WhatsApp</option><option value="SMS">SMS</option></select></label>}
         {(modo === 'entrar' || (modo === 'registar' && etapaRegisto === 'dados')) && <label>Palavra-passe<div className="campo-palavra-passe"><input name="palavraPasse" type={mostrarPalavraPasse ? 'text' : 'password'} minLength="8" autoComplete={modo === 'entrar' ? 'current-password' : 'new-password'} required /><button type="button" onClick={() => setMostrarPalavraPasse((visivel) => !visivel)} aria-label={mostrarPalavraPasse ? 'Ocultar palavra-passe' : 'Mostrar palavra-passe'} title={mostrarPalavraPasse ? 'Ocultar palavra-passe' : 'Mostrar palavra-passe'}><Icone nome={mostrarPalavraPasse ? 'olhoFechado' : 'olho'} /></button></div></label>}
@@ -368,10 +423,10 @@ function PaginaAutenticacao({ aoAutenticar }) {
   </main>;
 }
 
-function FluxoCompra({ utilizador, aoFechar, aoComprar }) {
-  const [etapa, setEtapa] = useState('pesquisa');
+function FluxoCompra({ utilizador, viagemInicial, aoFechar, aoComprar }) {
+  const [etapa, setEtapa] = useState(viagemInicial ? 'assentos' : 'pesquisa');
   const [viagens, setViagens] = useState([]);
-  const [viagem, setViagem] = useState(null);
+  const [viagem, setViagem] = useState(viagemInicial || null);
   const [metodoPagamento, setMetodoPagamento] = useState('MPESA');
   const [bilhete, setBilhete] = useState(null);
   const [aProcessar, setAProcessar] = useState(false);
@@ -449,12 +504,12 @@ function FluxoCompra({ utilizador, aoFechar, aoComprar }) {
       {etapa === 'pesquisa' && <form className="formulario-nova-viagem pesquisa-compra" onSubmit={pesquisar}>
         <SelecaoLocalidade prefixo="origem" titulo="Origem" />
         <SelecaoLocalidade prefixo="destino" titulo="Destino" />
-        <label>Data da viagem<input name="data" type="date" min={new Date().toISOString().slice(0, 10)} required /></label>
+        <label>Data da viagem <small>Opcional; sem data mostramos hoje e os próximos dias.</small><input name="data" type="date" min={new Date().toISOString().slice(0, 10)} /></label>
         <button disabled={aProcessar} type="submit" className="botao-pesquisar"><Icone nome="pesquisa" /> {aProcessar ? 'A pesquisar...' : 'Pesquisar viagens'}</button>
       </form>}
 
       {etapa === 'resultados' && <div className="resultados-viagens">
-        {viagens.length === 0 ? <div className="estado-vazio"><Icone nome="autocarro" /><strong>Nenhuma viagem encontrada</strong><p>Altere a origem, o destino ou a data e tente novamente.</p></div> : viagens.map((item) => <article className="opcao-viagem vidro" key={item.id}>
+        {viagens.length === 0 ? <div className="estado-vazio"><Icone nome="autocarro" /><strong>Nenhuma viagem encontrada</strong><p>Altere a origem, o destino ou escolha outra data e tente novamente.</p></div> : viagens.map((item) => <article className="opcao-viagem vidro" key={item.id}>
           <div className="identidade-viagem">{item.Empresa?.logoUrl ? <img src={`${URL_SERVIDOR}${item.Empresa.logoUrl}`} alt={`Logótipo da ${item.Empresa.nome}`} /> : <span className="logo-empresa-generico"><Icone nome="autocarro" /></span>}<div><strong>{item.Route?.origin} → {item.Route?.destination}</strong><span>{item.Empresa?.nome || 'Empresa de transporte'} · {formatarDataHora(item.departureAt)}</span></div></div>
           <div className="preco-viagem"><small>Preço</small><strong>{formatarMeticais(item.price)}</strong></div>
           <button onClick={() => escolherViagem(item)} disabled={aProcessar}>Escolher</button>

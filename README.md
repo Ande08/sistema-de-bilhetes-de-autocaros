@@ -4,7 +4,7 @@ Plataforma multiempresa para consulta e comparação de viagens, seleção de as
 
 Todos os valores monetários são apresentados em **MT**.
 
-O cadastro público utiliza nome, apelido e número de telefone, com confirmação de um código OTP enviado por WhatsApp ou SMS. Passageiros ficam ativos imediatamente. Uma transportadora pode selecionar **Empresa de transporte**, informar o nome comercial e criar a conta do responsável; nesse caso, a empresa fica pendente até o administrador da plataforma aprovar o cadastro. O mesmo canal permite recuperar a palavra-passe sem revelar se um telefone está registado. A alteração de palavra-passe dentro de qualquer conta autenticada também exige um OTP exclusivo enviado pelo bot de WhatsApp. Em desenvolvimento, o envio é simulado e o código aparece na tela para permitir testes sem um fornecedor externo.
+O cadastro público é exclusivo para clientes e utiliza nome, apelido e número de telefone, com confirmação de um código OTP enviado por WhatsApp ou SMS. Empresas e respetivos administradores só podem ser criados pelo administrador da plataforma. O mesmo canal permite recuperar a palavra-passe sem revelar se um telefone está registado. A alteração de palavra-passe dentro de qualquer conta autenticada também exige um OTP exclusivo enviado pelo bot de WhatsApp. Em desenvolvimento, o envio é simulado e o código aparece na tela para permitir testes sem um fornecedor externo.
 
 ## Tecnologias
 
@@ -45,7 +45,7 @@ Organiza o sistema em rotas, controladores, serviços, modelos Sequelize e base 
 
 ### Service Layer
 
-É utilizado nos serviços do backend, incluindo `otp.service.js` e `bilhete-pdf.service.js`. O primeiro concentra o cadastro, a recuperação e a alteração autenticada de palavra-passe por OTP; o segundo gera o documento PDF sem expor consultas ou regras de autorização ao frontend. Serve para manter regras de negócio reutilizáveis e independentes das rotas HTTP.
+É utilizado nos serviços do backend, incluindo `otp.service.js`, `bilhete-pdf.service.js` e `agendamento-viagem.service.js`. O primeiro concentra o cadastro, a recuperação e a alteração autenticada de palavra-passe por OTP; o segundo gera o documento PDF; o terceiro gera ocorrências diárias ou semanais e verifica conflitos do autocarro. Serve para manter regras de negócio reutilizáveis e independentes das rotas HTTP.
 
 ## Padrões criacionais
 
@@ -135,19 +135,23 @@ Utilizado em `backend/src/realtime/suporte.socket.js`. Cada ticket possui uma sa
 - `PASSAGEIRO`: compara horários e preços de todas as empresas ativas, compra bilhetes, utiliza o assistente virtual, escolhe a empresa ao abrir um ticket e acompanha apenas os próprios pedidos;
 - `GESTOR_SUPORTE` (apresentado como **Atendente**): pertence a uma empresa, vende apenas os bilhetes dessa empresa, recebe os tickets que lhe foram atribuídos, conversa com o passageiro e atualiza o estado do atendimento;
 - `EMPRESA_ADMIN`: administra os atendentes, autocarros, rotas, viagens, vendas, avisos e suporte exclusivamente da própria empresa;
-- `ADMIN`: supervisiona e aprova empresas, gere administradores da plataforma e das empresas, acompanha o volume agregado de vendas e configura serviços centrais como inteligência artificial e WhatsApp. Não gere frota, rotas, viagens, preços, bilhetes ou suporte comercial.
+- `ADMIN`: cria e supervisiona empresas, gere administradores da plataforma e das empresas, acompanha o volume agregado de vendas e configura serviços centrais como inteligência artificial e WhatsApp. Não gere frota, rotas, viagens, preços, bilhetes ou suporte comercial.
+
+Na pesquisa de viagens, origem e destino são obrigatórios e a data é opcional. Quando o cliente ou atendente não escolhe uma data, o backend devolve todas as viagens futuras em ordem crescente de partida: primeiro as restantes de hoje e depois as dos dias seguintes. Quando a data é informada, os resultados ficam limitados ao dia escolhido e continuam a excluir partidas passadas. A rota é criada independentemente da frota; o autocarro é associado quando o administrador agenda uma viagem, permitindo utilizar autocarros diferentes na mesma rota.
+
+Na página inicial, o formulário de pesquisa e as recomendações aparecem quando o passageiro não possui um bilhete ativo para o dia atual. A origem escolhida é guardada apenas no dispositivo como localização habitual e passa a alimentar uma lista das próximas partidas dessa cidade, sem recolher coordenadas GPS nem enviar a localização a serviços externos. Uma viagem sugerida pode ser aberta diretamente na seleção de assento.
 
 Na área **Atendentes**, o administrador empresarial cria, edita, ativa, desativa, redefine a palavra-passe ou elimina contas `GESTOR_SUPORTE` da própria empresa. Esses atendentes podem prestar assistência de compra, vender apenas os bilhetes da empresa, tratar dúvidas ou problemas relacionados com bilhetes, pagamentos e viagens e responder somente aos tickets que lhes forem atribuídos. Os filtros de `empresaId` impedem acesso a vendas, clientes ou atendimentos de outra transportadora.
 
 Na área **Cupões**, cada administrador empresarial pode criar campanhas exclusivas da sua transportadora. Um cupão possui código, descrição, percentagem entre 1% e 90%, início e fim da validade, compra mínima, limite total opcional, limite por cliente e estado ativo ou desativado. O cliente pode validar o código antes de pagar e o atendente também pode aplicá-lo numa venda assistida. O desconto, o preço original e o preço final ficam registados no bilhete; cancelar um bilhete não devolve a utilização do cupão, o que evita ciclos de compra e cancelamento para contornar os limites.
 
-Cada empresa solicita o cadastro com OTP e recebe um responsável com o perfil `EMPRESA_ADMIN`. O estado inicial é `PENDENTE`; apenas depois da aprovação passa a `APROVADA` e pode iniciar sessão. O administrador da plataforma também pode criar uma empresa juntamente com o seu primeiro administrador ou adicionar outro administrador a uma empresa existente. Nesse fluxo, informa somente o nome da empresa e as credenciais do responsável; telefone institucional, descrição, website e logótipo são acrescentados pelo administrador empresarial depois de iniciar sessão. A plataforma pode aprovar, rejeitar, suspender, reativar, corrigir o nome e eliminar logicamente a empresa. A suspensão bloqueia imediatamente todos os usuários da empresa, inclusive quando possuem um token ainda válido. Autocarros, rotas, viagens, preços, bilhetes e tickets continuam sob responsabilidade exclusiva da empresa.
+Somente o administrador da plataforma pode criar uma empresa juntamente com o seu primeiro administrador ou adicionar outro administrador a uma empresa existente. Nesse fluxo, informa o nome da empresa e as credenciais do responsável; telefone institucional, descrição, website e logótipo são acrescentados pelo administrador empresarial depois de iniciar sessão. A plataforma pode suspender, reativar, corrigir o nome e eliminar logicamente a empresa. A suspensão bloqueia imediatamente todos os usuários da empresa, inclusive quando possuem um token ainda válido. Autocarros, rotas, viagens, preços, bilhetes e tickets continuam sob responsabilidade exclusiva da empresa.
 
 O administrador da empresa pode editar a identidade da transportadora na área **Dados da empresa**: nome, telefone institucional, descrição, website e logótipo. Os logótipos aceitam PNG, JPEG ou WebP até 2 MB, são validados pelo conteúdo do ficheiro e aparecem no painel e na pesquisa de viagens. Ao substituir ou remover um logótipo, o ficheiro antigo também é eliminado. Na área **Minha conta**, pode alterar a própria palavra-passe depois de confirmar o OTP enviado pelo bot para o WhatsApp associado à conta.
 
 O bilhete PDF é produzido no formato térmico POS de **80 × 210 mm**, em preto e branco, com QR Code no final dos detalhes. Esse formato pode ser impresso em rolos térmicos de 80 mm sem redução para uma página A4.
 
-O cadastro empresarial utiliza `POST /api/autenticacao/solicitar-registo` com `tipoConta=EMPRESA` e é confirmado por OTP. O endpoint `PATCH /api/gestao/empresas/:id/aprovacao` permite ao administrador da plataforma aprovar ou rejeitar o pedido. As rotas operacionais exigem `EMPRESA_ADMIN`; o perfil global `ADMIN` é recusado nas vendas, cancelamentos, gestão de viagens e suporte comercial.
+O endpoint público `POST /api/autenticacao/solicitar-registo` cria exclusivamente contas `PASSAGEIRO` e recusa tentativas de enviar `tipoConta=EMPRESA`. A criação empresarial é feita por `POST /api/gestao/empresas`, protegido pelo perfil `ADMIN`. As rotas operacionais exigem `EMPRESA_ADMIN`; o perfil global `ADMIN` é recusado nas vendas, cancelamentos, gestão de viagens e suporte comercial.
 
 O assistente virtual utiliza inicialmente uma base de perguntas frequentes em `backend/src/services/suporte.service.js`. Esta implementação mantém a demonstração independente de serviços externos e pode ser substituída por um adaptador de IA sem alterar as telas ou o fluxo dos tickets. As conversas humanas, atribuições e mudanças de estado ficam persistidas para rastreio.
 
@@ -332,3 +336,10 @@ Exemplo de compra:
 ```
 
 A compra exige autenticação. O nome do passageiro é obtido da conta autenticada, sem recolha de documento pessoal. O backend confirma o pagamento simulado, valida o assento na base de dados e só depois emite o bilhete. O PDF inclui um QR Code com o identificador de validação do bilhete, sem nome, telefone ou dados de pagamento do passageiro.
+### Agendamento de viagens
+
+- Uma viagem pode ser agendada para uma única data, para todos os dias ou para dias específicos da semana.
+- Agendamentos recorrentes exigem período de vigência, hora de partida e duração prevista, com limite máximo de 366 dias.
+- Cada ocorrência é gravada como uma viagem independente para permitir vendas, cancelamentos e avisos específicos.
+- A rota é reutilizável e o autocarro é associado no agendamento da viagem.
+- O mesmo autocarro não pode estar associado a viagens com horários sobrepostos; a criação usa transação e bloqueio do autocarro para evitar concorrência.

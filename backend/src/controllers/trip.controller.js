@@ -1,20 +1,15 @@
 import { Op } from 'sequelize';
 import { Empresa, Route, Trip } from '../models/index.js';
+import { obterIntervaloPesquisaViagens } from '../services/pesquisa-viagem.service.js';
 
 export async function listTrips(req, res, next) {
   try {
-  const { origem, destino, origemProvincia, destinoProvincia, empresaId, data } = req.query;
-  const filtro = { status: 'AGENDADA', departureAt: { [Op.gt]: new Date() } };
-  if (data) {
-    const inicio = new Date(`${data}T00:00:00`);
-    const fim = new Date(`${data}T23:59:59.999`);
-    if (Number.isNaN(inicio.getTime())) {
-      const erro = new Error('A data informada é inválida.');
-      erro.statusCode = 400;
-      throw erro;
-    }
-    filtro.departureAt = { [Op.between]: [inicio, fim] };
-  }
+  const { origem, destino, origemProvincia, destinoProvincia, empresaId, data, limite } = req.query;
+  const intervalo = obterIntervaloPesquisaViagens(data);
+  const filtroPartida = intervalo.fim
+    ? { [Op.between]: [intervalo.inicio, intervalo.fim] }
+    : { [Op.gt]: intervalo.inicio };
+  const filtro = { status: 'AGENDADA', departureAt: filtroPartida };
 
   const filtroRota = {};
   if (origem) filtroRota.origin = { [Op.like]: String(origem).trim() };
@@ -23,13 +18,15 @@ export async function listTrips(req, res, next) {
   if (destinoProvincia) filtroRota.destinationProvince = String(destinoProvincia).trim();
   filtroRota.active = true;
   if (empresaId) filtro.empresaId = empresaId;
+  const quantidadeMaxima = limite ? Math.min(Math.max(Number.parseInt(limite, 10) || 1, 1), 50) : undefined;
   const viagens = await Trip.findAll({
     where: filtro,
     include: [
       { model: Route, where: filtroRota, required: true },
       { model: Empresa, where: { activa: true, estadoCadastro: 'APROVADA', eliminadaEm: null }, attributes: ['id', 'nome', 'slug', 'logoUrl'], required: true }
     ],
-    order: [['departureAt', 'ASC']]
+    order: [['departureAt', 'ASC']],
+    ...(quantidadeMaxima && { limit: quantidadeMaxima })
   });
   return res.json({ sucesso: true, dados: viagens });
   } catch (erro) { return next(erro); }

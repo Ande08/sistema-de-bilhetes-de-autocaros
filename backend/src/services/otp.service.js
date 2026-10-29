@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import { Op } from 'sequelize';
 import { sequelize } from '../config/database.js';
 import { obterAdaptadorOtp } from '../adapters/otp.adapter.js';
-import { Empresa, User, VerificacaoOtp } from '../models/index.js';
+import { User, VerificacaoOtp } from '../models/index.js';
 import { normalizarTelefone, validarApelido, validarNome, validarPalavraPasse } from '../validacoes/utilizador.validacao.js';
 
 const FINALIDADE_CRIAR_CONTA = 'CRIAR_CONTA';
@@ -11,24 +11,24 @@ const FINALIDADE_RECUPERAR = 'RECUPERAR_PALAVRA_PASSE';
 const FINALIDADE_ALTERAR = 'ALTERAR_PALAVRA_PASSE';
 
 export class ServicoOtp {
-  async solicitarCriacaoConta({ nome, apelido, telefone, palavraPasse, canal = 'WHATSAPP', tipoConta = 'PASSAGEIRO', empresaNome }) {
+  async solicitarCriacaoConta({ nome, apelido, telefone, palavraPasse, canal = 'WHATSAPP', tipoConta = 'PASSAGEIRO' }) {
     const tipoNormalizado = String(tipoConta || 'PASSAGEIRO').toUpperCase();
-    if (!['PASSAGEIRO', 'EMPRESA'].includes(tipoNormalizado)) throw erroValidacao('Selecione um tipo de conta válido.');
-    const nomeEmpresa = tipoNormalizado === 'EMPRESA' ? validarNomeEmpresa(empresaNome) : null;
+    if (tipoNormalizado !== 'PASSAGEIRO') {
+      const erro = new Error('O cadastro público está disponível apenas para clientes. Empresas são criadas pelo administrador da plataforma.');
+      erro.statusCode = 403;
+      throw erro;
+    }
     const dados = {
       nome: validarNome(nome),
       apelido: validarApelido(apelido),
       telefone: normalizarTelefone(telefone),
       canal: String(canal).toUpperCase(),
-      tipoConta: tipoNormalizado,
-      empresaNome: nomeEmpresa
+      tipoConta: 'PASSAGEIRO',
+      empresaNome: null
     };
     validarPalavraPasse(palavraPasse);
     if (!['WHATSAPP', 'SMS'].includes(dados.canal)) throw erroValidacao('Selecione WhatsApp ou SMS para receber o código.');
     if (await User.findOne({ where: { telefone: dados.telefone } })) throw erroConflito('Este número de telefone já está registado.');
-    if (nomeEmpresa && await Empresa.findOne({ where: { slug: criarSlug(nomeEmpresa), eliminadaEm: null } })) {
-      throw erroConflito('Já existe uma empresa registada com este nome.');
-    }
 
     const esperaSegundos = Number(process.env.OTP_REENVIO_SEGUNDOS) || 60;
     const recente = await VerificacaoOtp.findOne({
@@ -77,6 +77,12 @@ export class ServicoOtp {
     });
     if (!verificacao) throw erroValidacao('O código expirou ou já foi utilizado. Solicite um novo código.');
     if (verificacao.tentativas >= 5) throw erroConflito('O limite de tentativas foi atingido. Solicite um novo código.');
+    if (verificacao.tipoConta !== 'PASSAGEIRO') {
+      await verificacao.update({ consumidoEm: new Date() });
+      const erro = new Error('Este cadastro empresarial já não pode ser concluído. Contacte o administrador da plataforma.');
+      erro.statusCode = 403;
+      throw erro;
+    }
 
     const valido = await bcrypt.compare(String(codigo), verificacao.codigoHash);
     if (!valido) {
@@ -86,30 +92,15 @@ export class ServicoOtp {
     if (await User.findOne({ where: { telefone: telefoneNormalizado } })) throw erroConflito('Este número de telefone já está registado.');
 
     return sequelize.transaction(async (transaction) => {
-      let empresa = null;
-      if (verificacao.tipoConta === 'EMPRESA') {
-        const slug = criarSlug(validarNomeEmpresa(verificacao.empresaNome));
-        if (await Empresa.findOne({ where: { slug, eliminadaEm: null }, transaction })) {
-          throw erroConflito('Já existe uma empresa registada com este nome.');
-        }
-        empresa = await Empresa.create({
-          nome: verificacao.empresaNome,
-          slug,
-          telefone: verificacao.telefone,
-          activa: false,
-          estadoCadastro: 'PENDENTE'
-        }, { transaction });
-      }
       const utilizador = await User.create({
         nome: verificacao.nome,
         apelido: verificacao.apelido,
         telefone: verificacao.telefone,
         palavraPasseHash: verificacao.palavraPasseHash,
-        empresaId: empresa?.id || null,
-        perfil: empresa ? 'EMPRESA_ADMIN' : 'PASSAGEIRO'
+        empresaId: null,
+        perfil: 'PASSAGEIRO'
       }, { transaction });
       await verificacao.update({ consumidoEm: new Date() }, { transaction });
-      if (empresa) utilizador.setDataValue('empresaPendente', empresa);
       return utilizador;
     });
   }
@@ -331,18 +322,6 @@ export class ServicoOtp {
 
 function erroValidacao(mensagem) { const erro = new Error(mensagem); erro.statusCode = 400; return erro; }
 function erroConflito(mensagem) { const erro = new Error(mensagem); erro.statusCode = 409; return erro; }
-function validarNomeEmpresa(valor) {
-  const nome = String(valor || '').trim().replace(/\s+/g, ' ');
-  if (nome.length < 3 || nome.length > 160) throw erroValidacao('O nome da empresa deve ter entre 3 e 160 caracteres.');
-  if (!/[\p{L}\d].*[\p{L}\d]/u.test(nome)) throw erroValidacao('Introduza um nome de empresa válido.');
-  return nome;
-}
-
-function criarSlug(valor) {
-  return String(valor).normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-}
-
 function mascararTelefone(telefone) {
   const valor = String(telefone || '');
   return valor.length > 4 ? `${valor.slice(0, 5)}***${valor.slice(-3)}` : valor;

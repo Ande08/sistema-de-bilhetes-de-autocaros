@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { validarDadosEdicaoEmpresa, validarDadosNovaEmpresa } from '../src/services/empresa-administracao.service.js';
 import { ServicoOtp } from '../src/services/otp.service.js';
+import { VerificacaoOtp } from '../src/models/index.js';
 
 test('valida e normaliza os dados de uma nova empresa', () => {
   const dados = validarDadosNovaEmpresa({
@@ -37,10 +38,29 @@ test('valida e normaliza os dados de edição de uma empresa', () => {
   assert.equal(dados.telefone, '+258842223344');
 });
 
-test('exige o nome da empresa no cadastro empresarial', async () => {
+test('bloqueia cadastro público de empresa', async () => {
   const servico = new ServicoOtp();
   await assert.rejects(
-    () => servico.solicitarCriacaoConta({ tipoConta: 'EMPRESA' }),
-    (erro) => erro.statusCode === 400 && /nome da empresa/.test(erro.message)
+    () => servico.solicitarCriacaoConta({
+      tipoConta: 'EMPRESA', empresaNome: 'Transportes Teste', nome: 'Ana', apelido: 'Mabote',
+      telefone: '841112233', palavraPasse: 'Empresa@123', canal: 'WHATSAPP'
+    }),
+    (erro) => erro.statusCode === 403 && /apenas para clientes/i.test(erro.message)
   );
+});
+
+test('invalida OTP empresarial público solicitado antes do bloqueio', async (contexto) => {
+  const original = VerificacaoOtp.findOne;
+  contexto.after(() => { VerificacaoOtp.findOne = original; });
+  let consumido = false;
+  VerificacaoOtp.findOne = async () => ({
+    tipoConta: 'EMPRESA', tentativas: 0,
+    update: async ({ consumidoEm }) => { consumido = consumidoEm instanceof Date; }
+  });
+
+  await assert.rejects(
+    () => new ServicoOtp().confirmarCriacaoConta({ telefone: '841112233', codigo: '123456' }),
+    (erro) => erro.statusCode === 403 && /já não pode ser concluído/i.test(erro.message)
+  );
+  assert.equal(consumido, true);
 });
