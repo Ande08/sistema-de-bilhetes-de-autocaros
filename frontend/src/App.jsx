@@ -503,8 +503,8 @@ function FluxoCompra({ utilizador, viagemInicial, aoFechar, aoComprar }) {
       <div className="modal-topo"><div><p className="etiqueta">Comprar bilhete</p><h2 id="titulo-nova-viagem">{tituloEtapa(etapa)}</h2><p>{descricaoEtapa(etapa)}</p></div><button className="fechar-modal" disabled={aProcessar} onClick={aoFechar} aria-label="Fechar">×</button></div>
 
       {etapa === 'pesquisa' && <form className="formulario-nova-viagem pesquisa-compra" onSubmit={pesquisar}>
-        <SelecaoLocalidade prefixo="origem" titulo="Origem" />
-        <SelecaoLocalidade prefixo="destino" titulo="Destino" />
+        <SelecaoLocalidade pesquisavel prefixo="origem" titulo="Origem" />
+        <SelecaoLocalidade pesquisavel prefixo="destino" titulo="Destino" />
         <label>Data da viagem <small>Opcional; sem data mostramos hoje e os próximos dias.</small><input name="data" type="date" min={obterDataHojeMaputo()} /></label>
         <button disabled={aProcessar} type="submit" className="botao-pesquisar"><Icone nome="pesquisa" /> {aProcessar ? 'A pesquisar...' : 'Pesquisar viagens'}</button>
       </form>}

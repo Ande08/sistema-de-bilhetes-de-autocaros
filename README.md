@@ -164,7 +164,7 @@ O administrador da plataforma **não cria autocarros, rotas ou viagens, não def
 
 ### Pesquisa de viagens
 
-- Origem e destino utilizam províncias e cidades de um catálogo controlado.
+- Origem e destino permitem pesquisar pelo nome da cidade ou província, mas a seleção final continua limitada ao catálogo controlado.
 - Origem e destino iguais são recusados no frontend e no backend.
 - A data é opcional.
 - Sem data, são mostradas as partidas futuras em ordem crescente: restantes de hoje, amanhã e dias seguintes.
@@ -299,7 +299,7 @@ O cupão é validado antes do pagamento e novamente dentro da transação de emi
 - formulários responsivos;
 - modais adaptadas ao mobile;
 - mensagens de erro legíveis;
-- localidades selecionadas em listas;
+- localidades pesquisáveis e validadas pelo catálogo oficial;
 - estado visual de assentos e pagamentos;
 - navegação específica para cada perfil.
 
