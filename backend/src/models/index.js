@@ -15,6 +15,7 @@ import { ConfiguracaoIa } from './configuracao-ia.model.js';
 import { EnvioWhatsapp } from './envio-whatsapp.model.js';
 import { Empresa } from './empresa.model.js';
 import { Cupao } from './cupao.model.js';
+import { AvaliacaoEmpresa } from './avaliacao-empresa.model.js';
 
 // Os relacionamentos ficam centralizados para permitir consultas com include.
 Empresa.hasMany(User, { foreignKey: 'empresaId' });
@@ -29,6 +30,10 @@ Empresa.hasMany(Cupao, { foreignKey: 'empresaId' });
 Cupao.belongsTo(Empresa, { foreignKey: 'empresaId' });
 Empresa.hasMany(TicketSuporte, { foreignKey: 'empresaId' });
 TicketSuporte.belongsTo(Empresa, { foreignKey: 'empresaId' });
+Empresa.hasMany(AvaliacaoEmpresa, { as: 'Avaliacoes', foreignKey: 'empresaId' });
+AvaliacaoEmpresa.belongsTo(Empresa, { foreignKey: 'empresaId' });
+User.hasMany(AvaliacaoEmpresa, { as: 'AvaliacoesEmpresas', foreignKey: 'utilizadorId' });
+AvaliacaoEmpresa.belongsTo(User, { as: 'Autor', foreignKey: 'utilizadorId' });
 Route.hasMany(Trip, { foreignKey: 'routeId' });
 Trip.belongsTo(Route, { foreignKey: 'routeId' });
 Bus.hasMany(Trip, { foreignKey: 'busId' });
@@ -46,6 +51,8 @@ User.hasMany(Bilhete, { foreignKey: 'utilizadorId' });
 Bilhete.belongsTo(User, { foreignKey: 'utilizadorId' });
 Cupao.hasMany(Bilhete, { foreignKey: 'cupaoId' });
 Bilhete.belongsTo(Cupao, { foreignKey: 'cupaoId' });
+Bilhete.hasMany(TicketSuporte, { as: 'TicketsSuporte', foreignKey: 'bilheteId' });
+TicketSuporte.belongsTo(Bilhete, { foreignKey: 'bilheteId' });
 Bilhete.hasOne(Pagamento, { foreignKey: 'bilheteId' });
 Pagamento.belongsTo(Bilhete, { foreignKey: 'bilheteId' });
 User.hasMany(Reserva, { foreignKey: 'utilizadorId' });
@@ -72,4 +79,4 @@ TicketSuporte.hasMany(MensagemSuporte, { as: 'Mensagens', foreignKey: 'ticketId'
 MensagemSuporte.belongsTo(TicketSuporte, { foreignKey: 'ticketId' });
 MensagemSuporte.belongsTo(User, { as: 'Remetente', foreignKey: 'remetenteId' });
 
-export { Assento, Auditoria, Bilhete, ConfiguracaoIa, Cupao, EnvioWhatsapp, MensagemSuporte, Notificacao, Pagamento, Reserva, TicketSuporte, VerificacaoOtp };
+export { Assento, Auditoria, AvaliacaoEmpresa, Bilhete, ConfiguracaoIa, Cupao, EnvioWhatsapp, MensagemSuporte, Notificacao, Pagamento, Reserva, TicketSuporte, VerificacaoOtp };

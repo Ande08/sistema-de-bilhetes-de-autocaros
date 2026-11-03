@@ -9,6 +9,7 @@ import { normalizarTelefone, validarApelido, validarNome, validarPalavraPasse } 
 const FINALIDADE_CRIAR_CONTA = 'CRIAR_CONTA';
 const FINALIDADE_RECUPERAR = 'RECUPERAR_PALAVRA_PASSE';
 const FINALIDADE_ALTERAR = 'ALTERAR_PALAVRA_PASSE';
+const FINALIDADE_DADOS = 'ALTERAR_DADOS_PESSOAIS';
 
 export class ServicoOtp {
   async solicitarCriacaoConta({ nome, apelido, telefone, palavraPasse, canal = 'WHATSAPP', tipoConta = 'PASSAGEIRO' }) {
@@ -318,10 +319,96 @@ export class ServicoOtp {
     });
     return { mensagem: 'Palavra-passe alterada com sucesso.' };
   }
+
+  async solicitarAlteracaoDadosPessoais(utilizadorId, { nome, apelido, telefone }) {
+    const utilizador = await User.findOne({ where: { id: utilizadorId, activo: true, eliminadoEm: null } });
+    if (!utilizador) throw erroNaoEncontrado();
+    const dados = {
+      nome: validarNome(nome), apelido: validarApelido(apelido),
+      telefone: normalizarTelefone(telefone)
+    };
+    if (await User.findOne({ where: { telefone: dados.telefone, id: { [Op.ne]: utilizador.id } } })) {
+      throw erroConflito('Este número de telefone já pertence a outra conta.');
+    }
+    if (dados.nome === utilizador.nome && dados.apelido === utilizador.apelido && dados.telefone === utilizador.telefone) {
+      throw erroValidacao('Altere pelo menos uma informação antes de solicitar o código.');
+    }
+    await this._garantirIntervalo(utilizador.telefone, FINALIDADE_DADOS);
+    const codigo = String(randomInt(100000, 1000000));
+    const validadeMinutos = Number(process.env.OTP_VALIDADE_MINUTOS) || 10;
+    const codigoHash = await bcrypt.hash(codigo, 10);
+    await VerificacaoOtp.update({ consumidoEm: new Date() }, {
+      where: { telefone: utilizador.telefone, finalidade: FINALIDADE_DADOS, consumidoEm: null }
+    });
+    const verificacao = await VerificacaoOtp.create({
+      telefone: utilizador.telefone, finalidade: FINALIDADE_DADOS, canal: 'WHATSAPP',
+      codigoHash, nome: dados.nome, apelido: dados.apelido, novoTelefone: dados.telefone,
+      expiraEm: new Date(Date.now() + validadeMinutos * 60 * 1000)
+    });
+    try {
+      await obterAdaptadorOtp().enviar({
+        telefone: utilizador.telefone, codigo, canal: 'WHATSAPP',
+        verificacaoId: verificacao.id, expiraEm: verificacao.expiraEm
+      });
+    } catch (erro) {
+      await verificacao.update({ consumidoEm: new Date() });
+      throw erro;
+    }
+    return {
+      telefone: mascararTelefone(utilizador.telefone), expiraEm: verificacao.expiraEm,
+      mensagem: 'Código enviado para o WhatsApp atual. Confirme para guardar os novos dados.',
+      ...((process.env.OTP_FORNECEDOR || 'SIMULADO') === 'SIMULADO'
+        && process.env.NODE_ENV !== 'production'
+        && process.env.OTP_EXIBIR_CODIGO !== 'false'
+        && { codigoDemonstracao: codigo })
+    };
+  }
+
+  async confirmarAlteracaoDadosPessoais(utilizadorId, { codigo }) {
+    if (!/^\d{6}$/.test(String(codigo || ''))) throw erroValidacao('O código deve conter 6 dígitos.');
+    const utilizador = await User.findOne({ where: { id: utilizadorId, activo: true, eliminadoEm: null } });
+    if (!utilizador) throw erroNaoEncontrado();
+    const verificacao = await VerificacaoOtp.findOne({
+      where: {
+        telefone: utilizador.telefone, finalidade: FINALIDADE_DADOS,
+        consumidoEm: null, expiraEm: { [Op.gt]: new Date() }
+      },
+      order: [['id', 'DESC']]
+    });
+    if (!verificacao || verificacao.tentativas >= 5) throw erroValidacao('Código inválido ou expirado. Solicite um novo código.');
+    if (!await bcrypt.compare(String(codigo), verificacao.codigoHash)) {
+      await verificacao.increment('tentativas');
+      throw erroValidacao('Código inválido ou expirado. Solicite um novo código.');
+    }
+    if (await User.findOne({ where: { telefone: verificacao.novoTelefone, id: { [Op.ne]: utilizador.id } } })) {
+      throw erroConflito('O novo número de telefone já pertence a outra conta.');
+    }
+    await sequelize.transaction(async (transaction) => {
+      await utilizador.update({
+        nome: verificacao.nome, apelido: verificacao.apelido, telefone: verificacao.novoTelefone
+      }, { transaction });
+      await verificacao.update({ consumidoEm: new Date() }, { transaction });
+    });
+    return utilizador;
+  }
+
+  async _garantirIntervalo(telefone, finalidade) {
+    const esperaSegundos = Number(process.env.OTP_REENVIO_SEGUNDOS) || 60;
+    const recente = await VerificacaoOtp.findOne({
+      where: { telefone, finalidade, criado_em: { [Op.gt]: new Date(Date.now() - esperaSegundos * 1000) } },
+      order: [['id', 'DESC']]
+    });
+    if (recente) {
+      const erro = new Error(`Aguarde ${esperaSegundos} segundos antes de pedir outro código.`);
+      erro.statusCode = 429;
+      throw erro;
+    }
+  }
 }
 
 function erroValidacao(mensagem) { const erro = new Error(mensagem); erro.statusCode = 400; return erro; }
 function erroConflito(mensagem) { const erro = new Error(mensagem); erro.statusCode = 409; return erro; }
+function erroNaoEncontrado() { const erro = new Error('Usuário não encontrado ou desativado.'); erro.statusCode = 404; return erro; }
 function mascararTelefone(telefone) {
   const valor = String(telefone || '');
   return valor.length > 4 ? `${valor.slice(0, 5)}***${valor.slice(-3)}` : valor;

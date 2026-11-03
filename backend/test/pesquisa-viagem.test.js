@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { obterIntervaloPesquisaViagens } from '../src/services/pesquisa-viagem.service.js';
+import { obterIntervaloPesquisaViagens, validarOrigemDestino } from '../src/services/pesquisa-viagem.service.js';
 
 test('sem data pesquisa todas as partidas futuras sem limitar o último dia', () => {
   const agora = new Date('2026-10-29T08:30:00.000Z'); // 10:30 em Maputo
@@ -30,4 +30,12 @@ test('rejeita uma data anterior ao dia atual em Maputo', () => {
     () => obterIntervaloPesquisaViagens('2026-11-02', agora),
     (erro) => erro.statusCode === 400 && /anterior a hoje/i.test(erro.message)
   );
+});
+
+test('rejeita pesquisas com a mesma origem e destino', () => {
+  assert.throws(
+    () => validarOrigemDestino({ origem: 'Maputo', destino: 'mapúto', origemProvincia: 'Maputo Cidade', destinoProvincia: 'Maputo Cidade' }),
+    (erro) => erro.statusCode === 400 && /devem ser diferentes/i.test(erro.message)
+  );
+  assert.doesNotThrow(() => validarOrigemDestino({ origem: 'Maputo', destino: 'Matola' }));
 });

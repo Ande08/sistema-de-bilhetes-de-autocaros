@@ -1,12 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import { Op } from 'sequelize';
 import { sequelize } from '../config/database.js';
-import { Empresa, MensagemSuporte, TicketSuporte, User } from '../models/index.js';
+import { Bilhete, Empresa, MensagemSuporte, Route, TicketSuporte, Trip, User } from '../models/index.js';
 
 const inclusoesTicket = [
   { model: Empresa, attributes: ['id', 'nome', 'slug'] },
   { model: User, as: 'Passageiro', attributes: ['id', 'nome', 'apelido', 'telefone'] },
-  { model: User, as: 'Gestor', attributes: ['id', 'nome', 'apelido', 'telefone'] }
+  { model: User, as: 'Gestor', attributes: ['id', 'nome', 'apelido', 'telefone'] },
+  { model: Bilhete, attributes: ['id', 'codigo', 'estado'], include: [{ model: Trip, attributes: ['id', 'departureAt'], include: [{ model: Route, attributes: ['origin', 'destination'] }] }] }
 ];
 
 const respostasFrequentes = [
@@ -34,25 +35,68 @@ export function responderAssistente(mensagem) {
   };
 }
 
-export async function criarTicket(utilizador, { empresaId, assunto, categoria = 'OUTRO', prioridade = 'NORMAL', mensagem }) {
+export async function criarTicket(utilizador, { bilheteId, codigoBilhete, assunto, categoria = 'OUTRO', mensagem }, anexo = {}) {
   if (utilizador.perfil !== 'PASSAGEIRO') throw erroAcesso('Apenas passageiros podem abrir pedidos de suporte.');
   if (!assunto?.trim() || assunto.trim().length < 5 || !mensagem?.trim()) throw erroValidacao('Assunto e mensagem são obrigatórios.');
   const categorias = ['BILHETE', 'PAGAMENTO', 'VIAGEM', 'CONTA', 'RECLAMACAO', 'OUTRO'];
-  const prioridades = ['BAIXA', 'NORMAL', 'ALTA', 'URGENTE'];
-  if (!categorias.includes(categoria) || !prioridades.includes(prioridade)) throw erroValidacao('Categoria ou prioridade inválida.');
-  const empresa = await Empresa.findOne({ where: { id: empresaId, activa: true, estadoCadastro: 'APROVADA', eliminadaEm: null } });
-  if (!empresa) throw erroValidacao('Selecione a empresa responsável pelo atendimento.');
+  if (!categorias.includes(categoria)) throw erroValidacao('Categoria inválida.');
+  const whereBilhete = bilheteId ? { id: bilheteId } : { codigo: String(codigoBilhete || '').trim().toUpperCase() };
+  const bilhete = await Bilhete.findOne({
+    where: { ...whereBilhete, utilizadorId: utilizador.id },
+    include: [{ model: Trip, required: true, include: [{ model: Empresa, where: { activa: true, estadoCadastro: 'APROVADA', eliminadaEm: null }, required: true }] }]
+  });
+  if (!bilhete) throw erroValidacao('Selecione um bilhete válido da sua conta.');
+  const triagem = classificarPrioridadeTicket({ assunto, categoria, mensagem, partidaEm: bilhete.Trip.departureAt });
 
   return sequelize.transaction(async (transaction) => {
     const ticket = await TicketSuporte.create({
       codigo: `SUP-${new Date().toISOString().slice(0, 10).replaceAll('-', '')}-${randomUUID().slice(0, 6).toUpperCase()}`,
-      empresaId: empresa.id,
+      empresaId: bilhete.Trip.empresaId, bilheteId: bilhete.id,
       utilizadorId: utilizador.id,
-      assunto: assunto.trim(), categoria, prioridade
+      assunto: assunto.trim(), categoria, prioridade: triagem.prioridade,
+      prioridadePontuacao: triagem.pontuacao, prioridadeMotivo: triagem.motivo
     }, { transaction });
-    await MensagemSuporte.create({ ticketId: ticket.id, remetenteId: utilizador.id, autorTipo: 'PASSAGEIRO', conteudo: mensagem.trim() }, { transaction });
+    await MensagemSuporte.create({
+      ticketId: ticket.id, remetenteId: utilizador.id, autorTipo: 'PASSAGEIRO',
+      conteudo: mensagem.trim(), imagemUrl: anexo.imagemUrl || null, imagemNome: anexo.imagemNome || null
+    }, { transaction });
     return obterTicketPorId(ticket.id, utilizador, transaction);
   });
+}
+
+export async function pesquisarBilhetesParaSuporte(utilizador, termo = '') {
+  if (utilizador.perfil !== 'PASSAGEIRO') throw erroAcesso('A pesquisa de bilhetes pertence ao cliente.');
+  const codigo = String(termo || '').trim().toUpperCase();
+  const where = { utilizadorId: utilizador.id };
+  if (codigo) where.codigo = { [Op.like]: `%${codigo.replace(/[%_]/g, '')}%` };
+  const bilhetes = await Bilhete.findAll({
+    where,
+    attributes: ['id', 'codigo', 'estado'],
+    include: [{
+      model: Trip, required: true, attributes: ['id', 'departureAt', 'empresaId'],
+      include: [{ model: Route, attributes: ['origin', 'destination'] }, { model: Empresa, attributes: ['id', 'nome', 'logoUrl'] }]
+    }],
+    order: [['id', 'DESC']], limit: 10
+  });
+  return bilhetes;
+}
+
+// A triagem usa regras transparentes e dados confirmados; o cliente não escolhe a prioridade.
+export function classificarPrioridadeTicket({ assunto, categoria, mensagem, partidaEm }, agora = new Date()) {
+  const texto = textoNormalizado(`${assunto || ''} ${mensagem || ''}`);
+  let pontuacao = 35;
+  const motivos = [];
+  if (categoria === 'PAGAMENTO') { pontuacao += 15; motivos.push('questão de pagamento'); }
+  if (categoria === 'RECLAMACAO') { pontuacao += 10; motivos.push('reclamação'); }
+  if (/cobrou|duplicad|dinheiro|pagamento.*falh|sem bilhete/.test(texto)) { pontuacao += 25; motivos.push('possível impacto financeiro'); }
+  if (/urgente|embarque|partida|perdi|cancelad|nao consigo viajar|não consigo viajar/.test(texto)) { pontuacao += 18; motivos.push('possível impedimento de viagem'); }
+  if (/acidente|seguranca|segurança|perigo|amea[cç]a/.test(texto)) { pontuacao += 40; motivos.push('segurança'); }
+  const horasAtePartida = partidaEm ? (new Date(partidaEm) - agora) / 3600000 : Infinity;
+  if (horasAtePartida >= 0 && horasAtePartida <= 24) { pontuacao += 20; motivos.push('partida nas próximas 24 horas'); }
+  if (horasAtePartida < 0) { pontuacao -= 8; motivos.push('viagem já realizada'); }
+  pontuacao = Math.max(0, Math.min(100, pontuacao));
+  const prioridade = pontuacao >= 85 ? 'URGENTE' : pontuacao >= 65 ? 'ALTA' : pontuacao >= 30 ? 'NORMAL' : 'BAIXA';
+  return { prioridade, pontuacao, motivo: motivos.join('; ') || 'triagem padrão' };
 }
 
 export async function listarTickets(utilizador) {

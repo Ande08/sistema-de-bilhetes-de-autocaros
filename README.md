@@ -45,7 +45,7 @@ Organiza o sistema em rotas, controladores, serviços, modelos Sequelize e base 
 
 ### Service Layer
 
-É utilizado nos serviços do backend, incluindo `otp.service.js`, `bilhete-pdf.service.js` e `agendamento-viagem.service.js`. O primeiro concentra o cadastro, a recuperação e a alteração autenticada de palavra-passe por OTP; o segundo gera o documento PDF; o terceiro gera ocorrências diárias ou semanais e verifica conflitos do autocarro. Serve para manter regras de negócio reutilizáveis e independentes das rotas HTTP.
+É utilizado nos serviços do backend, incluindo `otp.service.js`, `bilhete-pdf.service.js`, `agendamento-viagem.service.js` e `assistente-empresa.service.js`. O primeiro concentra cadastro, recuperação, palavra-passe e alteração de dados pessoais por OTP; o segundo gera o documento PDF; o terceiro gera ocorrências diárias ou semanais e verifica conflitos do autocarro; o último produz análises usando exclusivamente dados agregados da empresa autenticada. Serve para manter regras de negócio reutilizáveis e independentes das rotas HTTP.
 
 ## Padrões criacionais
 
@@ -89,7 +89,7 @@ Utilizado em `backend/src/adapters/otp.adapter.js` para isolar o envio de códig
 
 ### Strategy
 
-Aplicado na seleção do método de pagamento e em `frontend/src/componentes/MapaAssentos.jsx`, que escolhe entre a estratégia 3D e o mapa 2D leve conforme WebGL, memória, processadores e qualidade da ligação. Serve para trocar o comportamento sem alterar o fluxo principal da compra e manter a seleção de assentos disponível em telemóveis limitados.
+Aplicado na seleção do método de pagamento, na classificação automática da prioridade dos tickets e em `frontend/src/componentes/MapaAssentos.jsx`, que escolhe entre a estratégia 3D e o mapa 2D leve conforme WebGL, memória, processadores e qualidade da ligação. Serve para trocar ou evoluir critérios sem alterar o fluxo principal da compra, suporte ou seleção de assentos.
 
 ### Observer
 
@@ -134,14 +134,14 @@ Utilizado em `backend/src/realtime/suporte.socket.js`. Cada ticket possui uma sa
 
 ## Perfis e suporte
 
-- `PASSAGEIRO`: compara horários e preços de todas as empresas ativas, compra bilhetes, utiliza o assistente virtual, escolhe a empresa ao abrir um ticket e acompanha apenas os próprios pedidos;
+- `PASSAGEIRO`: compara horários e preços de todas as empresas ativas, consulta perfis e avaliações, compra bilhetes, utiliza o assistente virtual, escolhe o bilhete relacionado ao abrir um ticket e acompanha apenas os próprios pedidos;
 - `GESTOR_SUPORTE` (apresentado como **Atendente**): pertence a uma empresa, vende apenas os bilhetes dessa empresa, recebe os tickets que lhe foram atribuídos, conversa com o passageiro e atualiza o estado do atendimento;
 - `EMPRESA_ADMIN`: administra os atendentes, autocarros, rotas, viagens, vendas, avisos e suporte exclusivamente da própria empresa;
 - `ADMIN`: cria e supervisiona empresas, gere administradores da plataforma e das empresas, acompanha o volume agregado de vendas e configura serviços centrais como inteligência artificial e WhatsApp. Não gere frota, rotas, viagens, preços, bilhetes ou suporte comercial.
 
 Na pesquisa de viagens, origem e destino são obrigatórios e a data é opcional. Quando o cliente ou atendente não escolhe uma data, o backend devolve todas as viagens futuras em ordem crescente de partida: primeiro as restantes de hoje e depois as dos dias seguintes. Quando a data é informada, os resultados ficam limitados ao dia escolhido e continuam a excluir partidas passadas. A rota é criada independentemente da frota; o autocarro é associado quando o administrador agenda uma viagem, permitindo utilizar autocarros diferentes na mesma rota.
 
-Na página inicial, o formulário de pesquisa e as recomendações aparecem quando o passageiro não possui um bilhete ativo para o dia atual. A origem escolhida é guardada apenas no dispositivo como localização habitual e passa a alimentar uma lista das próximas partidas dessa cidade, sem recolher coordenadas GPS nem enviar a localização a serviços externos. Uma viagem sugerida pode ser aberta diretamente na seleção de assento.
+Na página inicial, o formulário e uma lista crescente das partidas restantes de hoje e dos dias seguintes aparecem sem exigir pesquisa prévia. Quando existe uma origem habitual, a lista prioriza essa cidade; caso contrário, mostra partidas de todas as empresas. A origem escolhida é guardada apenas no dispositivo, sem coordenadas GPS nem serviços externos. Cada resultado apresenta nome e logótipo da empresa e pode ser aberto diretamente na seleção de assento. Origem e destino iguais são recusados no frontend e no backend.
 
 Na área **Atendentes**, o administrador empresarial cria, edita, ativa, desativa, redefine a palavra-passe ou elimina contas `GESTOR_SUPORTE` da própria empresa. Esses atendentes podem prestar assistência de compra, vender apenas os bilhetes da empresa, tratar dúvidas ou problemas relacionados com bilhetes, pagamentos e viagens e responder somente aos tickets que lhes forem atribuídos. Os filtros de `empresaId` impedem acesso a vendas, clientes ou atendimentos de outra transportadora.
 
@@ -149,7 +149,11 @@ Na área **Cupões**, cada administrador empresarial pode criar campanhas exclus
 
 Somente o administrador da plataforma pode criar uma empresa juntamente com o seu primeiro administrador ou adicionar outro administrador a uma empresa existente. Nesse fluxo, informa o nome da empresa e as credenciais do responsável; telefone institucional, descrição, website e logótipo são acrescentados pelo administrador empresarial depois de iniciar sessão. A plataforma pode suspender, reativar, corrigir o nome e eliminar logicamente a empresa. A suspensão bloqueia imediatamente todos os usuários da empresa, inclusive quando possuem um token ainda válido. Autocarros, rotas, viagens, preços, bilhetes e tickets continuam sob responsabilidade exclusiva da empresa.
 
-O administrador da empresa pode editar a identidade da transportadora na área **Dados da empresa**: nome, telefone institucional, descrição, website e logótipo. Os logótipos aceitam PNG, JPEG ou WebP até 2 MB, são validados pelo conteúdo do ficheiro e aparecem no painel e na pesquisa de viagens. Ao substituir ou remover um logótipo, o ficheiro antigo também é eliminado. Na área **Minha conta**, pode alterar a própria palavra-passe depois de confirmar o OTP enviado pelo bot para o WhatsApp associado à conta.
+O administrador da empresa pode editar a identidade da transportadora na área **Dados da empresa**: nome, telefone institucional, descrição, website e logótipo. Os logótipos aceitam PNG, JPEG ou WebP até 2 MB, são validados pelo conteúdo do ficheiro e aparecem no painel e na pesquisa de viagens. Ao substituir ou remover um logótipo, o ficheiro antigo também é eliminado. Em **Minha conta**, qualquer perfil pode alterar nome, apelido, telefone ou palavra-passe apenas depois de confirmar o OTP enviado ao WhatsApp atual.
+
+A auditoria completa fica disponível exclusivamente ao administrador da plataforma. O administrador empresarial possui um **Assistente IA** analítico local, com volume aprovado, valor médio, procura por rota e sugestões de campanha. Todas as consultas Sequelize recebem obrigatoriamente o `empresaId` autenticado; nenhum valor financeiro, dado pessoal ou indicador de outra empresa é enviado ao modelo externo.
+
+Ao abrir suporte humano, o cliente pesquisa ou seleciona um bilhete próprio. O backend utiliza a viagem do bilhete para determinar a empresa e calcula a prioridade de 0 a 100 com base no tipo do problema, impacto financeiro, proximidade da partida e segurança. O cliente não escolhe a prioridade. A primeira mensagem também pode conter uma imagem JPEG, PNG ou WebP de até 2 MB.
 
 O bilhete PDF é produzido no formato térmico POS de **80 × 210 mm**, em preto e branco, com QR Code no final dos detalhes. Esse formato pode ser impresso em rolos térmicos de 80 mm sem redução para uma página A4.
 
@@ -317,6 +321,7 @@ GET  /api/compras/bilhete/:codigo/pdf
 POST /api/pagamentos-simulados
 POST /api/pagamentos-simulados/:referencia/processar
 POST /api/suporte/assistente
+GET  /api/suporte/bilhetes/pesquisar
 GET  /api/suporte/tickets
 POST /api/suporte/tickets
 GET  /api/suporte/tickets/:id
@@ -324,6 +329,11 @@ POST /api/suporte/tickets/:id/mensagens
 PATCH /api/suporte/tickets/:id/estado
 GET  /api/suporte/gestores
 PATCH /api/suporte/tickets/:id/atribuir
+GET  /api/catalogo/empresas
+GET  /api/catalogo/empresas/:slug
+POST /api/catalogo/empresas/:id/avaliacoes
+GET  /api/gestao/assistente-empresa/analise
+POST /api/gestao/assistente-empresa/perguntar
 GET  /api/atendimento/clientes
 ```
 

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { actualizarEmpresaAdministrativa, alterarPalavraPasse, comprarBilhete, confirmarRecuperacaoPalavraPasse, confirmarRegistoUtilizador, decidirCadastroEmpresaAdministrativa, definirEstadoEmpresaAdministrativa, editarEmpresaAdministrativa, eliminarEmpresaAdministrativa, eliminarUtilizadorAdministrativo, enviarAvisoViagemAdministrativa, enviarMensagemSuporte, guardarConfiguracaoIa, guardarSessao, iniciarPagamentoSimulado, libertarReservaAssento, listarClientesAtendimento, listarLocalidades, obterBilhetePdf, obterResumoConta, obterSessaoGuardada, pesquisarViagens, processarPagamentoSimulado, registarUtilizador, reservarAssento, solicitarOtpAlteracaoPalavraPasse, solicitarRecuperacaoPalavraPasse, terminarSessao, validarCupao } from './api.js';
+import { actualizarEmpresaAdministrativa, actualizarPerfil, alterarPalavraPasse, avaliarEmpresa, comprarBilhete, confirmarRecuperacaoPalavraPasse, confirmarRegistoUtilizador, criarTicketSuporte, decidirCadastroEmpresaAdministrativa, definirEstadoEmpresaAdministrativa, editarEmpresaAdministrativa, eliminarEmpresaAdministrativa, eliminarUtilizadorAdministrativo, enviarAvisoViagemAdministrativa, enviarMensagemSuporte, guardarConfiguracaoIa, guardarSessao, iniciarPagamentoSimulado, libertarReservaAssento, listarClientesAtendimento, listarLocalidades, obterAnaliseAssistenteEmpresa, obterBilhetePdf, obterEmpresaPublica, obterResumoConta, obterSessaoGuardada, perguntarAssistenteEmpresa, pesquisarBilhetesSuporte, pesquisarViagens, processarPagamentoSimulado, registarUtilizador, reservarAssento, solicitarOtpAlteracaoPalavraPasse, solicitarOtpAlteracaoPerfil, solicitarRecuperacaoPalavraPasse, terminarSessao, validarCupao } from './api.js';
 
 describe('sessão do passageiro', () => {
   beforeEach(() => {
@@ -64,6 +64,63 @@ describe('sessão do passageiro', () => {
       method: 'PUT',
       headers: expect.objectContaining({ Authorization: 'Bearer token-seguranca' })
     }));
+  });
+
+  it('protege a alteração de dados pessoais com OTP', async () => {
+    guardarSessao({ token: 'token-perfil' });
+    const fetchSimulado = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ dados: { nome: 'Ana', apelido: 'Mabote' } }) });
+    vi.stubGlobal('fetch', fetchSimulado);
+
+    const dados = { nome: 'Ana', apelido: 'Mabote', telefone: '+258841111111' };
+    await solicitarOtpAlteracaoPerfil(dados);
+    await actualizarPerfil({ ...dados, codigo: '123456' });
+
+    expect(fetchSimulado.mock.calls[0][0]).toContain('/autenticacao/perfil/solicitar-otp');
+    expect(fetchSimulado.mock.calls[0][1]).toEqual(expect.objectContaining({ method: 'POST' }));
+    expect(fetchSimulado.mock.calls[1][0]).toContain('/autenticacao/perfil');
+    expect(JSON.parse(fetchSimulado.mock.calls[1][1].body).codigo).toBe('123456');
+  });
+
+  it('consulta e pergunta ao assistente apenas pela API empresarial autenticada', async () => {
+    guardarSessao({ token: 'token-empresa' });
+    const fetchSimulado = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ dados: { escopo: 'EMPRESA_ACTUAL' } }) });
+    vi.stubGlobal('fetch', fetchSimulado);
+
+    await obterAnaliseAssistenteEmpresa();
+    await perguntarAssistenteEmpresa('Onde devo criar uma campanha?');
+
+    expect(fetchSimulado.mock.calls[0][0]).toContain('/gestao/assistente-empresa/analise');
+    expect(fetchSimulado.mock.calls[1][0]).toContain('/gestao/assistente-empresa/perguntar');
+    expect(JSON.parse(fetchSimulado.mock.calls[1][1].body)).toEqual({ pergunta: 'Onde devo criar uma campanha?' });
+    expect(fetchSimulado.mock.calls[1][1].headers.Authorization).toBe('Bearer token-empresa');
+  });
+
+  it('abre o perfil público e envia uma avaliação autenticada da empresa', async () => {
+    guardarSessao({ token: 'token-cliente' });
+    const fetchSimulado = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ dados: { id: 4 } }) });
+    vi.stubGlobal('fetch', fetchSimulado);
+
+    await obterEmpresaPublica('transportes maputo');
+    await avaliarEmpresa(4, { classificacao: 5, comentario: 'Boa viagem.' });
+
+    expect(fetchSimulado.mock.calls[0][0]).toContain('/catalogo/empresas/transportes%20maputo');
+    expect(fetchSimulado.mock.calls[1][0]).toContain('/catalogo/empresas/4/avaliacoes');
+    expect(fetchSimulado.mock.calls[1][1].method).toBe('POST');
+  });
+
+  it('pesquisa o bilhete e cria o atendimento sem empresa ou prioridade escolhidas pelo cliente', async () => {
+    guardarSessao({ token: 'token-cliente' });
+    const fetchSimulado = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ dados: [] }) });
+    vi.stubGlobal('fetch', fetchSimulado);
+
+    await pesquisarBilhetesSuporte('BIL-2026-001');
+    await criarTicketSuporte({ bilheteId: 8, assunto: 'Problema no embarque', mensagem: 'Não consigo abrir o bilhete.' });
+
+    expect(fetchSimulado.mock.calls[0][0]).toContain('/suporte/bilhetes/pesquisar?codigo=BIL-2026-001');
+    const corpo = JSON.parse(fetchSimulado.mock.calls[1][1].body);
+    expect(corpo).not.toHaveProperty('empresaId');
+    expect(corpo).not.toHaveProperty('prioridade');
+    expect(corpo.bilheteId).toBe(8);
   });
 
   it('valida o cupom no backend antes do pagamento', async () => {

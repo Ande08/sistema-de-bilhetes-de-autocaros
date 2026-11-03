@@ -45,8 +45,14 @@ export async function obterPerfil(req, res, next) {
 
 export async function actualizarPerfil(req, res, next) {
   try {
-    const utilizador = await servico.actualizarPerfil(req.utilizador.id, req.body);
-    return res.json({ sucesso: true, dados: utilizador });
+    const utilizador = await servicoOtp.confirmarAlteracaoDadosPessoais(req.utilizador.id, req.body);
+    return res.json({ sucesso: true, dados: await servico.obterPerfil(utilizador.id) });
+  } catch (erro) { return next(erro); }
+}
+
+export async function solicitarOtpAlteracaoPerfil(req, res, next) {
+  try {
+    return res.json({ sucesso: true, dados: await servicoOtp.solicitarAlteracaoDadosPessoais(req.utilizador.id, req.body) });
   } catch (erro) { return next(erro); }
 }
 

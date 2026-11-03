@@ -1,10 +1,11 @@
 import { Op } from 'sequelize';
 import { Empresa, Route, Trip } from '../models/index.js';
-import { obterIntervaloPesquisaViagens } from '../services/pesquisa-viagem.service.js';
+import { obterIntervaloPesquisaViagens, validarOrigemDestino } from '../services/pesquisa-viagem.service.js';
 
 export async function listTrips(req, res, next) {
   try {
   const { origem, destino, origemProvincia, destinoProvincia, empresaId, data, limite } = req.query;
+  validarOrigemDestino({ origem, destino, origemProvincia, destinoProvincia });
   const intervalo = obterIntervaloPesquisaViagens(data);
   const filtroPartida = intervalo.fim
     ? { [Op.between]: [intervalo.inicio, intervalo.fim] }
@@ -31,6 +32,7 @@ export async function listTrips(req, res, next) {
   return res.json({ sucesso: true, dados: viagens });
   } catch (erro) { return next(erro); }
 }
+
 
 export async function getTrip(req, res, next) {
   try {

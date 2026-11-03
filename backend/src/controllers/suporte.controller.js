@@ -1,4 +1,4 @@
-import { adicionarMensagem, atribuirTicket, actualizarEstadoTicket, criarTicket, listarGestoresSuporte, listarTickets, obterTicketPorId } from '../services/suporte.service.js';
+import { adicionarMensagem, atribuirTicket, actualizarEstadoTicket, criarTicket, listarGestoresSuporte, listarTickets, obterTicketPorId, pesquisarBilhetesParaSuporte } from '../services/suporte.service.js';
 import { registarAuditoria } from '../services/auditoria.service.js';
 import { guardarImagemSuporte, removerImagemSuporte } from '../services/anexo-suporte.service.js';
 import { responderAssistenteComIa } from '../services/assistente-ia.service.js';
@@ -11,12 +11,19 @@ export async function consultarAssistente(req, res, next) {
 }
 
 export async function abrirTicket(req, res, next) {
+  let anexo;
   try {
-    const ticket = await criarTicket(req.utilizador, req.body);
+    anexo = await guardarImagemSuporte(req.body.imagem);
+    const ticket = await criarTicket(req.utilizador, req.body, anexo || {});
     await registarAuditoria({ utilizadorId: req.utilizador.id, operacao: 'ABRIR_TICKET', entidade: 'tickets_suporte', entidadeId: ticket.id, valoresNovos: { codigo: ticket.codigo }, enderecoIp: req.ip });
     req.app.get('io')?.to(`empresa:${ticket.empresaId}`).emit('suporte:novo-ticket', ticket);
     return res.status(201).json({ sucesso: true, dados: ticket });
-  } catch (erro) { return next(erro); }
+  } catch (erro) { await removerImagemSuporte(anexo?.caminho); return next(erro); }
+}
+
+export async function pesquisarBilhetes(req, res, next) {
+  try { return res.json({ sucesso: true, dados: await pesquisarBilhetesParaSuporte(req.utilizador, req.query.codigo) }); }
+  catch (erro) { return next(erro); }
 }
 
 export async function obterTickets(req, res, next) {

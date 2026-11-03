@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { Bus, Route, Trip } from '../models/index.js';
 import { criarAssentosDoAutocarro } from '../services/assento.service.js';
 import { definirEstadoEntidade, obterPainelAdministrativo } from '../services/administracao.service.js';
@@ -92,10 +93,18 @@ export async function criarViagem(req, res, next) {
       arrivalExpectedAt: item.arrivalExpectedAt || item.fimParaConflito
     }));
     await garantirAutocarroDisponivel({ empresaId, autocarroId, ocorrencias: ocorrenciasParaConflito, transaction: transacao });
+    const tipoRecorrencia = recorrente ? String(tipoAgendamento).toUpperCase() : 'UNICA';
+    const grupoRecorrencia = recorrente ? randomUUID() : null;
+    const diasRecorrencia = tipoRecorrencia === 'SEMANAL'
+      ? [...new Set((req.body.diasSemana || []).map(Number))].sort().join(',')
+      : null;
     const viagens = await Trip.bulkCreate(ocorrencias.map((item) => ({
       empresaId, routeId: rotaId, busId: autocarroId,
       departureAt: item.departureAt, arrivalExpectedAt: item.arrivalExpectedAt,
-      price: Number(preco)
+      price: Number(preco), recurrenceType: tipoRecorrencia,
+      recurrenceGroupId: grupoRecorrencia, recurrenceDays: diasRecorrencia,
+      recurrenceStart: recorrente ? req.body.dataInicio : null,
+      recurrenceEnd: recorrente ? req.body.dataFim : null
     })), { transaction: transacao });
     await transacao.commit();
     return res.status(201).json({ sucesso: true, dados: viagens.length === 1 ? viagens[0] : viagens, totalCriadas: viagens.length });

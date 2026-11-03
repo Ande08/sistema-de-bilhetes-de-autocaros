@@ -62,6 +62,10 @@ export function actualizarPerfil(dados) {
   return requisicao('/autenticacao/perfil', { method: 'PUT', body: JSON.stringify(dados) });
 }
 
+export function solicitarOtpAlteracaoPerfil(dados) {
+  return requisicao('/autenticacao/perfil/solicitar-otp', { method: 'POST', body: JSON.stringify(dados) });
+}
+
 export function alterarPalavraPasse(dados) {
   return requisicao('/autenticacao/palavra-passe', { method: 'PUT', body: JSON.stringify(dados) });
 }
@@ -85,6 +89,14 @@ export function listarLocalidades() {
 
 export function listarEmpresas() {
   return requisicao('/catalogo/empresas');
+}
+
+export function obterEmpresaPublica(slug) {
+  return requisicao(`/catalogo/empresas/${encodeURIComponent(slug)}`);
+}
+
+export function avaliarEmpresa(id, dados) {
+  return requisicao(`/catalogo/empresas/${id}/avaliacoes`, { method: 'POST', body: JSON.stringify(dados) });
 }
 
 export function listarAssentos(viagemId) {
@@ -259,6 +271,14 @@ export function testarLigacaoIa() {
   return requisicao('/gestao/ia/testar', { method: 'POST' });
 }
 
+export function obterAnaliseAssistenteEmpresa() {
+  return requisicao('/gestao/assistente-empresa/analise');
+}
+
+export function perguntarAssistenteEmpresa(pergunta) {
+  return requisicao('/gestao/assistente-empresa/perguntar', { method: 'POST', body: JSON.stringify({ pergunta }) });
+}
+
 export function consultarAssistenteSuporte(mensagem) {
   return requisicao('/suporte/assistente', { method: 'POST', body: JSON.stringify({ mensagem }) });
 }
@@ -269,6 +289,12 @@ export function listarTicketsSuporte() {
 
 export function criarTicketSuporte(dados) {
   return requisicao('/suporte/tickets', { method: 'POST', body: JSON.stringify(dados) });
+}
+
+export function pesquisarBilhetesSuporte(codigo = '') {
+  const parametros = new URLSearchParams();
+  if (codigo) parametros.set('codigo', codigo);
+  return requisicao(`/suporte/bilhetes/pesquisar?${parametros}`);
 }
 
 export function obterTicketSuporte(id) {

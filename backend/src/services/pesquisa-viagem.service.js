@@ -29,6 +29,22 @@ export function obterIntervaloPesquisaViagens(dataInformada, agora = new Date())
   };
 }
 
+export function validarOrigemDestino({ origem, destino, origemProvincia, destinoProvincia }) {
+  if (!origem || !destino) return;
+  const mesmaCidade = normalizarLocalidade(origem) === normalizarLocalidade(destino);
+  const mesmaProvincia = !origemProvincia || !destinoProvincia
+    || normalizarLocalidade(origemProvincia) === normalizarLocalidade(destinoProvincia);
+  if (mesmaCidade && mesmaProvincia) {
+    const erro = new Error('A origem e o destino devem ser diferentes.');
+    erro.statusCode = 400;
+    throw erro;
+  }
+}
+
+function normalizarLocalidade(valor) {
+  return String(valor || '').trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
 function formatarDataMaputo(data) {
   const partes = new Intl.DateTimeFormat('en-CA', {
     timeZone: FUSO_MAPUTO, year: 'numeric', month: '2-digit', day: '2-digit'

@@ -70,14 +70,12 @@ async function obterPainelPlataforma() {
 
 async function obterPainelEmpresa(utilizador) {
   const escopo = filtroEmpresa(utilizador);
-  const filtroAuditoria = { model: User, attributes: ['id', 'nome', 'apelido', 'telefone'], where: { empresaId: utilizador.empresaId }, required: true };
-  const [usuarios, autocarros, rotas, viagens, bilhetes, auditorias, empresa, cupoes] = await Promise.all([
+  const [usuarios, autocarros, rotas, viagens, bilhetes, empresa, cupoes] = await Promise.all([
     User.findAll({ where: { eliminadoEm: null, empresaId: utilizador.empresaId }, attributes: ['id', 'nome', 'apelido', 'telefone', 'perfil', 'activo', 'empresaId'], order: [['id', 'DESC']], limit: 100 }),
     Bus.findAll({ where: escopo, order: [['id', 'DESC']], limit: 100 }),
     Route.findAll({ where: escopo, order: [['id', 'DESC']], limit: 100 }),
     Trip.findAll({ where: escopo, include: [Route, Bus], order: [['departureAt', 'DESC']], limit: 100 }),
     Bilhete.findAll({ include: [{ model: User, attributes: ['id', 'nome', 'apelido', 'telefone'] }, Assento, Cupao, { model: Trip, where: escopo, required: true, include: [Route, Bus] }, Pagamento], order: [['id', 'DESC']], limit: 100 }),
-    Auditoria.findAll({ include: [filtroAuditoria], order: [['id', 'DESC']], limit: 100 }),
     Empresa.findOne({ where: { id: utilizador.empresaId, eliminadaEm: null } }),
     Cupao.findAll({ where: escopo, order: [['criado_em', 'DESC']], limit: 200 })
   ]);
@@ -86,7 +84,7 @@ async function obterPainelEmpresa(utilizador) {
   return {
     tipoPainel: 'EMPRESA',
     indicadores: construirIndicadores({ passageiros: passageirosIndicador, autocarros, viagens, bilhetes, receitaAprovada }),
-    passageiros: usuarios, autocarros, rotas, viagens, bilhetes, auditorias, empresa, cupoes,
+    passageiros: usuarios, autocarros, rotas, viagens, bilhetes, auditorias: [], empresa, cupoes,
     empresas: [], volumeVendas: []
   };
 }

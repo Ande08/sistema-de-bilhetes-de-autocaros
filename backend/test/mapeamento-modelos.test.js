@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Assento, Bilhete, Bus, EnvioWhatsapp, MensagemSuporte, Pagamento, Route, TicketSuporte, Trip, User } from '../src/models/index.js';
+import { Assento, Bilhete, Bus, EnvioWhatsapp, MensagemSuporte, Pagamento, Route, TicketSuporte, Trip, User, VerificacaoOtp } from '../src/models/index.js';
 
 test('modelos usam os mesmos nomes de colunas das migrations', () => {
   const casos = [
@@ -13,10 +13,15 @@ test('modelos usam os mesmos nomes de colunas das migrations', () => {
     [Trip, 'busId', 'autocarro_id'],
     [Trip, 'departureAt', 'partida_em'],
     [Trip, 'price', 'preco'],
+    [Trip, 'recurrenceType', 'tipo_recorrencia'],
+    [Trip, 'recurrenceDays', 'dias_recorrencia'],
     [Assento, 'autocarroId', 'autocarro_id'],
     [Bilhete, 'utilizadorId', 'utilizador_id'],
     [Pagamento, 'bilheteId', 'bilhete_id'],
     [TicketSuporte, 'gestorId', 'gestor_id'],
+    [TicketSuporte, 'bilheteId', 'bilhete_id'],
+    [TicketSuporte, 'prioridadePontuacao', 'prioridade_pontuacao'],
+    [VerificacaoOtp, 'novoTelefone', 'novo_telefone'],
     [MensagemSuporte, 'ticketId', 'ticket_id'],
     [EnvioWhatsapp, 'chaveIdempotencia', 'chave_idempotencia'],
     [EnvioWhatsapp, 'proximaTentativaEm', 'proxima_tentativa_em']

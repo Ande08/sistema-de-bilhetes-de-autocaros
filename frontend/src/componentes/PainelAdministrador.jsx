@@ -3,13 +3,14 @@ import Icone from './Icone.jsx';
 import ChatTicketSuporte, { traduzirEstado } from './ChatTicketSuporte.jsx';
 import { ModalCampo, ModalConfirmacao } from './Modal.jsx';
 import SelecaoLocalidade from './SelecaoLocalidade.jsx';
-import { URL_SERVIDOR, actualizarCupaoAdministrativo, actualizarEmpresaAdministrativa, actualizarUtilizadorAdministrativo, actualizarViagemAdministrativa, alterarPalavraPasse, atribuirTicketSuporte, cancelarViagemAdministrativa, criarAutocarro, criarCupaoAdministrativo, criarEmpresaAdministrativa, criarRota, criarUtilizadorAdministrativo, criarViagem, decidirCadastroEmpresaAdministrativa, definirEstadoAdministrativo, definirEstadoCupaoAdministrativo, definirEstadoEmpresaAdministrativa, editarEmpresaAdministrativa, eliminarEmpresaAdministrativa, eliminarUtilizadorAdministrativo, enviarAvisoViagemAdministrativa, guardarConfiguracaoIa, iniciarWhatsApp, listarGestoresSuporte, listarModelosIa, listarTicketsSuporte, obterConfiguracaoIa, obterEstadoWhatsApp, obterPainelAdministrativo, redefinirPalavraPasseAdministrativa, repetirEnvioWhatsapp, solicitarOtpAlteracaoPalavraPasse, testarLigacaoIa } from '../servicos/api.js';
+import PaginaContaUtilizador from './PaginaContaUtilizador.jsx';
+import { URL_SERVIDOR, actualizarCupaoAdministrativo, actualizarEmpresaAdministrativa, actualizarUtilizadorAdministrativo, actualizarViagemAdministrativa, alterarPalavraPasse, atribuirTicketSuporte, cancelarViagemAdministrativa, criarAutocarro, criarCupaoAdministrativo, criarEmpresaAdministrativa, criarRota, criarUtilizadorAdministrativo, criarViagem, decidirCadastroEmpresaAdministrativa, definirEstadoAdministrativo, definirEstadoCupaoAdministrativo, definirEstadoEmpresaAdministrativa, editarEmpresaAdministrativa, eliminarEmpresaAdministrativa, eliminarUtilizadorAdministrativo, enviarAvisoViagemAdministrativa, guardarConfiguracaoIa, iniciarWhatsApp, listarGestoresSuporte, listarModelosIa, listarTicketsSuporte, obterAnaliseAssistenteEmpresa, obterConfiguracaoIa, obterEstadoWhatsApp, obterPainelAdministrativo, perguntarAssistenteEmpresa, redefinirPalavraPasseAdministrativa, repetirEnvioWhatsapp, solicitarOtpAlteracaoPalavraPasse, testarLigacaoIa } from '../servicos/api.js';
 import { formatarValor } from '../utilitarios/moeda.js';
 
 const secoesPlataforma = ['Visão geral', 'Empresas', 'Administradores', 'Volume de vendas', 'Inteligência artificial', 'WhatsApp', 'Auditoria', 'Minha conta'];
-const secoesEmpresa = ['Dados da empresa', 'Visão geral', 'Atendentes', 'Autocarros', 'Rotas', 'Viagens', 'Cupões', 'Bilhetes', 'Suporte', 'Auditoria', 'Minha conta'];
+const secoesEmpresa = ['Dados da empresa', 'Visão geral', 'Assistente IA', 'Atendentes', 'Autocarros', 'Rotas', 'Viagens', 'Cupões', 'Bilhetes', 'Suporte', 'Minha conta'];
 
-export default function PainelAdministrador({ utilizador, aoSair }) {
+export default function PainelAdministrador({ utilizador, aoSair, aoActualizarUtilizador }) {
   const secoes = utilizador.perfil === 'ADMIN' ? secoesPlataforma : secoesEmpresa;
   const [secao, setSecao] = useState(utilizador.perfil === 'EMPRESA_ADMIN' ? 'Dados da empresa' : 'Visão geral');
   const [dados, setDados] = useState(null);
@@ -55,12 +56,12 @@ export default function PainelAdministrador({ utilizador, aoSair }) {
     <main className="admin-conteudo">
       <header className="admin-topo"><div><p>{utilizador.empresa?.nome || 'Painel da plataforma'}</p><h1>{secao}</h1></div><div className="perfil-topo"><span className="avatar">{utilizador.nome.charAt(0)}</span><div><strong>{nomePessoa(utilizador)}</strong><small>Administrador</small></div></div></header>
       {mensagem && <p className="mensagem-formulario sucesso">{mensagem}</p>}{erro && <p className="mensagem-formulario erro">{erro}</p>}
-      {!dados ? <div className="painel-carregando vidro">A carregar informações administrativas...</div> : <ConteudoAdministrativo secao={secao} dados={dados} executar={executar} submeter={submeter} utilizador={utilizador} />}
+      {!dados ? <div className="painel-carregando vidro">A carregar informações administrativas...</div> : <ConteudoAdministrativo secao={secao} dados={dados} executar={executar} submeter={submeter} utilizador={utilizador} aoActualizarUtilizador={aoActualizarUtilizador} />}
     </main>
   </div>;
 }
 
-function ConteudoAdministrativo({ secao, dados, executar, submeter, utilizador }) {
+function ConteudoAdministrativo({ secao, dados, executar, submeter, utilizador, aoActualizarUtilizador }) {
   if (secao === 'Dados da empresa') return <PaginaDadosEmpresa empresa={dados.empresa} executar={executar} />;
   if (secao === 'Empresas') return <PaginaEmpresas empresas={dados.empresas || []} executar={executar} />;
   if (secao === 'Administradores') return <PaginaUtilizadores utilizadores={dados.passageiros} empresas={dados.empresas || []} executar={executar} administrador={utilizador} />;
@@ -68,14 +69,15 @@ function ConteudoAdministrativo({ secao, dados, executar, submeter, utilizador }
   if (secao === 'Volume de vendas') return <TabelaGestao titulo="Volume de vendas por empresa" colunas={['Empresa', 'Emitidos', 'Utilizados', 'Cancelados', 'Total válido']} linhas={(dados.volumeVendas || []).map((item) => [item.empresa, item.emitidos, item.utilizados, item.cancelados, item.total])} />;
   if (secao === 'Autocarros') return <><FormularioAutocarro aoSubmeter={(e) => submeter(e, criarAutocarro, 'Autocarro criado com sucesso.')} /><TabelaGestao titulo="Frota" colunas={['ID', 'Matrícula', 'Modelo', 'Capacidade', 'Distribuição', 'Estado', 'Criado em', 'Ação']} linhas={dados.autocarros.map((item) => [item.id, item.registration, item.model, item.capacity, `${item.seatsLeft || 2} + ${item.seatsRight || 2}`, item.active ? 'Ativo' : 'Inativo', formatarData(item.criado_em), <BotaoEstado activo={item.active} aoClicar={() => executar(() => definirEstadoAdministrativo('autocarros', item.id, !item.active), 'Estado do autocarro atualizado.')} />])} /></>;
   if (secao === 'Rotas') return <><FormularioRota aoSubmeter={(e) => submeter(e, criarRota, 'Rota criada com sucesso.')} /><TabelaGestao titulo="Rotas" colunas={['ID', 'Origem', 'Destino', 'Distância', 'Estado', 'Criada em', 'Ação']} linhas={dados.rotas.map((item) => [item.id, `${item.origin} (${item.originProvince})`, `${item.destination} (${item.destinationProvince})`, item.distanceKm ? `${item.distanceKm} km` : '—', item.active ? 'Ativa' : 'Inativa', formatarData(item.criado_em), <BotaoEstado activo={item.active} aoClicar={() => executar(() => definirEstadoAdministrativo('rotas', item.id, !item.active), 'Estado da rota atualizado.')} />])} /></>;
-  if (secao === 'Viagens') return <><FormularioViagem rotas={dados.rotas.filter((item) => item.active)} autocarros={dados.autocarros.filter((item) => item.active)} aoSubmeter={(e) => submeter(e, criarViagem, 'Agendamento criado com sucesso.')} /><TabelaGestao titulo="Viagens" colunas={['ID', 'Rota', 'Autocarro', 'Partida', 'Chegada', 'Preço', 'Estado', 'Ações']} linhas={dados.viagens.map((item) => [item.id, `${item.Route?.origin} → ${item.Route?.destination}`, `${item.Bus?.registration || '—'} · ${item.Bus?.model || ''}`, formatarData(item.departureAt), item.arrivalExpectedAt ? formatarData(item.arrivalExpectedAt) : '—', formatarValor(item.price), item.status, <AcoesViagem viagem={item} executar={executar} />])} /></>;
+  if (secao === 'Viagens') return <><FormularioViagem rotas={dados.rotas.filter((item) => item.active)} autocarros={dados.autocarros.filter((item) => item.active)} aoSubmeter={(e) => submeter(e, criarViagem, 'Agendamento criado com sucesso.')} /><TabelaGestao titulo="Viagens" colunas={['ID', 'Rota', 'Autocarro', 'Frequência', 'Partida', 'Chegada', 'Preço', 'Estado', 'Ações']} linhas={dados.viagens.map((item) => [item.id, `${item.Route?.origin} → ${item.Route?.destination}`, `${item.Bus?.registration || '—'} · ${item.Bus?.model || ''}`, descreverFrequencia(item), formatarData(item.departureAt), item.arrivalExpectedAt ? formatarData(item.arrivalExpectedAt) : '—', formatarValor(item.price), item.status, <AcoesViagem viagem={item} executar={executar} />])} /></>;
   if (secao === 'Cupões') return <PaginaCupons cupoes={dados.cupoes || []} executar={executar} />;
   if (secao === 'Bilhetes') return <TabelaGestao titulo="Bilhetes emitidos" colunas={['Código', 'Passageiro', 'Rota', 'Autocarro', 'Assento', 'Pagamento', 'Referência', 'Cupão', 'Desconto', 'Preço', 'Estado', 'Emitido em']} linhas={dados.bilhetes.map((item) => [item.codigo, item.User ? nomePessoa(item.User) : item.nomePassageiro, `${item.Trip?.Route?.origin || ''} → ${item.Trip?.Route?.destination || ''}`, item.Trip?.Bus?.registration || '—', item.Assento?.numero || '—', item.Pagamento?.metodo || '—', item.Pagamento?.referencia || '—', item.Cupao?.codigo || '—', formatarValor(item.desconto || 0), formatarValor(item.preco), item.estado, formatarData(item.criado_em)])} />;
   if (secao === 'Suporte') return <PaginaGestaoSuporte />;
   if (secao === 'Inteligência artificial') return <PaginaInteligenciaArtificial />;
+  if (secao === 'Assistente IA') return <PaginaAssistenteEmpresa />;
   if (secao === 'WhatsApp') return <PaginaWhatsApp />;
-  if (secao === 'Auditoria') return <PaginaAuditoria auditorias={dados.auditorias} />;
-  if (secao === 'Minha conta') return <PaginaSegurancaConta />;
+  if (secao === 'Auditoria' && utilizador.perfil === 'ADMIN') return <PaginaAuditoria auditorias={dados.auditorias} />;
+  if (secao === 'Minha conta') return <PaginaContaUtilizador utilizador={utilizador} aoActualizarUtilizador={aoActualizarUtilizador} />;
   return <VisaoGeral dados={dados} />;
 }
 
@@ -125,6 +127,43 @@ function PaginaCupons({ cupoes, executar }) {
       <span className="admin-acoes"><button onClick={() => setEmEdicao(cupao)}>Editar</button><BotaoEstado activo={cupao.activo} aoClicar={() => executar(() => definirEstadoCupaoAdministrativo(cupao.id, !cupao.activo), `Cupão ${cupao.activo ? 'desativado' : 'ativado'} com sucesso.`)} /></span>
     ])} />
   </>;
+}
+
+function PaginaAssistenteEmpresa() {
+  const [analise, setAnalise] = useState(null);
+  const [mensagens, setMensagens] = useState([{ autor: 'IA', texto: 'Posso analisar volume financeiro, procura por rota e oportunidades de campanha usando apenas os dados desta empresa.' }]);
+  const [erro, setErro] = useState('');
+  const [aProcessar, setAProcessar] = useState(false);
+
+  useEffect(() => { obterAnaliseAssistenteEmpresa().then(setAnalise).catch((falha) => setErro(falha.message)); }, []);
+
+  async function perguntar(evento) {
+    evento.preventDefault();
+    const formulario = evento.currentTarget;
+    const pergunta = new FormData(formulario).get('pergunta').trim();
+    if (!pergunta) return;
+    setMensagens((itens) => [...itens, { autor: 'ADMIN', texto: pergunta }]);
+    formulario.reset(); setAProcessar(true); setErro('');
+    try {
+      const resultado = await perguntarAssistenteEmpresa(pergunta);
+      setAnalise(resultado.analise);
+      setMensagens((itens) => [...itens, { autor: 'IA', texto: resultado.resposta }]);
+    } catch (falha) { setErro(falha.message); }
+    finally { setAProcessar(false); }
+  }
+
+  return <section className="pagina-assistente-empresa">
+    {analise && <div className="indicadores-assistente-empresa">{[
+      ['Viagens agendadas', analise.indicadores.viagensAgendadas],
+      ['Bilhetes aprovados', analise.indicadores.bilhetesVendidos],
+      ['Volume aprovado', formatarValor(analise.indicadores.volumeAprovado)],
+      ['Valor médio', formatarValor(analise.indicadores.valorMedio)]
+    ].map(([titulo, valor]) => <article className="vidro" key={titulo}><small>{titulo}</small><strong>{valor}</strong></article>)}</div>}
+    <div className="grelha-assistente-empresa">
+      <article className="chat-assistente-empresa vidro"><header><div><h3>Assistente analítico</h3><small>Dados confirmados e limitados à sua empresa</small></div><span>Escopo privado</span></header><div className="mensagens-assistente-empresa">{mensagens.map((item, indice) => <p key={indice} className={item.autor === 'IA' ? 'resposta-ia' : 'pergunta-utilizador'}>{item.texto}</p>)}</div><form onSubmit={perguntar}><input name="pergunta" maxLength="1000" placeholder="Ex.: Em que rotas devo fazer campanhas?" required /><button disabled={aProcessar}>{aProcessar ? 'A analisar...' : 'Perguntar'}</button></form>{erro && <p className="mensagem-formulario erro">{erro}</p>}</article>
+      <aside className="recomendacoes-assistente vidro"><h3>Recomendações atuais</h3>{analise?.recomendacoes?.map((item) => <p key={item}>{item}</p>)}<h3>Rotas com maior procura</h3>{analise?.melhoresRotas?.length ? analise.melhoresRotas.map((item) => <div key={item.rota}><strong>{item.rota}</strong><small>{item.bilhetes} bilhetes · {formatarValor(item.volume)}</small></div>) : <p>Ainda não existem dados suficientes.</p>}<small className="nota-privacidade-assistente">Nenhum dado de outra empresa ou informação pessoal de clientes é utilizado neste relatório.</small></aside>
+    </div>
+  </section>;
 }
 
 function PaginaSegurancaConta() {
@@ -269,7 +308,7 @@ function PaginaGestaoSuporte() {
   }
 
   if (ticketActivo) return <><button className="botao-voltar-suporte" onClick={() => { setTicketActivo(null); carregar(); }}>Voltar aos tickets</button><ChatTicketSuporte ticketId={ticketActivo} perfil="EMPRESA_ADMIN" aoActualizar={carregar} /></>;
-  return <section className="admin-tabela vidro"><div className="titulo-secao"><div><h3>Gestão de suporte</h3><p>Atribua os pedidos à equipa e acompanhe os atendimentos.</p></div><span>{tickets.length} tickets</span></div>{erro && <p className="mensagem-formulario erro">{erro}</p>}<div className="admin-tabela-scroll"><table><thead><tr><th>Código</th><th>Passageiro</th><th>Assunto</th><th>Prioridade</th><th>Estado</th><th>Gestor responsável</th><th>Ação</th></tr></thead><tbody>{tickets.map((ticket) => <tr key={ticket.id}><td>{ticket.codigo}</td><td>{nomePessoa(ticket.Passageiro)}</td><td>{ticket.assunto}</td><td>{ticket.prioridade}</td><td><b className={`estado-suporte estado-${ticket.estado.toLowerCase()}`}>{traduzirEstado(ticket.estado)}</b></td><td><select value={ticket.gestorId || ''} onChange={(evento) => atribuir(evento, ticket.id)}><option value="">Não atribuído</option>{gestores.map((gestor) => <option key={gestor.id} value={gestor.id}>{nomePessoa(gestor)}</option>)}</select></td><td><button className="admin-activar" onClick={() => setTicketActivo(ticket.id)}>Abrir</button></td></tr>)}</tbody></table></div></section>;
+  return <section className="admin-tabela vidro"><div className="titulo-secao"><div><h3>Gestão de suporte</h3><p>Atribua os pedidos à equipa e acompanhe os atendimentos.</p></div><span>{tickets.length} tickets</span></div>{erro && <p className="mensagem-formulario erro">{erro}</p>}<div className="admin-tabela-scroll"><table><thead><tr><th>Código</th><th>Bilhete</th><th>Passageiro</th><th>Assunto</th><th>Prioridade automática</th><th>Estado</th><th>Gestor responsável</th><th>Ação</th></tr></thead><tbody>{tickets.map((ticket) => <tr key={ticket.id}><td>{ticket.codigo}</td><td>{ticket.Bilhete?.codigo || '—'}</td><td>{nomePessoa(ticket.Passageiro)}</td><td>{ticket.assunto}</td><td><span className="prioridade-ticket"><strong>{ticket.prioridade} · {ticket.prioridadePontuacao}/100</strong><small>{ticket.prioridadeMotivo}</small></span></td><td><b className={`estado-suporte estado-${ticket.estado.toLowerCase()}`}>{traduzirEstado(ticket.estado)}</b></td><td><select value={ticket.gestorId || ''} onChange={(evento) => atribuir(evento, ticket.id)}><option value="">Não atribuído</option>{gestores.map((gestor) => <option key={gestor.id} value={gestor.id}>{nomePessoa(gestor)}</option>)}</select></td><td><button className="admin-activar" onClick={() => setTicketActivo(ticket.id)}>Abrir</button></td></tr>)}</tbody></table></div></section>;
 }
 
 function PaginaEmpresas({ empresas, executar }) {
@@ -610,6 +649,15 @@ function formatarEnderecoIp(valor) {
   if (!valor) return '—';
   if (valor.startsWith('::ffff:')) return valor.slice(7);
   return valor === '::1' ? '127.0.0.1' : valor;
+}
+function descreverFrequencia(viagem) {
+  if (viagem.recurrenceType === 'DIARIA') return `Diária · ${viagem.recurrenceStart || '—'} a ${viagem.recurrenceEnd || '—'}`;
+  if (viagem.recurrenceType === 'SEMANAL') {
+    const nomes = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+    const dias = String(viagem.recurrenceDays || '').split(',').filter(Boolean).map((dia) => nomes[Number(dia)]).join(', ');
+    return `Semanal (${dias || 'dias não registados'})`;
+  }
+  return 'Única';
 }
 function formatarDataFormulario(valor) {
   if (!valor) return '';
