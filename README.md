@@ -61,6 +61,8 @@ Utilizado em `src/builders/ticket.builder.js` para construir bilhetes com passag
 
 Utilizado pela instância única do Sequelize exportada em `src/config/database.js` e pela instância `servicoWhatsApp` executada exclusivamente no trabalhador `backend/src/workers/whatsapp.worker.js`. Serve para manter uma única ligação lógica à base de dados e uma única sessão WhatsApp durante a execução.
 
+Cada processo limita o pool Sequelize através de `DB_POOL_MAX` (padrão 5) e a cache do `mysql2` através de `DB_MAX_PREPARED_STATEMENTS_PER_CONNECTION` (padrão 250). A API e o trabalhador WhatsApp fecham o Sequelize ao receber `SIGTERM` ou `SIGINT`. Estas medidas impedem que reinícios do PM2 conservem ligações e que o sistema esgote o limite global de prepared statements do MySQL partilhado com outras aplicações.
+
 ### Prototype
 
 Não é utilizado atualmente. Poderá ser usado no futuro para clonar bilhetes ou objetos semelhantes.

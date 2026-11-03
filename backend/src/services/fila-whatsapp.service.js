@@ -60,11 +60,12 @@ export async function repetirEnvioWhatsapp(id) {
 }
 
 class ProcessadorFilaWhatsapp {
-  constructor() { this.aProcessar = false; this.temporizador = null; this.iniciado = false; }
+  constructor() { this.aProcessar = false; this.temporizador = null; this.iniciado = false; this.encerrando = false; }
 
   async iniciar() {
     if (this.iniciado) return;
     this.iniciado = true;
+    this.encerrando = false;
     // Um encerramento inesperado não pode deixar mensagens presas em PROCESSANDO.
     await EnvioWhatsapp.update({ estado: 'PENDENTE', proximaTentativaEm: new Date() }, { where: { estado: 'PROCESSANDO' } });
     await limparHistoricoAntigo();
@@ -73,10 +74,20 @@ class ProcessadorFilaWhatsapp {
     this.acordar();
   }
 
-  acordar() { setTimeout(() => this.processar().catch((erro) => console.error('Falha no processador WhatsApp:', erro.message)), 0); }
+  acordar() {
+    if (this.encerrando) return;
+    setTimeout(() => this.processar().catch((erro) => console.error('Falha no processador WhatsApp:', erro.message)), 0);
+  }
+
+  parar() {
+    this.encerrando = true;
+    this.iniciado = false;
+    clearInterval(this.temporizador);
+    this.temporizador = null;
+  }
 
   async processar() {
-    if (this.aProcessar || servicoWhatsApp.obterEstado().estado !== 'LIGADO') return;
+    if (this.encerrando || this.aProcessar || servicoWhatsApp.obterEstado().estado !== 'LIGADO') return;
     this.aProcessar = true;
     try {
       await EnvioWhatsapp.update({ estado: 'EXPIRADO', ultimoErro: 'Prazo de entrega expirado.' }, {
