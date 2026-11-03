@@ -9,7 +9,7 @@ import { ModalConfirmacao } from './componentes/Modal.jsx';
 import { URL_SERVIDOR, actualizarPerfil, alterarPalavraPasse, cancelarBilhete, comprarBilhete, confirmarRecuperacaoPalavraPasse, confirmarRegistoUtilizador, guardarSessao, iniciarPagamentoSimulado, iniciarSessao, obterBilhetePdf, obterPerfil, obterResumoConta, obterSessaoGuardada, pesquisarViagens, processarPagamentoSimulado, registarUtilizador, solicitarOtpAlteracaoPalavraPasse, solicitarRecuperacaoPalavraPasse, terminarSessao, validarCupao } from './servicos/api.js';
 import useSelecaoAssentosTempoReal from './hooks/useSelecaoAssentosTempoReal.js';
 import { formatarValor } from './utilitarios/moeda.js';
-import { normalizarLocalizacaoHabitual, temViagemActivaHoje } from './utilitarios/viagens-inicio.js';
+import { normalizarLocalizacaoHabitual, obterDataHojeMaputo, temViagemActivaHoje } from './utilitarios/viagens-inicio.js';
 
 const itensMenu = [
   ['inicio', 'Início'], ['viagens', 'Minhas Viagens'], ['bilhete', 'Bilhetes'],
@@ -216,7 +216,7 @@ function PesquisaViagensInicio({ aoEscolherViagem }) {
     <form className="formulario-pesquisa-inicio" onSubmit={pesquisar}>
       <SelecaoLocalidade prefixo="origem" titulo="Origem" valorInicialProvincia={localizacao?.provincia} valorInicialCidade={localizacao?.cidade} />
       <SelecaoLocalidade prefixo="destino" titulo="Destino" />
-      <label>Data da viagem <small>Opcional</small><input name="data" type="date" min={new Date().toISOString().slice(0, 10)} /></label>
+      <label>Data da viagem <small>Opcional</small><input name="data" type="date" min={obterDataHojeMaputo()} /></label>
       <button className="botao-pesquisar" disabled={aPesquisar}><Icone nome="pesquisa" /> {aPesquisar ? 'A pesquisar...' : 'Pesquisar'}</button>
     </form>
     {erro && <p className="mensagem-formulario erro" role="alert">{erro}</p>}
@@ -504,7 +504,7 @@ function FluxoCompra({ utilizador, viagemInicial, aoFechar, aoComprar }) {
       {etapa === 'pesquisa' && <form className="formulario-nova-viagem pesquisa-compra" onSubmit={pesquisar}>
         <SelecaoLocalidade prefixo="origem" titulo="Origem" />
         <SelecaoLocalidade prefixo="destino" titulo="Destino" />
-        <label>Data da viagem <small>Opcional; sem data mostramos hoje e os próximos dias.</small><input name="data" type="date" min={new Date().toISOString().slice(0, 10)} /></label>
+        <label>Data da viagem <small>Opcional; sem data mostramos hoje e os próximos dias.</small><input name="data" type="date" min={obterDataHojeMaputo()} /></label>
         <button disabled={aProcessar} type="submit" className="botao-pesquisar"><Icone nome="pesquisa" /> {aProcessar ? 'A pesquisar...' : 'Pesquisar viagens'}</button>
       </form>}
 

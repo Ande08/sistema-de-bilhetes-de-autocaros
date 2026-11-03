@@ -14,6 +14,14 @@ export function obterIntervaloPesquisaViagens(dataInformada, agora = new Date())
     throw erroDataInvalida();
   }
 
+  // A validação no servidor impede pesquisas retroativas mesmo quando alguém
+  // ignora o limite do campo HTML ou envia o pedido diretamente para a API.
+  if (data < formatarDataMaputo(agora)) {
+    const erro = new Error('A data da viagem não pode ser anterior a hoje.');
+    erro.statusCode = 400;
+    throw erro;
+  }
+
   return {
     data,
     inicio: agora > inicioDoDia ? agora : inicioDoDia,

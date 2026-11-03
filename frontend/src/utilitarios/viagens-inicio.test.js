@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizarLocalizacaoHabitual, temViagemActivaHoje } from './viagens-inicio.js';
+import { normalizarLocalizacaoHabitual, obterDataHojeMaputo, temViagemActivaHoje } from './viagens-inicio.js';
 
 describe('conteúdo inicial do passageiro', () => {
   it('reconhece um bilhete ativo para o dia atual', () => {
@@ -18,5 +18,9 @@ describe('conteúdo inicial do passageiro', () => {
   it('aceita apenas uma localização habitual completa', () => {
     expect(normalizarLocalizacaoHabitual({ provincia: ' Sofala ', cidade: ' Beira ' })).toEqual({ provincia: 'Sofala', cidade: 'Beira' });
     expect(normalizarLocalizacaoHabitual({ provincia: 'Sofala' })).toBeNull();
+  });
+
+  it('calcula a data mínima segundo a hora de Maputo e não segundo UTC', () => {
+    expect(obterDataHojeMaputo(new Date('2026-11-02T22:30:00.000Z'))).toBe('2026-11-03');
   });
 });

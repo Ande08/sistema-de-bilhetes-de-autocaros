@@ -23,3 +23,11 @@ test('com data opcional pesquisa o dia escolhido sem incluir partidas passadas',
 test('rejeita datas inexistentes', () => {
   assert.throws(() => obterIntervaloPesquisaViagens('2026-02-30'), /data informada é inválida/i);
 });
+
+test('rejeita uma data anterior ao dia atual em Maputo', () => {
+  const agora = new Date('2026-11-03T00:30:00.000Z'); // 02:30 em Maputo
+  assert.throws(
+    () => obterIntervaloPesquisaViagens('2026-11-02', agora),
+    (erro) => erro.statusCode === 400 && /anterior a hoje/i.test(erro.message)
+  );
+});

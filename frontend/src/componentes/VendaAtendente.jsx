@@ -10,6 +10,7 @@ import {
   processarPagamentoSimulado
 } from '../servicos/api.js';
 import { formatarValor } from '../utilitarios/moeda.js';
+import { obterDataHojeMaputo } from '../utilitarios/viagens-inicio.js';
 import useSelecaoAssentosTempoReal from '../hooks/useSelecaoAssentosTempoReal.js';
 
 export default function VendaAtendente() {
@@ -77,7 +78,7 @@ export default function VendaAtendente() {
       <form className="pesquisa-venda" onSubmit={pesquisar}>
         <SelecaoLocalidade prefixo="origem" titulo="Origem" />
         <SelecaoLocalidade prefixo="destino" titulo="Destino" />
-        <label>Data <small>Opcional; sem data mostra hoje e os próximos dias.</small><input name="data" type="date" min={new Date().toISOString().slice(0, 10)} /></label>
+        <label>Data <small>Opcional; sem data mostra hoje e os próximos dias.</small><input name="data" type="date" min={obterDataHojeMaputo()} /></label>
         <button disabled={aProcessar}>{aProcessar ? 'A processar...' : 'Pesquisar'}</button>
       </form>
       {viagens.length > 0 && <div className="lista-venda-viagens">{viagens.map((item) => <button key={item.id} className={String(viagem?.id) === String(item.id) ? 'seleccionada' : ''} onClick={() => escolherViagem(item)}><span><strong>{item.Route?.origin} → {item.Route?.destination}</strong><small>{item.Empresa?.nome} · {formatarData(item.departureAt)}</small></span><b>{formatarValor(item.price)}</b></button>)}</div>}
