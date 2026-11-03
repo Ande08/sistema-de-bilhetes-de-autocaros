@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { actualizarEmpresaAdministrativa, actualizarPerfil, alterarPalavraPasse, avaliarEmpresa, comprarBilhete, confirmarRecuperacaoPalavraPasse, confirmarRegistoUtilizador, criarTicketSuporte, decidirCadastroEmpresaAdministrativa, definirEstadoEmpresaAdministrativa, editarEmpresaAdministrativa, eliminarEmpresaAdministrativa, eliminarUtilizadorAdministrativo, enviarAvisoViagemAdministrativa, enviarMensagemSuporte, guardarConfiguracaoIa, guardarSessao, iniciarPagamentoSimulado, libertarReservaAssento, listarClientesAtendimento, listarLocalidades, obterAnaliseAssistenteEmpresa, obterBilhetePdf, obterEmpresaPublica, obterResumoConta, obterSessaoGuardada, perguntarAssistenteEmpresa, pesquisarBilhetesSuporte, pesquisarViagens, processarPagamentoSimulado, registarUtilizador, reservarAssento, solicitarOtpAlteracaoPalavraPasse, solicitarOtpAlteracaoPerfil, solicitarRecuperacaoPalavraPasse, terminarSessao, validarCupao } from './api.js';
+import { actualizarEmpresaAdministrativa, actualizarPerfil, alterarPalavraPasse, avaliarEmpresa, comprarBilhete, confirmarRecuperacaoPalavraPasse, confirmarRegistoUtilizador, criarTicketSuporte, decidirCadastroEmpresaAdministrativa, definirEstadoEmpresaAdministrativa, editarEmpresaAdministrativa, eliminarEmpresaAdministrativa, eliminarUtilizadorAdministrativo, enviarAvisoViagemAdministrativa, enviarMensagemSuporte, guardarConfiguracaoIa, guardarSessao, iniciarPagamentoSimulado, libertarReservaAssento, listarClientesAtendimento, listarLocalidades, obterAnaliseAssistenteEmpresa, obterBilhetePdf, obterEmpresaPublica, obterRelatorioFinanceiroEmpresa, obterResumoConta, obterSessaoGuardada, perguntarAssistenteEmpresa, pesquisarBilhetesSuporte, pesquisarViagens, processarPagamentoSimulado, registarUtilizador, reservarAssento, solicitarOtpAlteracaoPalavraPasse, solicitarOtpAlteracaoPerfil, solicitarRecuperacaoPalavraPasse, terminarSessao, validarCupao } from './api.js';
 
 describe('sessão do passageiro', () => {
   beforeEach(() => {
@@ -93,6 +93,19 @@ describe('sessão do passageiro', () => {
     expect(fetchSimulado.mock.calls[1][0]).toContain('/gestao/assistente-empresa/perguntar');
     expect(JSON.parse(fetchSimulado.mock.calls[1][1].body)).toEqual({ pergunta: 'Onde devo criar uma campanha?' });
     expect(fetchSimulado.mock.calls[1][1].headers.Authorization).toBe('Bearer token-empresa');
+  });
+
+  it('descarrega o relatório financeiro da empresa com período e autenticação', async () => {
+    guardarSessao({ token: 'token-empresa' });
+    const ficheiro = new Blob(['%PDF-1.7'], { type: 'application/pdf' });
+    const fetchSimulado = vi.fn().mockResolvedValue({ ok: true, blob: async () => ficheiro });
+    vi.stubGlobal('fetch', fetchSimulado);
+
+    const resposta = await obterRelatorioFinanceiroEmpresa({ inicio: '2026-11-01', fim: '2026-11-30' });
+
+    expect(resposta.type).toBe('application/pdf');
+    expect(fetchSimulado.mock.calls[0][0]).toContain('/gestao/assistente-empresa/relatorio-financeiro.pdf?inicio=2026-11-01&fim=2026-11-30');
+    expect(fetchSimulado.mock.calls[0][1].headers.Authorization).toBe('Bearer token-empresa');
   });
 
   it('abre o perfil público e envia uma avaliação autenticada da empresa', async () => {

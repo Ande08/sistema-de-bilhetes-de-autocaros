@@ -279,6 +279,19 @@ export function perguntarAssistenteEmpresa(pergunta) {
   return requisicao('/gestao/assistente-empresa/perguntar', { method: 'POST', body: JSON.stringify({ pergunta }) });
 }
 
+export async function obterRelatorioFinanceiroEmpresa({ inicio, fim }) {
+  const token = obterSessaoGuardada()?.token;
+  const parametros = new URLSearchParams({ inicio, fim });
+  const resposta = await fetch(`${URL_API}/gestao/assistente-empresa/relatorio-financeiro.pdf?${parametros}`, {
+    headers: { ...(token && { Authorization: `Bearer ${token}` }) }
+  });
+  if (!resposta.ok) {
+    const corpo = await resposta.json().catch(() => ({}));
+    throw new Error(corpo.message || corpo.mensagem || 'Não foi possível gerar o relatório financeiro.');
+  }
+  return resposta.blob();
+}
+
 export function consultarAssistenteSuporte(mensagem) {
   return requisicao('/suporte/assistente', { method: 'POST', body: JSON.stringify({ mensagem }) });
 }

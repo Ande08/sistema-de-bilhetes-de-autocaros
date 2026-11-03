@@ -246,8 +246,9 @@ function PesquisaViagensInicio({ aoEscolherViagem }) {
   return <section className="pesquisa-inicio">
     <div className="titulo-secao"><div><p className="etiqueta">Encontre a sua próxima viagem</p><h3>Para onde deseja viajar?</h3><p>A origem fica guardada neste dispositivo para mostrarmos partidas da sua localização.</p></div>{localizacao && <span className="localizacao-habitual"><Icone nome="localizacao" /> {localizacao.cidade}</span>}</div>
     <form className="formulario-pesquisa-inicio vidro" onSubmit={pesquisar}>
-      <SelecaoLocalidade prefixo="origem" titulo="Origem" valorInicialProvincia={localizacao?.provincia} valorInicialCidade={localizacao?.cidade} />
-      <SelecaoLocalidade prefixo="destino" titulo="Destino" />
+      <div className="direcao-pesquisa"><Icone nome="autocarro" /><strong>De <span>→</span> Para</strong></div>
+      <SelecaoLocalidade compacto prefixo="origem" titulo="Origem" valorInicialProvincia={localizacao?.provincia} valorInicialCidade={localizacao?.cidade} />
+      <SelecaoLocalidade compacto prefixo="destino" titulo="Destino" />
       <label>Data da viagem <small>Opcional</small><input name="data" type="date" min={obterDataHojeMaputo()} /></label>
       <button className="botao-pesquisar" disabled={aPesquisar}><Icone nome="pesquisa" /> {aPesquisar ? 'A pesquisar...' : 'Pesquisar'}</button>
     </form>

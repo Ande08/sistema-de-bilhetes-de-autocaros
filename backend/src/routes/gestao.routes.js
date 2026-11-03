@@ -7,7 +7,7 @@ import { iniciarWhatsApp, obterEstadoWhatsApp, repetirEnvio } from '../controlle
 import { guardarConfiguracao, obterConfiguracao, obterModelos, testarLigacao } from '../controllers/configuracao-ia.controller.js';
 import { enviarAviso } from '../controllers/aviso-viagem.controller.js';
 import { actualizarCupao, criarCupao, definirEstadoCupao, listarCupoes } from '../controllers/cupao.controller.js';
-import { obterAnalise, perguntar } from '../controllers/assistente-empresa.controller.js';
+import { descarregarRelatorioFinanceiro, obterAnalise, perguntar } from '../controllers/assistente-empresa.controller.js';
 
 const router = Router();
 router.use(exigirAutenticacao);
@@ -31,6 +31,7 @@ router.get('/ia/modelos', exigirAdministradorPlataforma, obterModelos);
 router.post('/ia/testar', exigirAdministradorPlataforma, testarLigacao);
 router.get('/assistente-empresa/analise', exigirAdministradorEmpresa, obterAnalise);
 router.post('/assistente-empresa/perguntar', exigirAdministradorEmpresa, perguntar);
+router.get('/assistente-empresa/relatorio-financeiro.pdf', exigirAdministradorEmpresa, descarregarRelatorioFinanceiro);
 router.post('/autocarros', exigirAdministradorEmpresa, criarAutocarro);
 router.patch('/autocarros/:id/estado', exigirAdministradorEmpresa, definirEstadoAutocarro);
 router.post('/rotas', exigirAdministradorEmpresa, criarRota);

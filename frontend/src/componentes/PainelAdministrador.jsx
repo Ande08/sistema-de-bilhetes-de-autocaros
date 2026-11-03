@@ -4,8 +4,9 @@ import ChatTicketSuporte, { traduzirEstado } from './ChatTicketSuporte.jsx';
 import { ModalCampo, ModalConfirmacao } from './Modal.jsx';
 import SelecaoLocalidade from './SelecaoLocalidade.jsx';
 import PaginaContaUtilizador from './PaginaContaUtilizador.jsx';
-import { URL_SERVIDOR, actualizarCupaoAdministrativo, actualizarEmpresaAdministrativa, actualizarUtilizadorAdministrativo, actualizarViagemAdministrativa, alterarPalavraPasse, atribuirTicketSuporte, cancelarViagemAdministrativa, criarAutocarro, criarCupaoAdministrativo, criarEmpresaAdministrativa, criarRota, criarUtilizadorAdministrativo, criarViagem, decidirCadastroEmpresaAdministrativa, definirEstadoAdministrativo, definirEstadoCupaoAdministrativo, definirEstadoEmpresaAdministrativa, editarEmpresaAdministrativa, eliminarEmpresaAdministrativa, eliminarUtilizadorAdministrativo, enviarAvisoViagemAdministrativa, guardarConfiguracaoIa, iniciarWhatsApp, listarGestoresSuporte, listarModelosIa, listarTicketsSuporte, obterAnaliseAssistenteEmpresa, obterConfiguracaoIa, obterEstadoWhatsApp, obterPainelAdministrativo, perguntarAssistenteEmpresa, redefinirPalavraPasseAdministrativa, repetirEnvioWhatsapp, solicitarOtpAlteracaoPalavraPasse, testarLigacaoIa } from '../servicos/api.js';
+import { URL_SERVIDOR, actualizarCupaoAdministrativo, actualizarEmpresaAdministrativa, actualizarUtilizadorAdministrativo, actualizarViagemAdministrativa, alterarPalavraPasse, atribuirTicketSuporte, cancelarViagemAdministrativa, criarAutocarro, criarCupaoAdministrativo, criarEmpresaAdministrativa, criarRota, criarUtilizadorAdministrativo, criarViagem, decidirCadastroEmpresaAdministrativa, definirEstadoAdministrativo, definirEstadoCupaoAdministrativo, definirEstadoEmpresaAdministrativa, editarEmpresaAdministrativa, eliminarEmpresaAdministrativa, eliminarUtilizadorAdministrativo, enviarAvisoViagemAdministrativa, guardarConfiguracaoIa, iniciarWhatsApp, listarGestoresSuporte, listarModelosIa, listarTicketsSuporte, obterAnaliseAssistenteEmpresa, obterConfiguracaoIa, obterEstadoWhatsApp, obterPainelAdministrativo, obterRelatorioFinanceiroEmpresa, perguntarAssistenteEmpresa, redefinirPalavraPasseAdministrativa, repetirEnvioWhatsapp, solicitarOtpAlteracaoPalavraPasse, testarLigacaoIa } from '../servicos/api.js';
 import { formatarValor } from '../utilitarios/moeda.js';
+import { obterDataHojeMaputo } from '../utilitarios/viagens-inicio.js';
 
 const secoesPlataforma = ['Visão geral', 'Empresas', 'Administradores', 'Volume de vendas', 'Inteligência artificial', 'WhatsApp', 'Auditoria', 'Minha conta'];
 const secoesEmpresa = ['Dados da empresa', 'Visão geral', 'Assistente IA', 'Atendentes', 'Autocarros', 'Rotas', 'Viagens', 'Cupões', 'Bilhetes', 'Suporte', 'Minha conta'];
@@ -134,6 +135,9 @@ function PaginaAssistenteEmpresa() {
   const [mensagens, setMensagens] = useState([{ autor: 'IA', texto: 'Posso analisar volume financeiro, procura por rota e oportunidades de campanha usando apenas os dados desta empresa.' }]);
   const [erro, setErro] = useState('');
   const [aProcessar, setAProcessar] = useState(false);
+  const [aGerarRelatorio, setAGerarRelatorio] = useState(false);
+  const hoje = obterDataHojeMaputo();
+  const inicioMes = `${hoje.slice(0, 8)}01`;
 
   useEffect(() => { obterAnaliseAssistenteEmpresa().then(setAnalise).catch((falha) => setErro(falha.message)); }, []);
 
@@ -152,7 +156,28 @@ function PaginaAssistenteEmpresa() {
     finally { setAProcessar(false); }
   }
 
+  async function gerarRelatorio(evento) {
+    evento.preventDefault();
+    setAGerarRelatorio(true); setErro('');
+    try {
+      const formulario = evento.currentTarget;
+      const filtros = Object.fromEntries(new FormData(formulario));
+      const ficheiro = await obterRelatorioFinanceiroEmpresa(filtros);
+      const url = URL.createObjectURL(ficheiro);
+      const ligacao = document.createElement('a');
+      ligacao.href = url; ligacao.download = `relatorio-financeiro-${filtros.inicio}-${filtros.fim}.pdf`;
+      document.body.appendChild(ligacao); ligacao.click(); ligacao.remove(); URL.revokeObjectURL(url);
+    } catch (falha) { setErro(falha.message); }
+    finally { setAGerarRelatorio(false); }
+  }
+
   return <section className="pagina-assistente-empresa">
+    <form className="gerador-relatorio-financeiro vidro" onSubmit={gerarRelatorio}>
+      <div><p className="etiqueta">Documento pronto para impressão</p><h3>Relatório financeiro em PDF</h3><p>Inclui o logótipo, indicadores, rotas, meios de pagamento e movimentos aprovados da sua empresa.</p></div>
+      <label>Data inicial<input type="date" name="inicio" defaultValue={inicioMes} max={hoje} required /></label>
+      <label>Data final<input type="date" name="fim" defaultValue={hoje} max={hoje} required /></label>
+      <button disabled={aGerarRelatorio}>{aGerarRelatorio ? 'A preparar PDF...' : 'Gerar relatório PDF'}</button>
+    </form>
     {analise && <div className="indicadores-assistente-empresa">{[
       ['Viagens agendadas', analise.indicadores.viagensAgendadas],
       ['Bilhetes aprovados', analise.indicadores.bilhetesVendidos],

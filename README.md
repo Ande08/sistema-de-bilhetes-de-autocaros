@@ -45,7 +45,7 @@ Organiza o sistema em rotas, controladores, serviços, modelos Sequelize e base 
 
 ### Service Layer
 
-É utilizado nos serviços do backend, incluindo `otp.service.js`, `bilhete-pdf.service.js`, `agendamento-viagem.service.js` e `assistente-empresa.service.js`. O primeiro concentra cadastro, recuperação, palavra-passe e alteração de dados pessoais por OTP; o segundo gera o documento PDF; o terceiro gera ocorrências diárias ou semanais e verifica conflitos do autocarro; o último produz análises usando exclusivamente dados agregados da empresa autenticada. Serve para manter regras de negócio reutilizáveis e independentes das rotas HTTP.
+É utilizado nos serviços do backend, incluindo `otp.service.js`, `bilhete-pdf.service.js`, `relatorio-financeiro.service.js`, `agendamento-viagem.service.js` e `assistente-empresa.service.js`. Estes serviços concentram OTP, documentos PDF, relatórios financeiros privados, recorrência de viagens e análises empresariais. O relatório filtra pagamentos pelo período e pelo `empresaId` autenticado, compara com o período anterior equivalente e agrega volume, descontos, meios de pagamento, rotas, dias e faixas horárias de maior procura antes de construir o PDF. Serve para manter regras de negócio reutilizáveis e independentes das rotas HTTP.
 
 ## Padrões criacionais
 
@@ -55,7 +55,7 @@ Utilizado em `src/factories/payment.factory.js` para criar pagamentos M-Pesa, e-
 
 ### Builder
 
-Utilizado em `src/builders/ticket.builder.js` para construir bilhetes com passageiro, viagem, assento, preço e pagamento. Serve para construir objetos complexos passo a passo.
+Utilizado em `src/builders/ticket.builder.js` para construir bilhetes com passageiro, viagem, assento, preço e pagamento. Também orienta `relatorio-financeiro.service.js`, que compõe progressivamente cabeçalho, indicadores, tabelas, recomendações, movimentos e rodapés do PDF. Serve para construir objetos e documentos complexos passo a passo.
 
 ### Singleton
 
@@ -334,6 +334,7 @@ GET  /api/catalogo/empresas/:slug
 POST /api/catalogo/empresas/:id/avaliacoes
 GET  /api/gestao/assistente-empresa/analise
 POST /api/gestao/assistente-empresa/perguntar
+GET  /api/gestao/assistente-empresa/relatorio-financeiro.pdf
 GET  /api/atendimento/clientes
 ```
 
