@@ -123,15 +123,23 @@ export default function MapaAssentos3D({ assentos, assentoId, aoSelecionar }) {
       if (encontrado !== foco) { foco = encontrado; actualizarAspectos(foco); }
       canvas.style.cursor = foco ? (foco.userData.assento.disponivel ? 'pointer' : 'not-allowed') : 'grab';
     }
-    function iniciar(evento) { inicioPonteiro = [evento.clientX, evento.clientY]; }
+    function iniciar(evento) { inicioPonteiro = { x: evento.clientX, y: evento.clientY, tipo: evento.pointerType }; }
     function clicar(evento) {
-      if (!inicioPonteiro || Math.hypot(evento.clientX - inicioPonteiro[0], evento.clientY - inicioPonteiro[1]) > 6) return;
+      if (!inicioPonteiro) return;
+      // O dedo desloca-se alguns píxeis mesmo num toque normal. Uma tolerância
+      // maior no toque impede que a seleção seja confundida com uma rotação.
+      const tolerancia = inicioPonteiro.tipo === 'touch' ? 18 : 8;
+      const deslocamento = Math.hypot(evento.clientX - inicioPonteiro.x, evento.clientY - inicioPonteiro.y);
+      inicioPonteiro = null;
+      if (deslocamento > tolerancia) return;
       const encontrado = localizar(evento);
       if (encontrado?.userData.assento.disponivel) seleccionarRef.current(encontrado.userData.assento.id);
     }
+    function cancelarClique() { inicioPonteiro = null; }
     canvas.addEventListener('pointermove', mover);
     canvas.addEventListener('pointerdown', iniciar);
     canvas.addEventListener('pointerup', clicar);
+    canvas.addEventListener('pointercancel', cancelarClique);
 
     const redimensionar = () => {
       const { width, height } = contentor.getBoundingClientRect();
@@ -155,6 +163,7 @@ export default function MapaAssentos3D({ assentos, assentoId, aoSelecionar }) {
       canvas.removeEventListener('pointermove', mover);
       canvas.removeEventListener('pointerdown', iniciar);
       canvas.removeEventListener('pointerup', clicar);
+      canvas.removeEventListener('pointercancel', cancelarClique);
       controlos.dispose();
       cena.traverse((objecto) => {
         objecto.geometry?.dispose?.();

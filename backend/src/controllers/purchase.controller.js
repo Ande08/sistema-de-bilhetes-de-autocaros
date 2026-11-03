@@ -2,6 +2,7 @@ import { Assento, Bilhete, Bus, Cupao, Empresa, Pagamento, Route, Trip } from '.
 import { ServicoCompra } from '../services/compra.service.js';
 import { registarAuditoria } from '../services/auditoria.service.js';
 import { gerarBilhetePdf } from '../services/bilhete-pdf.service.js';
+import { obterValidacaoPublicaBilhete } from '../services/validacao-bilhete.service.js';
 
 const servicoCompra = new ServicoCompra();
 
@@ -47,6 +48,19 @@ export async function consultarBilhete(req, res, next) {
   try {
     const bilhete = await obterBilheteAutorizado(req.params.codigo, req.utilizador);
     return res.json({ sucesso: true, dados: bilhete });
+  } catch (erro) { return next(erro); }
+}
+
+export async function validarBilhetePublico(req, res, next) {
+  try {
+    // O estado pode mudar para utilizado ou cancelado a qualquer momento; a
+    // resposta pública deve ser sempre consultada novamente e nunca guardada.
+    res.set('Cache-Control', 'no-store');
+    const resultado = await obterValidacaoPublicaBilhete(req.params.codigo);
+    if (!resultado) {
+      return res.status(404).json({ sucesso: false, mensagem: 'Bilhete não encontrado ou código inválido.', dados: { autentico: false, validoParaEmbarque: false } });
+    }
+    return res.json({ sucesso: true, dados: resultado });
   } catch (erro) { return next(erro); }
 }
 

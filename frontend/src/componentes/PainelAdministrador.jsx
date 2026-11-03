@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Icone from './Icone.jsx';
 import ChatTicketSuporte, { traduzirEstado } from './ChatTicketSuporte.jsx';
 import { ModalCampo, ModalConfirmacao } from './Modal.jsx';
@@ -7,6 +7,9 @@ import PaginaContaUtilizador from './PaginaContaUtilizador.jsx';
 import { URL_SERVIDOR, actualizarCupaoAdministrativo, actualizarEmpresaAdministrativa, actualizarUtilizadorAdministrativo, actualizarViagemAdministrativa, alterarPalavraPasse, atribuirTicketSuporte, cancelarViagemAdministrativa, criarAutocarro, criarCupaoAdministrativo, criarEmpresaAdministrativa, criarRota, criarUtilizadorAdministrativo, criarViagem, decidirCadastroEmpresaAdministrativa, definirEstadoAdministrativo, definirEstadoCupaoAdministrativo, definirEstadoEmpresaAdministrativa, editarEmpresaAdministrativa, eliminarEmpresaAdministrativa, eliminarUtilizadorAdministrativo, enviarAvisoViagemAdministrativa, guardarConfiguracaoIa, iniciarWhatsApp, listarGestoresSuporte, listarModelosIa, listarTicketsSuporte, obterAnaliseAssistenteEmpresa, obterConfiguracaoIa, obterEstadoWhatsApp, obterPainelAdministrativo, obterRelatorioFinanceiroEmpresa, perguntarAssistenteEmpresa, redefinirPalavraPasseAdministrativa, repetirEnvioWhatsapp, solicitarOtpAlteracaoPalavraPasse, testarLigacaoIa } from '../servicos/api.js';
 import { formatarValor } from '../utilitarios/moeda.js';
 import { obterDataHojeMaputo } from '../utilitarios/viagens-inicio.js';
+import useHistoricoConversa from '../hooks/useHistoricoConversa.js';
+
+const MENSAGEM_INICIAL_ASSISTENTE_EMPRESA = { autor: 'IA', texto: 'Posso analisar volume financeiro, procura por rota e oportunidades de campanha usando apenas os dados desta empresa.' };
 
 const secoesPlataforma = ['Visão geral', 'Empresas', 'Administradores', 'Volume de vendas', 'Inteligência artificial', 'WhatsApp', 'Auditoria', 'Minha conta'];
 const secoesEmpresa = ['Dados da empresa', 'Visão geral', 'Assistente IA', 'Atendentes', 'Autocarros', 'Rotas', 'Viagens', 'Cupões', 'Bilhetes', 'Suporte', 'Minha conta'];
@@ -75,7 +78,7 @@ function ConteudoAdministrativo({ secao, dados, executar, submeter, utilizador, 
   if (secao === 'Bilhetes') return <TabelaGestao titulo="Bilhetes emitidos" colunas={['Código', 'Passageiro', 'Rota', 'Autocarro', 'Assento', 'Pagamento', 'Referência', 'Cupão', 'Desconto', 'Preço', 'Estado', 'Emitido em']} linhas={dados.bilhetes.map((item) => [item.codigo, item.User ? nomePessoa(item.User) : item.nomePassageiro, `${item.Trip?.Route?.origin || ''} → ${item.Trip?.Route?.destination || ''}`, item.Trip?.Bus?.registration || '—', item.Assento?.numero || '—', item.Pagamento?.metodo || '—', item.Pagamento?.referencia || '—', item.Cupao?.codigo || '—', formatarValor(item.desconto || 0), formatarValor(item.preco), item.estado, formatarData(item.criado_em)])} />;
   if (secao === 'Suporte') return <PaginaGestaoSuporte />;
   if (secao === 'Inteligência artificial') return <PaginaInteligenciaArtificial />;
-  if (secao === 'Assistente IA') return <PaginaAssistenteEmpresa />;
+  if (secao === 'Assistente IA') return <PaginaAssistenteEmpresa utilizador={utilizador} />;
   if (secao === 'WhatsApp') return <PaginaWhatsApp />;
   if (secao === 'Auditoria' && utilizador.perfil === 'ADMIN') return <PaginaAuditoria auditorias={dados.auditorias} />;
   if (secao === 'Minha conta') return <PaginaContaUtilizador utilizador={utilizador} aoActualizarUtilizador={aoActualizarUtilizador} />;
@@ -130,9 +133,12 @@ function PaginaCupons({ cupoes, executar }) {
   </>;
 }
 
-function PaginaAssistenteEmpresa() {
+function PaginaAssistenteEmpresa({ utilizador }) {
   const [analise, setAnalise] = useState(null);
-  const [mensagens, setMensagens] = useState([{ autor: 'IA', texto: 'Posso analisar volume financeiro, procura por rota e oportunidades de campanha usando apenas os dados desta empresa.' }]);
+  const chaveHistorico = `chat-ia-empresa:${utilizador.empresaId || utilizador.empresa?.id || 'empresa'}:${utilizador.id}`;
+  const { mensagens, setMensagens, limpar: limparMensagens } = useHistoricoConversa(chaveHistorico, MENSAGEM_INICIAL_ASSISTENTE_EMPRESA);
+  const mensagensRef = useRef(null);
+  const [confirmarLimpeza, setConfirmarLimpeza] = useState(false);
   const [erro, setErro] = useState('');
   const [aProcessar, setAProcessar] = useState(false);
   const [aGerarRelatorio, setAGerarRelatorio] = useState(false);
@@ -140,6 +146,7 @@ function PaginaAssistenteEmpresa() {
   const inicioMes = `${hoje.slice(0, 8)}01`;
 
   useEffect(() => { obterAnaliseAssistenteEmpresa().then(setAnalise).catch((falha) => setErro(falha.message)); }, []);
+  useEffect(() => { mensagensRef.current?.scrollTo({ top: mensagensRef.current.scrollHeight, behavior: 'smooth' }); }, [mensagens.length]);
 
   async function perguntar(evento) {
     evento.preventDefault();
@@ -185,9 +192,10 @@ function PaginaAssistenteEmpresa() {
       ['Valor médio', formatarValor(analise.indicadores.valorMedio)]
     ].map(([titulo, valor]) => <article className="vidro" key={titulo}><small>{titulo}</small><strong>{valor}</strong></article>)}</div>}
     <div className="grelha-assistente-empresa">
-      <article className="chat-assistente-empresa vidro"><header><div><h3>Assistente analítico</h3><small>Dados confirmados e limitados à sua empresa</small></div><span>Escopo privado</span></header><div className="mensagens-assistente-empresa">{mensagens.map((item, indice) => <p key={indice} className={item.autor === 'IA' ? 'resposta-ia' : 'pergunta-utilizador'}>{item.texto}</p>)}</div><form onSubmit={perguntar}><input name="pergunta" maxLength="1000" placeholder="Ex.: Em que rotas devo fazer campanhas?" required /><button disabled={aProcessar}>{aProcessar ? 'A analisar...' : 'Perguntar'}</button></form>{erro && <p className="mensagem-formulario erro">{erro}</p>}</article>
+      <article className="chat-assistente-empresa vidro"><header><div><h3>Assistente analítico</h3><small>Dados confirmados e limitados à sua empresa</small></div><span>Escopo privado</span></header><div className="acoes-historico-chat"><button type="button" onClick={() => mensagensRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}>Anteriores</button><button type="button" onClick={() => mensagensRef.current?.scrollTo({ top: mensagensRef.current.scrollHeight, behavior: 'smooth' })}>Recentes</button><button type="button" className="limpar-chat" onClick={() => setConfirmarLimpeza(true)}>Limpar conversa</button></div><div className="mensagens-assistente-empresa" ref={mensagensRef}>{mensagens.map((item, indice) => <p key={`${indice}-${item.autor}`} className={item.autor === 'IA' ? 'resposta-ia' : 'pergunta-utilizador'}>{item.texto}</p>)}</div><form onSubmit={perguntar}><input name="pergunta" maxLength="1000" placeholder="Ex.: Em que rotas devo fazer campanhas?" required /><button disabled={aProcessar}>{aProcessar ? 'A analisar...' : 'Perguntar'}</button></form>{erro && <p className="mensagem-formulario erro">{erro}</p>}</article>
       <aside className="recomendacoes-assistente vidro"><h3>Recomendações atuais</h3>{analise?.recomendacoes?.map((item) => <p key={item}>{item}</p>)}<h3>Rotas com maior procura</h3>{analise?.melhoresRotas?.length ? analise.melhoresRotas.map((item) => <div key={item.rota}><strong>{item.rota}</strong><small>{item.bilhetes} bilhetes · {formatarValor(item.volume)}</small></div>) : <p>Ainda não existem dados suficientes.</p>}<small className="nota-privacidade-assistente">Nenhum dado de outra empresa ou informação pessoal de clientes é utilizado neste relatório.</small></aside>
     </div>
+    {confirmarLimpeza && <ModalConfirmacao titulo="Limpar conversa analítica" texto="As mensagens guardadas neste navegador serão removidas. Os relatórios e dados da empresa não serão alterados." textoConfirmar="Limpar conversa" perigo aoConfirmar={() => { limparMensagens(); setConfirmarLimpeza(false); }} aoFechar={() => setConfirmarLimpeza(false)} />}
   </section>;
 }
 

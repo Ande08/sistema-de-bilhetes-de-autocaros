@@ -37,15 +37,21 @@ export function gerarBilhetePdf({ bilhete, empresa, rota, viagem, assento, pagam
     y -= 32;
   }
 
-  // O QR aparece no fim dos detalhes e contém apenas o identificador do
-  // bilhete, nunca dados pessoais nem referências de pagamento.
-  comandos.push(desenharQrPdf(`VIAGEM_BUS|BILHETE|${bilhete.codigo}`, 68.386, 61, 90));
+  // O QR abre a página pública de validação. O endereço contém somente o
+  // código do bilhete, nunca dados pessoais nem referências de pagamento.
+  comandos.push(desenharQrPdf(construirUrlValidacaoBilhete(bilhete.codigo), 68.386, 61, 90));
   comandos.push(textoPdf('QR PARA VALIDACAO', 72, 48, 7, 'F2', [0, 0, 0]));
   comandos.push(textoPdf(textoAjustado(`Emitido: ${emitidoEm}`, 39), 14, 30, 6.5, 'F1', [0, 0, 0]));
   comandos.push(textoPdf('Valores em meticais (MT)', 14, 18, 6.5, 'F1', [0, 0, 0]));
   comandos.push(textoPdf('Guarde este talao.', 14, 8, 6.5, 'F2', [0, 0, 0]));
 
   return montarPdf(comandos.join('\n'));
+}
+
+export function construirUrlValidacaoBilhete(codigo) {
+  const origemConfigurada = String(process.env.PUBLIC_SITE_URL || process.env.CLIENT_URL || 'http://localhost:5173').split(',')[0].trim();
+  const origem = /^https?:\/\//i.test(origemConfigurada) ? origemConfigurada.replace(/\/$/, '') : 'http://localhost:5173';
+  return `${origem}/validar-bilhete/${encodeURIComponent(String(codigo || '').trim())}`;
 }
 
 function desenharQrPdf(conteudo, x, y, tamanho) {

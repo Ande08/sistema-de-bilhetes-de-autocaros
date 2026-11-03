@@ -115,6 +115,10 @@ export function comprarBilhete(dados) {
   return requisicao('/compras', { method: 'POST', body: JSON.stringify(dados) });
 }
 
+export function validarBilhetePublico(codigo) {
+  return requisicao(`/compras/bilhete/${encodeURIComponent(codigo)}/validar`);
+}
+
 export async function obterBilhetePdf(codigo) {
   const token = obterSessaoGuardada()?.token;
   const resposta = await fetch(`${URL_API}/compras/bilhete/${encodeURIComponent(codigo)}/pdf`, {

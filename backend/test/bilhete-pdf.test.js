@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { gerarBilhetePdf } from '../src/services/bilhete-pdf.service.js';
+import { construirUrlValidacaoBilhete, gerarBilhetePdf } from '../src/services/bilhete-pdf.service.js';
 
 test('gera um documento PDF válido com os dados essenciais do bilhete', () => {
   const pdf = gerarBilhetePdf({
@@ -18,4 +18,12 @@ test('gera um documento PDF válido com os dados essenciais do bilhete', () => {
   assert.match(pdf.toString('latin1'), /MediaBox \[0 0 226\.772 595\.276\]/);
   assert.match(pdf.toString('latin1'), /%%EOF/);
   assert.ok(pdf.length > 5000);
+});
+
+test('constrói a ligação pública usada pelo QR Code', () => {
+  const anterior = process.env.PUBLIC_SITE_URL;
+  process.env.PUBLIC_SITE_URL = 'https://ticket.famba.online/';
+  assert.equal(construirUrlValidacaoBilhete('BIL-TESTE-001'), 'https://ticket.famba.online/validar-bilhete/BIL-TESTE-001');
+  if (anterior === undefined) delete process.env.PUBLIC_SITE_URL;
+  else process.env.PUBLIC_SITE_URL = anterior;
 });

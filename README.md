@@ -69,6 +69,7 @@ O projeto possui os seguintes módulos implementados:
 - bloqueio temporário e atualização de assentos em tempo real;
 - pagamento simulado por M-Pesa, e-Mola ou cartão;
 - emissão de bilhete térmico em PDF com QR Code;
+- validação pública da autenticidade e estado do bilhete através do QR Code;
 - perfil público, logótipo e avaliações das empresas;
 - suporte com assistente virtual, tickets, imagens e chat em tempo real;
 - triagem automática da prioridade dos tickets;
@@ -218,7 +219,8 @@ O cupão é validado antes do pagamento e novamente dentro da transação de emi
 - A referência de pagamento só pode emitir um bilhete.
 - O bilhete fica associado ao cliente, empresa, viagem e assento.
 - O PDF possui formato térmico POS de 80 × 210 mm.
-- O QR Code aparece no final dos detalhes e não contém telefone nem dados de pagamento.
+- O QR Code aparece no final dos detalhes e abre a página pública `/validar-bilhete/:codigo` no domínio do sistema.
+- A página confirma autenticidade, validade, empresa, rota, partida, assento e estados, sem expor passageiro ou pagamento.
 - Um bilhete cancelado permanece no histórico.
 
 ### Suporte
@@ -521,6 +523,7 @@ O backend carrega sempre `backend/.env`, mesmo quando o processo é iniciado nou
 | `PORT` | `3000` | Porta HTTP da API. |
 | `NODE_ENV` | `development` | Ambiente de execução. |
 | `CLIENT_URL` | `http://localhost:5173` | Origem autorizada no CORS. |
+| `PUBLIC_SITE_URL` | `http://localhost:5173` | Endereço público colocado no QR Code dos novos bilhetes. |
 | `DB_HOST` | `localhost` | Servidor MySQL. |
 | `DB_PORT` | `3306` | Porta MySQL. |
 | `DB_NAME` | `sistema_bilhetes` | Base de dados. |
@@ -706,7 +709,9 @@ O relatório apresenta **volume de vendas**, não lucro. O sistema não possui c
 - preto e branco para impressão económica;
 - empresa, rota, horário, assento, preço e código;
 - QR Code no final dos detalhes;
-- sem telefone ou informação financeira sensível no QR Code.
+- o QR Code abre `PUBLIC_SITE_URL/validar-bilhete/CODIGO`;
+- a validação consulta o backend e distingue bilhete válido, utilizado, cancelado ou viagem concluída;
+- sem telefone, nome do passageiro ou informação financeira sensível no QR Code e na página pública.
 
 ### Relatório empresarial
 
@@ -758,6 +763,7 @@ POST  /pagamentos-simulados/:referencia/processar
 POST  /compras
 GET   /compras/bilhete/:codigo
 GET   /compras/bilhete/:codigo/pdf
+GET   /compras/bilhete/:codigo/validar
 PATCH /bilhetes/:codigo/cancelar
 ```
 

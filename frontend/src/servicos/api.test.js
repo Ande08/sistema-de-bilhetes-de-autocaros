@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { actualizarEmpresaAdministrativa, actualizarPerfil, alterarPalavraPasse, avaliarEmpresa, comprarBilhete, confirmarRecuperacaoPalavraPasse, confirmarRegistoUtilizador, criarTicketSuporte, decidirCadastroEmpresaAdministrativa, definirEstadoEmpresaAdministrativa, editarEmpresaAdministrativa, eliminarEmpresaAdministrativa, eliminarUtilizadorAdministrativo, enviarAvisoViagemAdministrativa, enviarMensagemSuporte, guardarConfiguracaoIa, guardarSessao, iniciarPagamentoSimulado, libertarReservaAssento, listarClientesAtendimento, listarLocalidades, obterAnaliseAssistenteEmpresa, obterBilhetePdf, obterEmpresaPublica, obterRelatorioFinanceiroEmpresa, obterResumoConta, obterSessaoGuardada, perguntarAssistenteEmpresa, pesquisarBilhetesSuporte, pesquisarViagens, processarPagamentoSimulado, registarUtilizador, reservarAssento, solicitarOtpAlteracaoPalavraPasse, solicitarOtpAlteracaoPerfil, solicitarRecuperacaoPalavraPasse, terminarSessao, validarCupao } from './api.js';
+import { actualizarEmpresaAdministrativa, actualizarPerfil, alterarPalavraPasse, avaliarEmpresa, comprarBilhete, confirmarRecuperacaoPalavraPasse, confirmarRegistoUtilizador, criarTicketSuporte, decidirCadastroEmpresaAdministrativa, definirEstadoEmpresaAdministrativa, editarEmpresaAdministrativa, eliminarEmpresaAdministrativa, eliminarUtilizadorAdministrativo, enviarAvisoViagemAdministrativa, enviarMensagemSuporte, guardarConfiguracaoIa, guardarSessao, iniciarPagamentoSimulado, libertarReservaAssento, listarClientesAtendimento, listarLocalidades, obterAnaliseAssistenteEmpresa, obterBilhetePdf, obterEmpresaPublica, obterRelatorioFinanceiroEmpresa, obterResumoConta, obterSessaoGuardada, perguntarAssistenteEmpresa, pesquisarBilhetesSuporte, pesquisarViagens, processarPagamentoSimulado, registarUtilizador, reservarAssento, solicitarOtpAlteracaoPalavraPasse, solicitarOtpAlteracaoPerfil, solicitarRecuperacaoPalavraPasse, terminarSessao, validarBilhetePublico, validarCupao } from './api.js';
 
 describe('sessão do passageiro', () => {
   beforeEach(() => {
@@ -331,5 +331,16 @@ describe('sessão do passageiro', () => {
 
     expect(localidades[0].cidades).toContain('Tete');
     expect(fetchSimulado.mock.calls[0][0]).toContain('/catalogo/localidades');
+  });
+
+  it('valida publicamente o código aberto pelo QR Code', async () => {
+    const fetchSimulado = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ dados: { autentico: true, validoParaEmbarque: true } }) });
+    vi.stubGlobal('fetch', fetchSimulado);
+
+    const resultado = await validarBilhetePublico('BIL-TESTE/001');
+
+    expect(resultado.validoParaEmbarque).toBe(true);
+    expect(fetchSimulado.mock.calls[0][0]).toContain('/compras/bilhete/BIL-TESTE%2F001/validar');
+    expect(fetchSimulado.mock.calls[0][1].headers.Authorization).toBeUndefined();
   });
 });

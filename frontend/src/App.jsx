@@ -7,11 +7,13 @@ import MapaAssentos from './componentes/MapaAssentos.jsx';
 import SelecaoLocalidade from './componentes/SelecaoLocalidade.jsx';
 import PaginaContaUtilizador from './componentes/PaginaContaUtilizador.jsx';
 import PaginaEmpresas from './componentes/PaginaEmpresas.jsx';
+import PaginaValidacaoBilhete from './componentes/PaginaValidacaoBilhete.jsx';
 import { ModalConfirmacao } from './componentes/Modal.jsx';
 import { URL_SERVIDOR, cancelarBilhete, comprarBilhete, confirmarRecuperacaoPalavraPasse, confirmarRegistoUtilizador, guardarSessao, iniciarPagamentoSimulado, iniciarSessao, obterBilhetePdf, obterPerfil, obterResumoConta, obterSessaoGuardada, pesquisarViagens, processarPagamentoSimulado, registarUtilizador, solicitarRecuperacaoPalavraPasse, terminarSessao, validarCupao } from './servicos/api.js';
 import useSelecaoAssentosTempoReal from './hooks/useSelecaoAssentosTempoReal.js';
 import { formatarValor } from './utilitarios/moeda.js';
 import { normalizarLocalizacaoHabitual, obterDataHojeMaputo } from './utilitarios/viagens-inicio.js';
+import { extrairCodigoValidacaoBilhete } from './utilitarios/validacao-bilhete.js';
 
 const itensMenu = [
   ['inicio', 'Início'], ['viagens', 'Minhas Viagens'], ['bilhete', 'Bilhetes'],
@@ -19,6 +21,12 @@ const itensMenu = [
 ];
 
 export default function App() {
+  const codigoValidacao = extrairCodigoValidacaoBilhete(window.location.pathname);
+  if (codigoValidacao) return <PaginaValidacaoBilhete codigo={codigoValidacao} />;
+  return <AplicacaoPrincipal />;
+}
+
+function AplicacaoPrincipal() {
   const [sessao, setSessao] = useState(() => obterSessaoGuardada());
   const [aVerificarSessao, setAVerificarSessao] = useState(Boolean(obterSessaoGuardada()));
   const [menuAberto, setMenuAberto] = useState(false);
@@ -473,11 +481,14 @@ function FluxoCompra({ utilizador, viagemInicial, aoFechar, aoComprar }) {
   async function concluirCompra(evento) {
     evento.preventDefault();
     if (!assentoId) return setErro('Selecione um assento disponível.');
+    // O formulário precisa de ser lido antes da mudança de etapa. A etapa de
+    // processamento desmonta o formulário e alguns navegadores móveis deixam
+    // de disponibilizar o currentTarget depois dessa renderização.
+    const formulario = Object.fromEntries(new FormData(evento.currentTarget));
     setAProcessar(true);
     setErro('');
     setEtapa('processando');
     try {
-      const formulario = Object.fromEntries(new FormData(evento.currentTarget));
       const dadosPagamento = metodoPagamento === 'CARTAO'
         ? { numeroCartao: formulario.numeroCartao, validade: formulario.validade, cvv: formulario.cvv }
         : { telefone: formulario.telefone };
@@ -498,6 +509,24 @@ function FluxoCompra({ utilizador, viagemInicial, aoFechar, aoComprar }) {
 
   const rota = viagem?.Route;
   const valorPagamento = cupaoAplicado?.valorFinal ?? Number(viagem?.price || 0);
+
+  // A tela de processamento é um diálogo independente. Isto evita que seja
+  // cortada pelo scroll e pelo overflow do modal de compra em ecrãs pequenos.
+  if (etapa === 'processando') return <div className="modal-fundo modal-fundo-processamento">
+    <section className="pagamento-processando vidro" role="dialog" aria-modal="true" aria-labelledby="titulo-processamento-pagamento" aria-live="polite">
+      <span className="animacao-pagamento" aria-hidden="true"><i /><i /><i /></span>
+      <h3 id="titulo-processamento-pagamento">Pagamento em processamento</h3>
+      <p>{mensagemProcessamento}</p>
+      <div className="detalhes-processamento">
+        <span><small>Método</small><strong>{nomeMetodoPagamento(metodoPagamento)}</strong></span>
+        <span><small>Valor</small><strong>{formatarMeticais(transacaoPagamento?.valor ?? valorPagamento)}</strong></span>
+        {transacaoPagamento?.cupaoCodigo && <span><small>Cupão</small><strong>{transacaoPagamento.cupaoCodigo}</strong></span>}
+        {transacaoPagamento && <span><small>Referência</small><strong>{transacaoPagamento.referencia}</strong></span>}
+      </div>
+      <small>Não feche esta tela durante a simulação.</small>
+    </section>
+  </div>;
+
   return <div className="modal-fundo" onMouseDown={(evento) => evento.target === evento.currentTarget && !aProcessar && aoFechar()}>
     <section className="modal-nova-viagem vidro" role="dialog" aria-modal="true" aria-labelledby="titulo-nova-viagem">
       <div className="modal-topo"><div><p className="etiqueta">Comprar bilhete</p><h2 id="titulo-nova-viagem">{tituloEtapa(etapa)}</h2><p>{descricaoEtapa(etapa)}</p></div><button className="fechar-modal" disabled={aProcessar} onClick={aoFechar} aria-label="Fechar">×</button></div>
@@ -523,6 +552,7 @@ function FluxoCompra({ utilizador, viagemInicial, aoFechar, aoComprar }) {
         <div className="legenda-assentos"><span><i className="livre" /> Disponível</span><span><i className="reservado" /> Reservado agora</span><span><i className="ocupado" /> Vendido</span><span><i className="seleccionado" /> A sua seleção</span></div>
         <MapaAssentos assentos={assentos} assentoId={assentoId} aoSelecionar={seleccionarAssento} />
         {aReservar && <p className="estado-reserva-assento">A reservar o assento com segurança...</p>}
+        {!aReservar && assentoId && <p className="estado-reserva-assento">Assento selecionado. Pode tocar noutro assento disponível para trocar.</p>}
         <div className="rodape-etapa"><button className="botao-voltar" onClick={async () => { await libertarAssento(); setViagem(null); setEtapa('resultados'); }}>Voltar</button><button className="botao-pesquisar" disabled={aReservar} onClick={() => assentoId ? setEtapa('pagamento') : setErro('Selecione um assento disponível.')}>Continuar para pagamento</button></div>
       </div>}
 
@@ -534,8 +564,6 @@ function FluxoCompra({ utilizador, viagemInicial, aoFechar, aoComprar }) {
         <p className="aviso-simulacao">Ambiente académico: utilize dados fictícios. A API é simulada e não movimenta dinheiro real.</p>
         <div className="rodape-etapa"><button type="button" className="botao-voltar" onClick={() => setEtapa('assentos')}>Voltar</button><button type="submit" className="botao-pesquisar">Simular pagamento de {formatarMeticais(valorPagamento)}</button></div>
       </form>}
-
-      {etapa === 'processando' && <div className="modal-processamento-pagamento" role="status" aria-live="polite"><div className="pagamento-processando vidro"><span className="animacao-pagamento"><i /><i /><i /></span><h3>Pagamento em processamento</h3><p>{mensagemProcessamento}</p><div className="detalhes-processamento"><span><small>Método</small><strong>{nomeMetodoPagamento(metodoPagamento)}</strong></span><span><small>Valor</small><strong>{formatarMeticais(transacaoPagamento?.valor ?? valorPagamento)}</strong></span>{transacaoPagamento?.cupaoCodigo && <span><small>Cupão</small><strong>{transacaoPagamento.cupaoCodigo}</strong></span>}{transacaoPagamento && <span><small>Referência</small><strong>{transacaoPagamento.referencia}</strong></span>}</div><small>Não feche esta tela durante a simulação.</small></div></div>}
 
       {etapa === 'concluida' && <div className="compra-concluida"><span className="icone-sucesso"><Icone nome="confirmado" /></span><h3>Bilhete emitido com sucesso</h3><p>O pagamento foi aprovado e o seu assento está confirmado.</p><div className="bilhete-resumo"><small>Código do bilhete</small><strong>{bilhete.codigo}</strong><span>{rota?.origin} → {rota?.destination}</span><span>Assento {bilhete.assento.numero} · {formatarMeticais(bilhete.preco)}</span></div><div className="acoes-bilhete-concluido"><BotaoPdfBilhete codigo={bilhete.codigo} className="botao-pesquisar" texto="Descarregar bilhete em PDF" /><button className="botao-voltar" onClick={aoFechar}>Concluir</button></div></div>}
 
