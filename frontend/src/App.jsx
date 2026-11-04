@@ -184,7 +184,7 @@ function PaginaInicio({ resumo, aoNovaViagem, aoEscolherViagem, aoAbrirSuporte, 
           <div><Icone nome="assento" /><span><strong>Assento {proxima.assento?.numero}</strong><small>{proxima.codigo}</small></span></div>
         </div>
         <div className="acoes-viagem"><BotaoPdfBilhete codigo={proxima.codigo} className="botao-claro" texto="Descarregar bilhete" /><button className="botao-secundario" onClick={aoNovaViagem}>Comprar outro bilhete</button></div>
-      </div><div className="arte-autocarro" aria-hidden="true"><Icone nome="autocarroGrande" /></div>
+      </div><div className="arte-autocarro" aria-hidden="true"><img src="/imagens/autocarro-proxima-viagem.png" alt="" decoding="async" /></div>
     </section> : <section className="hero-compra-passageiro">
       <div><p className="etiqueta">Viagens seguras e simples</p><h1>Encontre a sua próxima viagem</h1><p>Compare empresas, horários e preços antes de escolher o seu bilhete.</p><button className="botao-nova-viagem" onClick={aoNovaViagem}><Icone nome="bilhete" /> Comprar bilhete</button></div>
       <span className="hero-autocarro" aria-hidden="true"><Icone nome="autocarroGrande" /></span>
