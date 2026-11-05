@@ -2,24 +2,10 @@ import { Component, lazy, Suspense, useMemo, useState } from 'react';
 
 const MapaAssentos3D = lazy(() => import('./MapaAssentos3D.jsx'));
 
-// Evita carregar o módulo Three.js quando a ligação ou o aparelho indicam que
-// a experiência 2D será mais rápida e estável.
-export function avaliarCapacidade3D(navegador = globalThis.navigator, documento = globalThis.document) {
-  try {
-    const ligacao = navegador?.connection || navegador?.mozConnection || navegador?.webkitConnection;
-    if (ligacao?.saveData || ['slow-2g', '2g', '3g'].includes(ligacao?.effectiveType) || (ligacao?.downlink && ligacao.downlink < 1.5)) {
-      return { permitido: false, motivo: 'Ligação lenta ou modo de poupança de dados detectado.' };
-    }
-    if ((navegador?.deviceMemory && navegador.deviceMemory < 4) || (navegador?.hardwareConcurrency && navegador.hardwareConcurrency < 4)) {
-      return { permitido: false, motivo: 'Mapa simples ativado para melhorar o desempenho neste dispositivo.' };
-    }
-    const canvas = documento?.createElement?.('canvas');
-    const webgl = canvas?.getContext?.('webgl2') || canvas?.getContext?.('webgl');
-    if (!webgl) return { permitido: false, motivo: 'Este dispositivo não suporta a visualização 3D.' };
-    return { permitido: true, motivo: '' };
-  } catch {
-    return { permitido: false, motivo: 'Não foi possível iniciar a visualização 3D.' };
-  }
+// Durante a fase de testes o modo 3D fica disponível em todos os dispositivos,
+// mas o mapa simples continua a ser a vista inicial por ser mais leve.
+export function avaliarCapacidade3D() {
+  return { permitido: true, motivo: 'Vista 3D ativada para testes em todos os dispositivos.' };
 }
 
 class LimiteErro3D extends Component {
@@ -29,22 +15,21 @@ class LimiteErro3D extends Component {
   render() { return this.state.falhou ? this.props.alternativa : this.props.children; }
 }
 
-export default function MapaAssentos({ assentos, assentoId, aoSelecionar, apenasSimples = false }) {
-  const capacidade = useMemo(() => avaliarCapacidade3D(), []);
-  const [modo, setModo] = useState(!apenasSimples && capacidade.permitido ? '3d' : 'simples');
+export default function MapaAssentos({ assentos, assentoId, aoSelecionar }) {
+  const [modo, setModo] = useState('simples');
   const [falha3D, setFalha3D] = useState(false);
   const usar3D = modo === '3d' && !falha3D;
 
   const mapaSimples = <MapaSimples assentos={assentos} assentoId={assentoId} aoSelecionar={aoSelecionar} />;
 
   return <section className="selector-assentos-completo">
-    {!apenasSimples && <div className="selector-assentos-topo">
-      <div><strong>{usar3D ? 'Vista tridimensional' : 'Mapa simples'}</strong><small>{usar3D ? 'Arraste para rodar e clique no assento.' : capacidade.motivo || 'Vista leve e acessível.'}</small></div>
+    <div className="selector-assentos-topo">
+      <div><strong>{usar3D ? 'Vista tridimensional' : 'Mapa simples'}</strong><small>{usar3D ? 'Arraste para rodar e clique no assento.' : falha3D ? 'A vista 3D falhou neste navegador. Pode tentar novamente.' : 'Vista leve e acessível.'}</small></div>
       <div className="alternador-mapa" role="group" aria-label="Modo do mapa de assentos">
         <button type="button" className={!usar3D ? 'activo' : ''} onClick={() => setModo('simples')}>Mapa simples</button>
-        <button type="button" className={usar3D ? 'activo' : ''} disabled={!capacidade.permitido || falha3D} onClick={() => setModo('3d')}>Vista 3D</button>
+        <button type="button" className={usar3D ? 'activo' : ''} onClick={() => { setFalha3D(false); setModo('3d'); }}>Escolher no mapa 3D</button>
       </div>
-    </div>}
+    </div>
 
     {usar3D ? <LimiteErro3D alternativa={mapaSimples} aoFalhar={() => setFalha3D(true)}>
       <Suspense fallback={<div className="mapa-3d-carregando">A preparar o interior do autocarro...</div>}>
