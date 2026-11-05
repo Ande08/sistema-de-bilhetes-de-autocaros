@@ -23,6 +23,13 @@ test('isola tickets por passageiro e por gestor atribuído', () => {
   assert.throws(() => garantirAcesso(ticket, { id: 21, perfil: 'GESTOR_SUPORTE' }), /acesso/i);
 });
 
+test('assistente não inventa um limite de bagagem comum às empresas', () => {
+  const resposta = responderAssistente('Posso levar 20 kg de bagagem?');
+  assert.equal(resposta.resolveuAutomaticamente, true);
+  assert.match(resposta.mensagem, /variam conforme a empresa/i);
+  assert.doesNotMatch(resposta.mensagem, /\b20\s*kg\b/i);
+});
+
 test('classifica automaticamente a prioridade sem aceitar decisão do cliente', () => {
   const urgente = classificarPrioridadeTicket({
     assunto: 'Pagamento duplicado', categoria: 'PAGAMENTO',

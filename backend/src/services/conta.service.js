@@ -20,7 +20,7 @@ export function normalizarBilhete(bilhete) {
       partidaEm: viagem.departureAt,
       chegadaPrevistaEm: viagem.arrivalExpectedAt,
       estado: viagem.status,
-      empresa: viagem.Empresa ? { id: viagem.Empresa.id, nome: viagem.Empresa.nome, logoUrl: viagem.Empresa.logoUrl || null } : null,
+      empresa: viagem.Empresa ? { id: viagem.Empresa.id, nome: viagem.Empresa.nome, slug: viagem.Empresa.slug, logoUrl: viagem.Empresa.logoUrl || null } : null,
       origem: viagem.Route?.origin || '',
       destino: viagem.Route?.destination || ''
     } : null,
@@ -58,7 +58,7 @@ export function construirResumoConta(bilhetes, agora = new Date()) {
 export async function obterResumoConta(utilizadorId) {
   const bilhetes = await Bilhete.findAll({
     where: { utilizadorId },
-    include: [Pagamento, Assento, Cupao, { model: Trip, include: [Route, { model: Empresa, attributes: ['id', 'nome', 'logoUrl'] }] }],
+    include: [Pagamento, Assento, Cupao, { model: Trip, include: [Route, { model: Empresa, attributes: ['id', 'nome', 'slug', 'logoUrl'] }] }],
     order: [['id', 'DESC']],
     limit: 100
   });

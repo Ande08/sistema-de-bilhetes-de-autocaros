@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { abrirTicket, atribuir, consultarAssistente, enviarMensagem, mudarEstado, obterGestores, obterTicket, obterTickets, pesquisarBilhetes } from '../controllers/suporte.controller.js';
+import { abrirTicket, atribuir, consultarAssistente, contactarEmpresa, enviarMensagem, mudarEstado, obterGestores, obterTicket, obterTickets, pesquisarBilhetes } from '../controllers/suporte.controller.js';
 import { exigirAutenticacao } from '../middlewares/autenticacao.middleware.js';
 import { exigirAdministradorEmpresa } from '../middlewares/autorizacao.middleware.js';
 
@@ -9,6 +9,7 @@ router.post('/assistente', consultarAssistente);
 router.get('/bilhetes/pesquisar', pesquisarBilhetes);
 router.get('/tickets', obterTickets);
 router.post('/tickets', abrirTicket);
+router.post('/empresas/:empresaId/contactar', contactarEmpresa);
 router.get('/tickets/:id', obterTicket);
 router.post('/tickets/:id/mensagens', enviarMensagem);
 router.patch('/tickets/:id/estado', mudarEstado);

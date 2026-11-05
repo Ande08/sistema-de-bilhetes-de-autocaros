@@ -1,4 +1,4 @@
-import { adicionarMensagem, atribuirTicket, actualizarEstadoTicket, criarTicket, listarGestoresSuporte, listarTickets, obterTicketPorId, pesquisarBilhetesParaSuporte } from '../services/suporte.service.js';
+import { adicionarMensagem, atribuirTicket, actualizarEstadoTicket, criarContactoEmpresa, criarTicket, listarGestoresSuporte, listarTickets, obterTicketPorId, pesquisarBilhetesParaSuporte } from '../services/suporte.service.js';
 import { registarAuditoria } from '../services/auditoria.service.js';
 import { guardarImagemSuporte, removerImagemSuporte } from '../services/anexo-suporte.service.js';
 import { responderAssistenteComIa } from '../services/assistente-ia.service.js';
@@ -19,6 +19,15 @@ export async function abrirTicket(req, res, next) {
     req.app.get('io')?.to(`empresa:${ticket.empresaId}`).emit('suporte:novo-ticket', ticket);
     return res.status(201).json({ sucesso: true, dados: ticket });
   } catch (erro) { await removerImagemSuporte(anexo?.caminho); return next(erro); }
+}
+
+export async function contactarEmpresa(req, res, next) {
+  try {
+    const ticket = await criarContactoEmpresa(req.utilizador, { ...req.body, empresaId: req.params.empresaId });
+    await registarAuditoria({ utilizadorId: req.utilizador.id, operacao: 'CONTACTAR_EMPRESA', entidade: 'tickets_suporte', entidadeId: ticket.id, valoresNovos: { codigo: ticket.codigo, empresaId: ticket.empresaId }, enderecoIp: req.ip });
+    req.app.get('io')?.to(`empresa:${ticket.empresaId}`).emit('suporte:novo-ticket', ticket);
+    return res.status(201).json({ sucesso: true, dados: ticket });
+  } catch (erro) { return next(erro); }
 }
 
 export async function pesquisarBilhetes(req, res, next) {

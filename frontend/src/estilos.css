@@ -134,6 +134,27 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 
 /* Proteções de responsividade para o cabeçalho e para todas as janelas modais. */
 .modal-nova-viagem,.modal-projecto,.formulario-ticket,.perfil-publico-empresa{max-height:calc(100dvh - 40px);overflow-y:auto;overscroll-behavior:contain}
+
+/* O nome e o logótipo da empresa funcionam como acesso consistente ao perfil público. */
+.botao-perfil-empresa,.botao-empresa-viagem{border:0;padding:0;text-align:left;background:transparent;cursor:pointer;font:inherit}
+.botao-perfil-empresa:disabled,.botao-empresa-viagem:disabled{cursor:default}
+.empresa-viagem.botao-perfil-empresa{width:max-content;color:#cce8ff}
+.empresa-cartao-viagem.botao-perfil-empresa{width:100%}
+.empresa-cartao-viagem>span:last-child{display:grid;min-width:0;gap:3px}
+.botao-empresa-viagem{width:100%}
+.botao-perfil-empresa:not(:disabled):hover strong,.botao-empresa-viagem:not(:disabled):hover strong{text-decoration:underline}
+.contactos-publicos-empresa{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0}
+.contactos-publicos-empresa span,.contactos-publicos-empresa a{display:grid;gap:2px;min-width:190px;padding:11px 13px;border:1px solid #c3deef;border-radius:11px;color:#476d8c;background:#ffffff8a;text-decoration:none}
+.contactos-publicos-empresa strong{color:#153f67;font-size:.72rem;text-transform:uppercase}
+.formulario-contacto-empresa{display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:end;margin-top:20px;padding:18px;border:1px solid #b9d8ed;border-radius:16px;background:#edf8ff}
+.formulario-contacto-empresa>div,.formulario-contacto-empresa .mensagem-contacto-empresa,.formulario-contacto-empresa>small{grid-column:1/-1}
+.formulario-contacto-empresa h3{margin:0;color:#153f67}
+.formulario-contacto-empresa p{margin:5px 0 0;color:#607d96;font-size:.82rem}
+.formulario-contacto-empresa label{display:grid;gap:6px;color:#315b7c;font-size:.78rem;font-weight:700}
+.formulario-contacto-empresa input,.formulario-contacto-empresa select,.formulario-contacto-empresa textarea{width:100%;min-height:44px;border:1px solid #a5cbe8;border-radius:11px;padding:10px;background:#fff;font:inherit}
+.formulario-contacto-empresa textarea{min-height:95px;resize:vertical}
+.formulario-contacto-empresa>small{color:#607d96}
+@media(max-width:700px){.formulario-contacto-empresa{grid-template-columns:1fr;padding:14px}.formulario-contacto-empresa>div,.formulario-contacto-empresa .mensagem-contacto-empresa,.formulario-contacto-empresa>small{grid-column:auto}.formulario-contacto-empresa .botao-pesquisar{width:100%;min-height:44px}.contactos-publicos-empresa span,.contactos-publicos-empresa a{width:100%}}
 @media(max-width:760px){
   .topo{width:100%;grid-template-columns:minmax(0,1fr) auto;padding-left:0}
   .marca-topo-mobile{min-width:0;margin-left:50px}

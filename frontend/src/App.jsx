@@ -6,7 +6,7 @@ import PaginaSuportePassageiro from './componentes/PaginaSuportePassageiro.jsx';
 import MapaAssentos from './componentes/MapaAssentos.jsx';
 import SelecaoLocalidade from './componentes/SelecaoLocalidade.jsx';
 import PaginaContaUtilizador from './componentes/PaginaContaUtilizador.jsx';
-import PaginaEmpresas from './componentes/PaginaEmpresas.jsx';
+import PaginaEmpresas, { ModalPerfilEmpresa } from './componentes/PaginaEmpresas.jsx';
 import PaginaValidacaoBilhete from './componentes/PaginaValidacaoBilhete.jsx';
 import { ModalConfirmacao } from './componentes/Modal.jsx';
 import { URL_SERVIDOR, cancelarBilhete, comprarBilhete, confirmarRecuperacaoPalavraPasse, confirmarRegistoUtilizador, guardarSessao, iniciarPagamentoSimulado, iniciarSessao, obterBilhetePdf, obterPerfil, obterResumoConta, obterSessaoGuardada, pesquisarViagens, processarPagamentoSimulado, registarUtilizador, solicitarRecuperacaoPalavraPasse, terminarSessao, validarCupao } from './servicos/api.js';
@@ -173,11 +173,12 @@ function ConteudoConta({ pagina, resumo, utilizador, aoNovaViagem, aoEscolherVia
 
 function PaginaInicio({ resumo, aoNovaViagem, aoEscolherViagem, aoAbrirSuporte, aoActualizar }) {
   const proxima = resumo.proximaViagem;
+  const [empresaAberta, setEmpresaAberta] = useState(null);
   return <div className="inicio-passageiro">
     {proxima ? <section className="proxima-viagem" aria-label="Próxima viagem">
       <div className="viagem-conteudo">
         <div className="linha-estado"><span>Próxima viagem</span><span className="confirmado"><Icone nome="confirmado" /> Confirmado</span></div>
-        <h3>{proxima.viagem.origem} <span>→</span> {proxima.viagem.destino}</h3><p className="empresa-viagem">{proxima.viagem.empresa?.logoUrl && <img src={`${URL_SERVIDOR}${proxima.viagem.empresa.logoUrl}`} alt="" />}{proxima.viagem.empresa?.nome}</p>
+        <h3>{proxima.viagem.origem} <span>→</span> {proxima.viagem.destino}</h3>{proxima.viagem.empresa?.slug ? <button type="button" className="empresa-viagem botao-perfil-empresa" onClick={() => setEmpresaAberta(proxima.viagem.empresa)}>{proxima.viagem.empresa.logoUrl && <img src={`${URL_SERVIDOR}${proxima.viagem.empresa.logoUrl}`} alt="" />}{proxima.viagem.empresa.nome}</button> : <p className="empresa-viagem">{proxima.viagem.empresa?.logoUrl && <img src={`${URL_SERVIDOR}${proxima.viagem.empresa.logoUrl}`} alt="" />}{proxima.viagem.empresa?.nome}</p>}
         <div className="detalhes-viagem">
           <div><Icone nome="calendario" /><span><strong>{formatarData(proxima.viagem.partidaEm)}</strong><small>Data da viagem</small></span></div>
           <div><Icone nome="relogio" /><span><strong>{formatarHora(proxima.viagem.partidaEm)}</strong><small>Partida</small></span></div>
@@ -191,6 +192,7 @@ function PaginaInicio({ resumo, aoNovaViagem, aoEscolherViagem, aoAbrirSuporte, 
     </section>}
 
     <PesquisaViagensInicio aoEscolherViagem={aoEscolherViagem} />
+    {empresaAberta && <ModalPerfilEmpresa empresa={empresaAberta} aoFechar={() => setEmpresaAberta(null)} />}
   </div>;
 }
 
@@ -198,6 +200,7 @@ function ListaViagensRecentes({ bilhetes, aoActualizar }) {
   const [bilheteACancelar, setBilheteACancelar] = useState(null);
   const [aProcessar, setAProcessar] = useState(false);
   const [erro, setErro] = useState('');
+  const [empresaAberta, setEmpresaAberta] = useState(null);
   async function cancelar() {
     setAProcessar(true); setErro('');
     try { await cancelarBilhete(bilheteACancelar.codigo); setBilheteACancelar(null); aoActualizar(); }
@@ -206,10 +209,10 @@ function ListaViagensRecentes({ bilhetes, aoActualizar }) {
   }
   return <section className="historico viagens-recentes-cartoes vidro"><div className="titulo-secao"><h3>Viagens recentes</h3><span>{bilhetes.length} registos</span></div><div className="lista-cartoes-viagem-recente">{bilhetes.length ? bilhetes.map((item) => <article key={item.codigo}>
     <div className="topo-cartao-viagem-recente"><span className="data-cartao-viagem"><strong>{item.viagem ? formatarData(item.viagem.partidaEm) : '—'}</strong><small>{item.viagem ? formatarHora(item.viagem.partidaEm) : ''}</small></span><b className={`estado-bilhete estado-${item.estado.toLowerCase()}`}>{traduzirEstado(item.estado)}</b></div>
-    <div className="empresa-cartao-viagem">{item.viagem?.empresa?.logoUrl ? <img src={`${URL_SERVIDOR}${item.viagem.empresa.logoUrl}`} alt="" /> : <span className="logo-empresa-generico"><Icone nome="autocarro" /></span>}<div><strong>{item.viagem?.origem} → {item.viagem?.destino}</strong><small>{item.viagem?.empresa?.nome || 'Empresa de transporte'}</small></div></div>
+    <button type="button" className="empresa-cartao-viagem botao-perfil-empresa" disabled={!item.viagem?.empresa?.slug} onClick={() => item.viagem?.empresa?.slug && setEmpresaAberta(item.viagem.empresa)}>{item.viagem?.empresa?.logoUrl ? <img src={`${URL_SERVIDOR}${item.viagem.empresa.logoUrl}`} alt="" /> : <span className="logo-empresa-generico"><Icone nome="autocarro" /></span>}<span><strong>{item.viagem?.origem} → {item.viagem?.destino}</strong><small>{item.viagem?.empresa?.nome || 'Empresa de transporte'}</small></span></button>
     <div className="detalhes-cartao-viagem"><span><small>Bilhete</small><strong>{item.codigo}</strong></span><span><small>Assento</small><strong>{item.assento?.numero || '—'}</strong></span><span><small>Valor</small><strong>{formatarMeticais(item.preco)}</strong></span></div>
     <footer><BotaoPdfBilhete codigo={item.codigo} texto="Abrir PDF" />{['EMITIDO', 'RESERVADO'].includes(item.estado) && item.viagem && new Date(item.viagem.partidaEm) > new Date() && <button className="botao-cancelar" onClick={() => setBilheteACancelar(item)}>Cancelar</button>}</footer>
-  </article>) : <EstadoVazio texto="Ainda não existem viagens nesta conta." />}</div>{erro && <p className="mensagem-formulario erro">{erro}</p>}{bilheteACancelar && <ModalConfirmacao titulo="Cancelar bilhete" texto={`Deseja cancelar o bilhete ${bilheteACancelar.codigo}?`} textoConfirmar="Cancelar bilhete" perigo aProcessar={aProcessar} aoConfirmar={cancelar} aoFechar={() => setBilheteACancelar(null)} />}</section>;
+  </article>) : <EstadoVazio texto="Ainda não existem viagens nesta conta." />}</div>{erro && <p className="mensagem-formulario erro">{erro}</p>}{bilheteACancelar && <ModalConfirmacao titulo="Cancelar bilhete" texto={`Deseja cancelar o bilhete ${bilheteACancelar.codigo}?`} textoConfirmar="Cancelar bilhete" perigo aProcessar={aProcessar} aoConfirmar={cancelar} aoFechar={() => setBilheteACancelar(null)} />}{empresaAberta && <ModalPerfilEmpresa empresa={empresaAberta} aoFechar={() => setEmpresaAberta(null)} />}</section>;
 }
 
 function PesquisaViagensInicio({ aoEscolherViagem }) {
@@ -221,6 +224,7 @@ function PesquisaViagensInicio({ aoEscolherViagem }) {
   const [tituloResultados, setTituloResultados] = useState('Viagens próximas de si');
   const [aPesquisar, setAPesquisar] = useState(false);
   const [erro, setErro] = useState('');
+  const [empresaAberta, setEmpresaAberta] = useState(null);
 
   useEffect(() => {
     setAPesquisar(true);
@@ -263,11 +267,12 @@ function PesquisaViagensInicio({ aoEscolherViagem }) {
     {erro && <p className="mensagem-formulario erro" role="alert">{erro}</p>}
     <div className="cabecalho-recomendacoes"><div><span className="marcador-titulo" /><h3>{tituloResultados}</h3></div>{localizacao && <small>Ordenadas pela partida mais próxima</small>}</div>
     {viagens.length === 0 && !aPesquisar ? <EstadoVazio texto="Não existem partidas futuras disponíveis." /> : <div className="lista-viagens-inicio">{viagens.map((item) => <article className="opcao-viagem vidro" key={item.id}>
-      <header className="empresa-opcao-viagem">{item.Empresa?.logoUrl ? <img src={`${URL_SERVIDOR}${item.Empresa.logoUrl}`} alt={`Logótipo da ${item.Empresa.nome}`} /> : <span className="logo-empresa-generico"><Icone nome="autocarro" /></span>}<strong>{item.Empresa?.nome || 'Empresa de transporte'}</strong></header>
+      <button type="button" className="empresa-opcao-viagem botao-empresa-viagem" disabled={!item.Empresa?.slug} onClick={() => item.Empresa?.slug && setEmpresaAberta(item.Empresa)}>{item.Empresa?.logoUrl ? <img src={`${URL_SERVIDOR}${item.Empresa.logoUrl}`} alt={`Logótipo da ${item.Empresa.nome}`} /> : <span className="logo-empresa-generico"><Icone nome="autocarro" /></span>}<strong>{item.Empresa?.nome || 'Empresa de transporte'}</strong></button>
       <div className="rota-opcao-viagem"><strong>{item.Route?.origin} <span>→</span> {item.Route?.destination}</strong></div>
       <div className="horario-opcao-viagem"><span><Icone nome="calendario" /> {formatarData(item.departureAt)}</span><span><Icone nome="relogio" /> {formatarHora(item.departureAt)}</span></div>
       <footer><div className="preco-viagem"><small>Preço por passageiro</small><strong>{formatarMeticais(item.price)}</strong></div><button onClick={() => aoEscolherViagem(item)}><Icone nome="bilhete" /> Comprar</button></footer>
     </article>)}</div>}
+    {empresaAberta && <ModalPerfilEmpresa empresa={empresaAberta} aoFechar={() => setEmpresaAberta(null)} />}
   </section>;
 }
 

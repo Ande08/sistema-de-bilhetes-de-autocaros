@@ -99,6 +99,10 @@ export function avaliarEmpresa(id, dados) {
   return requisicao(`/catalogo/empresas/${id}/avaliacoes`, { method: 'POST', body: JSON.stringify(dados) });
 }
 
+export function contactarEmpresa(empresaId, dados) {
+  return requisicao(`/suporte/empresas/${empresaId}/contactar`, { method: 'POST', body: JSON.stringify(dados) });
+}
+
 export function listarAssentos(viagemId) {
   return requisicao(`/viagens/${viagemId}/assentos`);
 }

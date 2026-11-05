@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { actualizarEmpresaAdministrativa, actualizarPerfil, alterarPalavraPasse, avaliarEmpresa, comprarBilhete, confirmarRecuperacaoPalavraPasse, confirmarRegistoUtilizador, criarTicketSuporte, decidirCadastroEmpresaAdministrativa, definirEstadoEmpresaAdministrativa, editarEmpresaAdministrativa, eliminarEmpresaAdministrativa, eliminarUtilizadorAdministrativo, enviarAvisoViagemAdministrativa, enviarMensagemSuporte, guardarConfiguracaoIa, guardarSessao, iniciarPagamentoSimulado, libertarReservaAssento, listarClientesAtendimento, listarLocalidades, obterAnaliseAssistenteEmpresa, obterBilhetePdf, obterEmpresaPublica, obterRelatorioFinanceiroEmpresa, obterResumoConta, obterSessaoGuardada, perguntarAssistenteEmpresa, pesquisarBilhetesSuporte, pesquisarViagens, processarPagamentoSimulado, registarUtilizador, reservarAssento, solicitarOtpAlteracaoPalavraPasse, solicitarOtpAlteracaoPerfil, solicitarRecuperacaoPalavraPasse, terminarSessao, validarBilhetePublico, validarCupao } from './api.js';
+import { actualizarEmpresaAdministrativa, actualizarPerfil, alterarPalavraPasse, avaliarEmpresa, comprarBilhete, confirmarRecuperacaoPalavraPasse, confirmarRegistoUtilizador, contactarEmpresa, criarTicketSuporte, decidirCadastroEmpresaAdministrativa, definirEstadoEmpresaAdministrativa, editarEmpresaAdministrativa, eliminarEmpresaAdministrativa, eliminarUtilizadorAdministrativo, enviarAvisoViagemAdministrativa, enviarMensagemSuporte, guardarConfiguracaoIa, guardarSessao, iniciarPagamentoSimulado, libertarReservaAssento, listarClientesAtendimento, listarLocalidades, obterAnaliseAssistenteEmpresa, obterBilhetePdf, obterEmpresaPublica, obterRelatorioFinanceiroEmpresa, obterResumoConta, obterSessaoGuardada, perguntarAssistenteEmpresa, pesquisarBilhetesSuporte, pesquisarViagens, processarPagamentoSimulado, registarUtilizador, reservarAssento, solicitarOtpAlteracaoPalavraPasse, solicitarOtpAlteracaoPerfil, solicitarRecuperacaoPalavraPasse, terminarSessao, validarBilhetePublico, validarCupao } from './api.js';
 
 describe('sessão do passageiro', () => {
   beforeEach(() => {
@@ -115,10 +115,13 @@ describe('sessão do passageiro', () => {
 
     await obterEmpresaPublica('transportes maputo');
     await avaliarEmpresa(4, { classificacao: 5, comentario: 'Boa viagem.' });
+    await contactarEmpresa(4, { assunto: 'Bagagem permitida', categoria: 'VIAGEM', mensagem: 'Qual é o limite?' });
 
     expect(fetchSimulado.mock.calls[0][0]).toContain('/catalogo/empresas/transportes%20maputo');
     expect(fetchSimulado.mock.calls[1][0]).toContain('/catalogo/empresas/4/avaliacoes');
     expect(fetchSimulado.mock.calls[1][1].method).toBe('POST');
+    expect(fetchSimulado.mock.calls[2][0]).toContain('/suporte/empresas/4/contactar');
+    expect(fetchSimulado.mock.calls[2][1]).toEqual(expect.objectContaining({ method: 'POST' }));
   });
 
   it('pesquisa o bilhete e cria o atendimento sem empresa ou prioridade escolhidas pelo cliente', async () => {

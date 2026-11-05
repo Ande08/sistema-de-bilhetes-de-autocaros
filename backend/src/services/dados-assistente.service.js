@@ -4,10 +4,12 @@ import { listarAssentosDaViagem } from './assento.service.js';
 import { obterResumoConta } from './conta.service.js';
 
 const PADROES_CONTA = /\b(meu|minha|meus|minhas)\s+(bilhete|bilhetes|viagem|viagens|pagamento|pagamentos|conta|reserva|reservas)\b|\bpr[oó]xima\s+viagem\b/i;
-const PADROES_VIAGEM_REAL = /quanto\s+custa|quanto\s+(?:é|e)\s+(?:a\s+)?passagem|pre[cç]o|valor\s+da\s+(?:viagem|passagem)|hor[aá]rio|quando\s+(?:sai|parte|tem\s+autocarro)|(?:tem|h[aá])\s+(?:viagem|autocarro)|autocarro\s+para|viagens?\s+dispon[ií]ve|quais\s+viagens|listar\s+viagens|assentos?\s+dispon[ií]ve|lugares?\s+(?:vagos|dispon[ií]ve)|viajar\s+de|rota\s+de|\bde\s+[\p{L}\s'-]{2,50}\s+para\s+[\p{L}\s'-]{2,50}/iu;
+const PADROES_VIAGEM_REAL = /quanto\s+custa|quanto\s+(?:é|e)\s+(?:a\s+)?passagem|pre[cç]o|valor\s+da\s+(?:viagem|passagem)|hor[aá]rio|quando\s+(?:sai|parte|tem\s+autocarro)|(?:tem|h[aá]|existe|existem)\s+(?:alguma\s+|uma\s+)?(?:viagem|autocarro)|autocarro\s+para|viagens?\s+dispon[ií]ve|quais\s+viagens|listar\s+viagens|assentos?\s+dispon[ií]ve|lugares?\s+(?:vagos|dispon[ií]ve)|viajar\s+de|rota\s+de|\bde\s+[\p{L}\s'-]{2,50}\s+para\s+[\p{L}\s'-]{2,50}/iu;
+const PADROES_POLITICA_EMPRESA = /bagage[mn]|mala|peso\s+(?:permitido|m[aá]ximo)|quantos?\s*(?:kg|quilos?)|limite\s+(?:de\s+)?(?:peso|bagagem)/i;
 
 export function identificarConsultaProtegida(mensagem) {
   if (PADROES_CONTA.test(mensagem)) return 'CONTA';
+  if (PADROES_POLITICA_EMPRESA.test(mensagem)) return 'POLITICA_EMPRESA';
   if (PADROES_VIAGEM_REAL.test(mensagem)) return 'VIAGENS';
   return null;
 }
@@ -15,6 +17,7 @@ export function identificarConsultaProtegida(mensagem) {
 export async function responderComDadosConfirmados(mensagem, utilizadorId) {
   const tipo = identificarConsultaProtegida(mensagem);
   if (tipo === 'CONTA') return responderConta(utilizadorId, mensagem);
+  if (tipo === 'POLITICA_EMPRESA') return respostaBaseDados('O limite, o peso e as condições de bagagem variam de empresa para empresa. Abra o perfil da transportadora da sua viagem e envie uma mensagem para confirmar a política aplicável antes da partida.');
   if (tipo === 'VIAGENS') return responderViagens(mensagem);
   return null;
 }
@@ -47,7 +50,19 @@ async function responderViagens(mensagem) {
   if (!viagens.length) return respostaBaseDados('Neste momento não existem viagens futuras disponíveis no sistema.');
 
   const texto = normalizar(mensagem);
-  const porLocal = viagens.filter((viagem) => texto.includes(normalizar(viagem.Route.origin)) || texto.includes(normalizar(viagem.Route.destination)));
+  const rotaPedida = extrairRotaPedida(mensagem);
+  const localPedido = rotaPedida ? null : extrairLocalPedido(mensagem);
+  const porLocal = rotaPedida
+    ? viagens.filter((viagem) => localCorresponde(viagem.Route.origin, rotaPedida.origem) && localCorresponde(viagem.Route.destination, rotaPedida.destino))
+    : localPedido
+      ? viagens.filter((viagem) => localCorresponde(viagem.Route.origin, localPedido.normalizado) || localCorresponde(viagem.Route.destination, localPedido.normalizado))
+      : viagens.filter((viagem) => texto.includes(normalizar(viagem.Route.origin)) || texto.includes(normalizar(viagem.Route.destination)));
+  if (rotaPedida && !porLocal.length) {
+    return respostaBaseDados(`Não encontrei nenhuma viagem futura confirmada de ${rotaPedida.origemOriginal} para ${rotaPedida.destinoOriginal}. Consulte a pesquisa de viagens porque novas partidas podem ser adicionadas pelas empresas.`);
+  }
+  if (localPedido && !porLocal.length) {
+    return respostaBaseDados(`Não encontrei nenhuma viagem futura confirmada para ${localPedido.original}. Consulte a pesquisa de viagens porque novas partidas podem ser adicionadas pelas empresas.`);
+  }
   const seleccionadas = (porLocal.length ? porLocal : viagens).slice(0, 5);
   const detalhes = await Promise.all(seleccionadas.map(async (viagem) => {
     const assentos = await listarAssentosDaViagem(viagem.id);
@@ -82,13 +97,36 @@ export function respostaIaContemDadosNaoConfirmados(texto) {
     /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i,
     /\bsk-or-v1-[A-Za-z0-9_-]+\b/i,
     /\+?\d(?:[\s-]?\d){8,14}\b/,
-    /\b(?:amanh[ãa]|hoje\s+[àa]s|partida\s+(?:é|ser[aá]|[àa]s))\b/i
+    /\b(?:amanh[ãa]|hoje\s+[àa]s|partida\s+(?:é|ser[aá]|[àa]s))\b/i,
+    /\b\d+(?:[.,]\d+)?\s*(?:kg|quilos?)\b/i
   ];
   return padroes.some((padrao) => padrao.test(String(texto)));
 }
 
 function respostaBaseDados(mensagem) { return { mensagem, resolveuAutomaticamente: true, origem: 'BASE_DADOS', modelo: null, dadosConfirmados: true }; }
 function normalizar(valor) { return String(valor || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); }
+export function extrairRotaPedida(mensagem) {
+  const original = String(mensagem || '').trim();
+  const correspondencia = original.match(/\b(?:de|entre)\s+([\p{L}\s'-]{2,60}?)\s+(?:para|e)\s+([\p{L}\s'-]{2,60}?)(?:[?.!,]|$)/iu);
+  if (!correspondencia) return null;
+  const limpar = (valor) => valor.trim().replace(/\s+(?:hoje|amanh[ãa]|depois|no\s+dia|na\s+data).*$/iu, '').trim();
+  const origemOriginal = limpar(correspondencia[1]);
+  const destinoOriginal = limpar(correspondencia[2]);
+  if (!origemOriginal || !destinoOriginal) return null;
+  return { origem: normalizar(origemOriginal), destino: normalizar(destinoOriginal), origemOriginal, destinoOriginal };
+}
+export function extrairLocalPedido(mensagem) {
+  const original = String(mensagem || '').trim();
+  const correspondencia = original.match(/\b(?:viagem|autocarro|rota)s?\s+(?:dispon[ií]ve(?:l|is)\s+)?(?:com\s+destino\s+|para\s+)([\p{L}\s'-]{2,60}?)(?:[?.!,]|$)/iu)
+    || original.match(/\b(?:ir|viajar)\s+para\s+([\p{L}\s'-]{2,60}?)(?:[?.!,]|$)/iu);
+  if (!correspondencia) return null;
+  const valor = correspondencia[1].trim().replace(/\s+(?:hoje|amanh[ãa]|depois|no\s+dia|na\s+data).*$/iu, '').trim();
+  return valor ? { normalizado: normalizar(valor), original: valor } : null;
+}
+function localCorresponde(local, pedido) {
+  const normalizado = normalizar(local);
+  return normalizado === pedido || normalizado.includes(pedido) || pedido.includes(normalizado);
+}
 export function formatarDinheiro(valor) {
   const numero = Number(valor);
   const seguro = Number.isFinite(numero) ? numero : 0;

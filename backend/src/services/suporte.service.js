@@ -11,6 +11,7 @@ const inclusoesTicket = [
 ];
 
 const respostasFrequentes = [
+  { termos: ['bagagem', 'mala', 'quilos', 'kg'], resposta: 'O limite e as condições de bagagem variam conforme a empresa. Abra o perfil da transportadora e envie uma mensagem para confirmar a política antes da viagem.' },
   { termos: ['cancelar', 'cancelamento', 'reembolso'], resposta: 'Pode cancelar um bilhete emitido antes da partida em “Meus bilhetes”. Quando aplicável, o pagamento fica marcado para reembolso.' },
   { termos: ['pagamento', 'mpesa', 'm-pesa', 'emola', 'e-mola', 'cartao'], resposta: 'Nesta versão, os pagamentos por M-Pesa, e-Mola e cartão são simulados e confirmados automaticamente. A referência fica disponível no histórico de pagamentos.' },
   { termos: ['assento', 'lugar'], resposta: 'O assento é escolhido durante a compra. Os lugares ocupados aparecem bloqueados e não podem ser selecionados.' },
@@ -37,9 +38,7 @@ export function responderAssistente(mensagem) {
 
 export async function criarTicket(utilizador, { bilheteId, codigoBilhete, assunto, categoria = 'OUTRO', mensagem }, anexo = {}) {
   if (utilizador.perfil !== 'PASSAGEIRO') throw erroAcesso('Apenas passageiros podem abrir pedidos de suporte.');
-  if (!assunto?.trim() || assunto.trim().length < 5 || !mensagem?.trim()) throw erroValidacao('Assunto e mensagem são obrigatórios.');
-  const categorias = ['BILHETE', 'PAGAMENTO', 'VIAGEM', 'CONTA', 'RECLAMACAO', 'OUTRO'];
-  if (!categorias.includes(categoria)) throw erroValidacao('Categoria inválida.');
+  validarConteudoTicket({ assunto, categoria, mensagem });
   const whereBilhete = bilheteId ? { id: bilheteId } : { codigo: String(codigoBilhete || '').trim().toUpperCase() };
   const bilhete = await Bilhete.findOne({
     where: { ...whereBilhete, utilizadorId: utilizador.id },
@@ -48,11 +47,36 @@ export async function criarTicket(utilizador, { bilheteId, codigoBilhete, assunt
   if (!bilhete) throw erroValidacao('Selecione um bilhete válido da sua conta.');
   const triagem = classificarPrioridadeTicket({ assunto, categoria, mensagem, partidaEm: bilhete.Trip.departureAt });
 
+  return guardarNovoTicket({ utilizador, empresaId: bilhete.Trip.empresaId, bilheteId: bilhete.id, assunto, categoria, mensagem, triagem, anexo });
+}
+
+// Permite esclarecer políticas e outras dúvidas antes da compra. A empresa é
+// validada no servidor e o pedido entra na mesma fila rastreável do suporte.
+export async function criarContactoEmpresa(utilizador, { empresaId, assunto, categoria = 'OUTRO', mensagem }) {
+  if (utilizador.perfil !== 'PASSAGEIRO') throw erroAcesso('Apenas passageiros podem contactar empresas.');
+  validarConteudoTicket({ assunto, categoria, mensagem });
+  const empresa = await Empresa.findOne({
+    where: { id: empresaId, activa: true, estadoCadastro: 'APROVADA', eliminadaEm: null },
+    attributes: ['id']
+  });
+  if (!empresa) throw erroValidacao('Selecione uma empresa ativa e disponível na plataforma.');
+  const triagem = classificarPrioridadeTicket({ assunto, categoria, mensagem });
+  return guardarNovoTicket({ utilizador, empresaId: empresa.id, bilheteId: null, assunto, categoria, mensagem, triagem });
+}
+
+function validarConteudoTicket({ assunto, categoria, mensagem }) {
+  if (!assunto?.trim() || assunto.trim().length < 5 || assunto.trim().length > 160 || !mensagem?.trim() || mensagem.trim().length > 4000) {
+    throw erroValidacao('Informe um assunto entre 5 e 160 caracteres e uma mensagem de até 4000 caracteres.');
+  }
+  const categorias = ['BILHETE', 'PAGAMENTO', 'VIAGEM', 'CONTA', 'RECLAMACAO', 'OUTRO'];
+  if (!categorias.includes(categoria)) throw erroValidacao('Categoria inválida.');
+}
+
+function guardarNovoTicket({ utilizador, empresaId, bilheteId, assunto, categoria, mensagem, triagem, anexo = {} }) {
   return sequelize.transaction(async (transaction) => {
     const ticket = await TicketSuporte.create({
       codigo: `SUP-${new Date().toISOString().slice(0, 10).replaceAll('-', '')}-${randomUUID().slice(0, 6).toUpperCase()}`,
-      empresaId: bilhete.Trip.empresaId, bilheteId: bilhete.id,
-      utilizadorId: utilizador.id,
+      empresaId, bilheteId, utilizadorId: utilizador.id,
       assunto: assunto.trim(), categoria, prioridade: triagem.prioridade,
       prioridadePontuacao: triagem.pontuacao, prioridadeMotivo: triagem.motivo
     }, { transaction });
