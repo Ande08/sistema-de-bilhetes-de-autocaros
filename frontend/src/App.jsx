@@ -112,7 +112,7 @@ function AplicacaoPrincipal() {
       <div className="orbita orbita-um" /><div className="orbita orbita-dois" />
       <button className="botao-menu" onClick={() => setMenuAberto(!menuAberto)} aria-label="Abrir menu"><Icone nome="menu" /></button>
 
-      <aside className={`barra-lateral vidro ${menuAberto ? 'aberta' : ''}`}>
+      <aside className={`barra-lateral vidro menu-liquid-glass ${menuAberto ? 'aberta' : ''}`}>
         <div className="logotipo">
           <span className="logotipo-icone"><Icone nome="autocarro" /></span>
           <div><strong>Viagem Bus</strong><small>Mais destinos, mais histórias</small></div>
@@ -147,7 +147,7 @@ function AplicacaoPrincipal() {
         {!resumoConta ? <div className="painel-carregando vidro">A carregar os dados da sua conta...</div> :
           <ConteudoConta pagina={paginaAtiva} resumo={resumoConta} utilizador={utilizador} aoNovaViagem={() => setNovaViagemAberta(true)} aoEscolherViagem={(viagem) => setNovaViagemAberta({ viagem })} aoAbrirSuporte={() => selecionarPagina('Suporte')} aoActualizar={actualizarConta} aoActualizarUtilizador={actualizarUtilizadorSessao} />}
       </main>
-      <nav className="navegacao-inferior-mobile vidro" aria-label="Navegação rápida">
+      <nav className="navegacao-inferior-mobile vidro menu-liquid-glass" aria-label="Navegação rápida">
         {[
           ['inicio', 'Início'],
           ['bilhete', 'Bilhetes'],

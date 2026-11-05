@@ -172,6 +172,25 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 .lista-bilhetes-compra .bilhete-resumo{margin:0}
 .lista-bilhetes-compra .controlador-pdf{margin-top:8px}
 @media(max-width:620px){.configuracao-multiplos-bilhetes{align-items:stretch;flex-direction:column}.opcao-atribuicao-automatica{min-width:0}.contador-assentos{margin-left:0}.lista-bilhetes-compra{grid-template-columns:1fr}}
+
+/* Liquid Glass para a aplicação web. O pacote expo-glass-effect é nativo de
+   Expo/iOS; esta camada preserva o mesmo princípio visual no navegador. */
+.menu-liquid-glass{isolation:isolate;overflow:hidden!important;border:1px solid #ffffffb8!important;background:linear-gradient(145deg,#ffffffb8 0%,#dff2ff8f 48%,#b9ddf76b 100%)!important;box-shadow:0 24px 60px #053e7530,inset 0 1px 0 #fff,inset 0 -1px 0 #7eb9df52!important;-webkit-backdrop-filter:blur(24px) saturate(175%) contrast(105%);backdrop-filter:blur(24px) saturate(175%) contrast(105%)}
+.menu-liquid-glass::before,.menu-liquid-glass::after{content:"";position:absolute;z-index:0;pointer-events:none}
+.menu-liquid-glass::before{inset:0;background:radial-gradient(circle at 18% 4%,#ffffffd9 0,transparent 32%),radial-gradient(circle at 88% 92%,#56b8ff42 0,transparent 37%),linear-gradient(115deg,transparent 25%,#ffffff42 48%,transparent 68%)}
+.menu-liquid-glass::after{top:-35%;left:-55%;width:80%;height:170%;background:linear-gradient(90deg,transparent,#ffffff70,transparent);transform:rotate(15deg);transition:transform .65s ease}
+.menu-liquid-glass:hover::after{transform:translateX(190%) rotate(15deg)}
+.menu-liquid-glass>*{position:relative;z-index:1}
+.menu-liquid-glass nav button{position:relative;overflow:hidden;border:1px solid transparent;transition:transform .2s ease,border-color .2s ease,background .2s ease,box-shadow .2s ease}
+.menu-liquid-glass nav button:hover{transform:translateX(3px);border-color:#ffffffb8;background:#ffffff73;box-shadow:0 9px 24px #075a9520,inset 0 1px 0 #fff}
+.menu-liquid-glass nav button.ativo{border-color:#80c9ffb8;background:linear-gradient(135deg,#1599f5e8,#075bc9e8);box-shadow:0 13px 30px #075eb24d,inset 0 1px 0 #b9e4ff}
+.admin-lateral.menu-liquid-glass-escuro{border-color:#76bce35c!important;color:#e7f5ff;background:linear-gradient(165deg,#073e78e8 0%,#052e5cdd 50%,#031f43e8 100%)!important;box-shadow:18px 0 52px #082f543b,inset -1px 0 0 #71b9e852,inset 0 1px 0 #91cff452!important;-webkit-backdrop-filter:blur(25px) saturate(150%);backdrop-filter:blur(25px) saturate(150%)}
+.admin-lateral.menu-liquid-glass-escuro::before{background:radial-gradient(circle at 12% 3%,#46adf64f 0,transparent 30%),radial-gradient(circle at 90% 88%,#148ee53b 0,transparent 38%),linear-gradient(120deg,transparent 20%,#ffffff14 48%,transparent 72%)}
+.admin-lateral.menu-liquid-glass-escuro nav button:hover{color:#fff;border-color:#83c9ef55;background:#ffffff19;box-shadow:0 10px 25px #001b353d,inset 0 1px 0 #ffffff36}
+.admin-lateral.menu-liquid-glass-escuro nav button.ativo{color:#fff;border-color:#7cc8f778;background:linear-gradient(135deg,#168cddd6,#0756a8d9);box-shadow:0 12px 27px #001d3e66,inset 0 1px 0 #a2dcff70}
+.navegacao-inferior-mobile.menu-liquid-glass{overflow:hidden!important;border-radius:22px!important;background:linear-gradient(145deg,#fafdffe8,#d9efffcf)!important;box-shadow:0 15px 42px #053e7542,inset 0 1px 0 #fff!important}
+.navegacao-inferior-mobile.menu-liquid-glass button:hover{transform:translateY(-2px)}
+@media(prefers-reduced-motion:reduce){.menu-liquid-glass::after,.menu-liquid-glass nav button{transition:none}.menu-liquid-glass:hover::after{transform:rotate(15deg)}}
 @media(max-width:760px){
   .topo{width:100%;grid-template-columns:minmax(0,1fr) auto;padding-left:0}
   .marca-topo-mobile{min-width:0;margin-left:50px}
