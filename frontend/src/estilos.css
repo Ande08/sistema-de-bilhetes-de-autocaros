@@ -219,3 +219,37 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 .empresa-validacao{display:flex;align-items:center;gap:12px;margin-bottom:16px;padding:14px;border-radius:15px;background:#eaf6fe}.empresa-validacao img,.empresa-validacao .logo-empresa-generico{width:50px;height:50px;flex:0 0 50px;border-radius:12px;object-fit:contain;background:#fff}.empresa-validacao>div{display:grid;gap:4px}.empresa-validacao small,.detalhes-validacao-bilhete dt{color:#69839a}.empresa-validacao strong{color:#123f68}
 .detalhes-validacao-bilhete{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0}.detalhes-validacao-bilhete>div{display:grid;gap:5px;min-width:0;padding:13px;border:1px solid #c4dfef;border-radius:13px;background:#ffffff8c}.detalhes-validacao-bilhete dt{font-size:.7rem;text-transform:uppercase}.detalhes-validacao-bilhete dd{overflow-wrap:anywhere;margin:0;color:#123f68;font-weight:750}.nota-validacao{margin:16px 0;padding:12px;border-left:4px solid #0875d7;color:#56758e;background:#edf8ff;line-height:1.5}.botao-pagina-validacao{display:block;border-radius:12px;padding:13px;text-align:center;text-decoration:none;color:#fff;background:#0875d7;font-weight:750}
 @media(max-width:560px){.pagina-validacao-bilhete{place-items:start center;padding:10px}.cartao-validacao-bilhete{padding:17px;border-radius:20px}.resultado-validacao{padding:24px 5px}.detalhes-validacao-bilhete{grid-template-columns:1fr}}
+
+/* Cartões da página de bilhetes no telemóvel. A tabela do computador permanece compacta. */
+.campo-bilhete-rota{min-width:0}.campo-bilhete-rota strong{font-weight:400}.campo-bilhete-rota small:not(.codigo-cartao-bilhete){display:inline;color:inherit}.campo-bilhete-rota small:not(.codigo-cartao-bilhete)::before{content:" · "}.codigo-cartao-bilhete{display:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:760px){
+  .pagina-bilhetes{padding:14px;border:1px solid #ffffffc7;border-radius:22px;background:linear-gradient(145deg,#f9fdffb8,#e4f4ffc4)}
+  .pagina-bilhetes>.titulo-secao{align-items:flex-end;gap:12px;margin-bottom:15px;padding:2px 2px 14px}
+  .pagina-bilhetes>.titulo-secao h3{color:#0c3c68;font-size:1.45rem}
+  .pagina-bilhetes>.titulo-secao>span{flex:0 0 auto;padding:6px 10px;border:1px solid #b7daf1;border-radius:999px;color:#0868b9;background:#e7f5ff;font-weight:750}
+  .pagina-bilhetes .linhas-viagem{gap:14px}
+  .pagina-bilhetes .linha-viagem{position:relative;overflow:hidden;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 12px;min-height:0;padding:18px 15px 15px;border:1px solid #ffffffdf;border-radius:19px;background:linear-gradient(145deg,#ffffffed,#eaf6ffdc);box-shadow:0 13px 30px #07578e19,inset 0 1px 0 #fff}
+  .pagina-bilhetes .linha-viagem::after{content:"";position:absolute;top:0;right:0;left:0;height:4px;background:linear-gradient(90deg,#0875d7,#4db8ff)}
+  .pagina-bilhetes .linha-viagem>span{min-width:0}
+  .pagina-bilhetes .linha-viagem>span::before{margin-bottom:5px;color:#66829a;font-size:.64rem;font-weight:800;letter-spacing:.07em}
+  .pagina-bilhetes .campo-bilhete-rota{grid-column:1/-1;grid-row:1;padding:0 2px 12px;border-bottom:1px solid #c5e0f0}
+  .pagina-bilhetes .campo-bilhete-rota strong{display:block;overflow-wrap:anywhere;color:#093d6c;font-size:1.05rem;font-weight:750;line-height:1.3}
+  .pagina-bilhetes .campo-bilhete-rota small:not(.codigo-cartao-bilhete){display:block;margin-top:5px;color:#34729f;font-weight:700}
+  .pagina-bilhetes .campo-bilhete-rota small:not(.codigo-cartao-bilhete)::before{content:none}
+  .pagina-bilhetes .codigo-cartao-bilhete{display:block;width:max-content;max-width:100%;margin-top:8px;padding:5px 8px;border-radius:8px;color:#17649d;background:#dcefff;font-size:.67rem;font-weight:750}
+  .pagina-bilhetes .campo-bilhete-data,.pagina-bilhetes .campo-bilhete-assento,.pagina-bilhetes .campo-bilhete-estado{padding:10px;border:1px solid #d2e8f6;border-radius:12px;color:#174d78;background:#f7fcff;font-weight:700}
+  .pagina-bilhetes .campo-bilhete-data{grid-column:1/-1}
+  .pagina-bilhetes .campo-bilhete-estado .estado-bilhete{max-width:100%;text-align:center}
+  .pagina-bilhetes .acoes-linha{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:2px;padding-top:12px;border-top:1px solid #c5e0f0}
+  .pagina-bilhetes .acoes-linha::before{display:none}
+  .pagina-bilhetes .acoes-linha .controlador-pdf,.pagina-bilhetes .acoes-linha button{width:100%;min-width:0}
+  .pagina-bilhetes .acoes-linha .botao-contorno,.pagina-bilhetes .acoes-linha .botao-cancelar{min-height:43px;border-radius:11px;font-weight:750}
+  .pagina-bilhetes .acoes-linha .botao-contorno{border-color:#0875d7;color:#fff;background:linear-gradient(135deg,#1596ed,#0861c3)}
+  .pagina-bilhetes .acoes-linha .botao-contorno:hover{color:#fff;background:#0759ad}
+  .pagina-bilhetes .estado-vazio-lista{border-radius:17px;background:#ffffff91}
+}
+@media(max-width:410px){
+  .pagina-bilhetes{padding:11px}
+  .pagina-bilhetes .linha-viagem{padding:17px 12px 13px}
+  .pagina-bilhetes .acoes-linha{grid-template-columns:1fr}
+}

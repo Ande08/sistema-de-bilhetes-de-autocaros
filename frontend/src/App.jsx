@@ -281,7 +281,7 @@ function PaginaViagens({ viagens, aoActualizar }) {
 }
 
 function PaginaBilhetes({ bilhetes, aoActualizar }) {
-  return <section className="pagina-dados vidro"><div className="titulo-secao"><div><p className="etiqueta">Documentos eletrónicos</p><h3>Meus bilhetes</h3></div><span>{bilhetes.length} bilhetes</span></div><TabelaBilhetes bilhetes={bilhetes} aoActualizar={aoActualizar} semMoldura /></section>;
+  return <section className="pagina-dados pagina-bilhetes vidro"><div className="titulo-secao"><div><p className="etiqueta">Documentos eletrónicos</p><h3>Meus bilhetes</h3></div><span>{bilhetes.length} bilhetes</span></div><TabelaBilhetes bilhetes={bilhetes} aoActualizar={aoActualizar} semMoldura /></section>;
 }
 
 function TabelaBilhetes({ titulo, bilhetes, aoActualizar, semMoldura = false }) {
@@ -301,9 +301,17 @@ function TabelaBilhetes({ titulo, bilhetes, aoActualizar, semMoldura = false }) 
   const conteudo = <>
     {titulo && <div className="titulo-secao"><h3>{titulo}</h3></div>}
     <div className="tabela-cabecalho"><span>Data</span><span>Origem → Destino</span><span>Assento</span><span>Estado</span><span>Ações</span></div>
-    <div className="linhas-viagem">{bilhetes.length === 0 ? <EstadoVazio texto="Ainda não existem viagens nesta conta." /> : bilhetes.map((item) => <div className="linha-viagem" key={item.codigo}>
-      <span data-label="Data">{item.viagem ? formatarData(item.viagem.partidaEm) : '—'}</span><span data-label="Rota">{item.viagem ? `${item.viagem.origem} → ${item.viagem.destino}${item.viagem.empresa?.nome ? ` · ${item.viagem.empresa.nome}` : ''}` : '—'}</span><span data-label="Assento">{item.assento?.numero || '—'}</span><span data-label="Estado"><b className={`estado-bilhete estado-${item.estado.toLowerCase()}`}>{traduzirEstado(item.estado)}</b></span><span data-label="Ação" className="acoes-linha"><BotaoPdfBilhete codigo={item.codigo} />{['EMITIDO', 'RESERVADO'].includes(item.estado) && item.viagem && new Date(item.viagem.partidaEm) > new Date() && <button className="botao-cancelar" disabled={codigoEmCurso === item.codigo} onClick={() => setBilheteACancelar(item)}>Cancelar</button>}</span>
-    </div>)}</div>{erro && <p className="mensagem-formulario erro">{erro}</p>}
+    <div className="linhas-viagem">{bilhetes.length === 0 ? <EstadoVazio texto="Ainda não existem viagens nesta conta." /> : bilhetes.map((item) => <article className="linha-viagem" key={item.codigo}>
+      <span data-label="Data" className="campo-bilhete-data">{item.viagem ? formatarData(item.viagem.partidaEm) : '—'}</span>
+      <span data-label="Rota" className="campo-bilhete-rota">
+        <strong>{item.viagem ? `${item.viagem.origem} → ${item.viagem.destino}` : 'Viagem indisponível'}</strong>
+        {item.viagem?.empresa?.nome && <small>{item.viagem.empresa.nome}</small>}
+        <small className="codigo-cartao-bilhete">Bilhete {item.codigo}</small>
+      </span>
+      <span data-label="Assento" className="campo-bilhete-assento">{item.assento?.numero || '—'}</span>
+      <span data-label="Estado" className="campo-bilhete-estado"><b className={`estado-bilhete estado-${item.estado.toLowerCase()}`}>{traduzirEstado(item.estado)}</b></span>
+      <span data-label="Ações" className="acoes-linha"><BotaoPdfBilhete codigo={item.codigo} />{['EMITIDO', 'RESERVADO'].includes(item.estado) && item.viagem && new Date(item.viagem.partidaEm) > new Date() && <button className="botao-cancelar" disabled={codigoEmCurso === item.codigo} onClick={() => setBilheteACancelar(item)}>Cancelar</button>}</span>
+    </article>)}</div>{erro && <p className="mensagem-formulario erro">{erro}</p>}
     {bilheteACancelar && <ModalConfirmacao titulo="Cancelar bilhete" texto={`Deseja cancelar o bilhete ${bilheteACancelar.codigo}? O pagamento ficará marcado como reembolsado nesta simulação.`} textoConfirmar="Cancelar bilhete" perigo aProcessar={Boolean(codigoEmCurso)} aoConfirmar={cancelar} aoFechar={() => setBilheteACancelar(null)} />}
   </>;
   return semMoldura ? conteudo : <div className="historico vidro">{conteudo}</div>;
