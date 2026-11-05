@@ -32,7 +32,7 @@ export async function validarCupaoCompra(req, res, next) {
       const erro = new Error('Só pode validar cupões da própria empresa.'); erro.statusCode = 403; throw erro;
     }
     const utilizadorId = operador && req.body.utilizadorId ? req.body.utilizadorId : req.utilizador.id;
-    const resumo = await calcularPrecoComCupao({ codigo: req.body.codigo, viagem, utilizadorId });
+    const resumo = await calcularPrecoComCupao({ codigo: req.body.codigo, viagem, utilizadorId, quantidade: req.body.quantidade });
     return res.json({ sucesso: true, dados: serializarResumo(resumo) });
   } catch (erro) { return next(erro); }
 }

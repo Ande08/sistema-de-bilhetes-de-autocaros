@@ -155,6 +155,23 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 .formulario-contacto-empresa textarea{min-height:95px;resize:vertical}
 .formulario-contacto-empresa>small{color:#607d96}
 @media(max-width:700px){.formulario-contacto-empresa{grid-template-columns:1fr;padding:14px}.formulario-contacto-empresa>div,.formulario-contacto-empresa .mensagem-contacto-empresa,.formulario-contacto-empresa>small{grid-column:auto}.formulario-contacto-empresa .botao-pesquisar{width:100%;min-height:44px}.contactos-publicos-empresa span,.contactos-publicos-empresa a{width:100%}}
+
+/* Compra conjunta: quantidade, seleção múltipla e atribuição automática. */
+.configuracao-multiplos-bilhetes{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin:14px 0;padding:14px;border:1px solid #b9d8ed;border-radius:15px;background:#edf8ff}
+.configuracao-multiplos-bilhetes>label:first-child{display:grid;gap:6px;color:#315b7c;font-size:.78rem;font-weight:700}
+.configuracao-multiplos-bilhetes select{height:42px;border:1px solid #9fc7e5;border-radius:10px;padding:0 10px;color:#153e66;background:#fff}
+.opcao-atribuicao-automatica{display:flex!important;align-items:center!important;gap:9px!important;flex:1;min-width:240px;cursor:pointer}
+.opcao-atribuicao-automatica input{width:19px!important;height:19px!important;flex:0 0 19px}
+.opcao-atribuicao-automatica span{display:grid;gap:2px;color:#174d78}
+.opcao-atribuicao-automatica small{color:#66819a;font-weight:400}
+.contador-assentos{margin-left:auto;color:#0875d7;font-size:.82rem}
+.aviso-atribuicao-automatica{min-height:150px;display:flex;align-items:center;justify-content:center;gap:15px;padding:22px;border:1px dashed #83bce2;border-radius:17px;color:#174d78;background:#e5f5ff}
+.aviso-atribuicao-automatica>svg{width:42px;height:42px;color:#0875d7}
+.aviso-atribuicao-automatica p{margin:5px 0 0;color:#607d96}
+.lista-bilhetes-compra{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;max-height:330px;overflow:auto}
+.lista-bilhetes-compra .bilhete-resumo{margin:0}
+.lista-bilhetes-compra .controlador-pdf{margin-top:8px}
+@media(max-width:620px){.configuracao-multiplos-bilhetes{align-items:stretch;flex-direction:column}.opcao-atribuicao-automatica{min-width:0}.contador-assentos{margin-left:0}.lista-bilhetes-compra{grid-template-columns:1fr}}
 @media(max-width:760px){
   .topo{width:100%;grid-template-columns:minmax(0,1fr) auto;padding-left:0}
   .marca-topo-mobile{min-width:0;margin-left:50px}

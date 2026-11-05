@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ServicoCompra } from '../src/services/compra.service.js';
+import { normalizarPedidoAssentos, ServicoCompra } from '../src/services/compra.service.js';
 
 const servico = new ServicoCompra();
 const viagemValida = { id: 1, busId: 7, status: 'AGENDADA', departureAt: new Date(Date.now() + 86_400_000) };
@@ -20,4 +20,18 @@ test('rejeita assento de outro autocarro', () => {
 
 test('impede que o bilhete seja emitido para uma conta administrativa', () => {
   assert.throws(() => servico._validarCompra({ utilizador: { activo: true, perfil: 'ADMIN' }, viagem: viagemValida, assento: assentoValido }), /conta do passageiro/);
+});
+
+test('aceita vários assentos ou atribuição automática na mesma compra', () => {
+  assert.deepEqual(normalizarPedidoAssentos({ assentoIds: [2, 3, 4], quantidade: 3 }), {
+    ids: [2, 3, 4], quantidade: 3, atribuicaoAutomatica: false
+  });
+  assert.deepEqual(normalizarPedidoAssentos({ quantidade: 3, atribuicaoAutomatica: true }), {
+    ids: [], quantidade: 3, atribuicaoAutomatica: true
+  });
+});
+
+test('rejeita quantidade diferente da seleção manual e mais de seis bilhetes', () => {
+  assert.throws(() => normalizarPedidoAssentos({ assentoIds: [2, 3], quantidade: 3 }), /exactamente 3/i);
+  assert.throws(() => normalizarPedidoAssentos({ quantidade: 7, atribuicaoAutomatica: true }), /entre 1 e 6/i);
 });

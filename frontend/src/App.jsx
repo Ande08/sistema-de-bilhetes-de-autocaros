@@ -440,7 +440,9 @@ function FluxoCompra({ utilizador, viagemInicial, aoFechar, aoComprar }) {
   const [viagens, setViagens] = useState([]);
   const [viagem, setViagem] = useState(viagemInicial || null);
   const [metodoPagamento, setMetodoPagamento] = useState('MPESA');
-  const [bilhete, setBilhete] = useState(null);
+  const [bilhetesComprados, setBilhetesComprados] = useState([]);
+  const [quantidade, setQuantidade] = useState(1);
+  const [atribuicaoAutomatica, setAtribuicaoAutomatica] = useState(false);
   const [aProcessar, setAProcessar] = useState(false);
   const [erro, setErro] = useState('');
   const [transacaoPagamento, setTransacaoPagamento] = useState(null);
@@ -448,7 +450,7 @@ function FluxoCompra({ utilizador, viagemInicial, aoFechar, aoComprar }) {
   const [codigoCupao, setCodigoCupao] = useState('');
   const [cupaoAplicado, setCupaoAplicado] = useState(null);
   const [aValidarCupao, setAValidarCupao] = useState(false);
-  const { assentos, assentoId, aReservar, seleccionar: seleccionarAssento, libertar: libertarAssento, actualizar: actualizarAssentos } = useSelecaoAssentosTempoReal(viagem?.id, setErro);
+  const { assentos, assentoIds, aReservar, seleccionar: alternarReservaAssento, libertar: libertarAssento, actualizar: actualizarAssentos } = useSelecaoAssentosTempoReal(viagem?.id, setErro);
 
   async function pesquisar(evento) {
     evento.preventDefault();
@@ -468,7 +470,26 @@ function FluxoCompra({ utilizador, viagemInicial, aoFechar, aoComprar }) {
     setErro('');
     setViagem(seleccionada);
     setCodigoCupao(''); setCupaoAplicado(null);
+    setQuantidade(1); setAtribuicaoAutomatica(false);
     setEtapa('assentos');
+  }
+
+  async function alterarQuantidade(novaQuantidade) {
+    setQuantidade(Number(novaQuantidade));
+    setCupaoAplicado(null);
+    if (assentoIds.length) await libertarAssento();
+  }
+
+  async function alterarAtribuicaoAutomatica(activar) {
+    setAtribuicaoAutomatica(activar);
+    if (activar && assentoIds.length) await libertarAssento();
+  }
+
+  async function seleccionarAssento(id) {
+    const jaSeleccionado = assentoIds.some((actual) => String(actual) === String(id));
+    if (!jaSeleccionado && assentoIds.length >= quantidade) return setErro(`Pode selecionar ${quantidade} assento(s) nesta compra.`);
+    setErro('');
+    return alternarReservaAssento(id);
   }
 
   async function aplicarCupao() {
@@ -476,7 +497,7 @@ function FluxoCompra({ utilizador, viagemInicial, aoFechar, aoComprar }) {
     if (!codigoCupao.trim()) { setCupaoAplicado(null); return; }
     setAValidarCupao(true);
     try {
-      const resumo = await validarCupao({ viagemId: viagem.id, codigo: codigoCupao });
+      const resumo = await validarCupao({ viagemId: viagem.id, codigo: codigoCupao, quantidade });
       setCupaoAplicado(resumo);
       setCodigoCupao(resumo.codigo);
     } catch (falha) { setCupaoAplicado(null); setErro(falha.message); }
@@ -485,7 +506,7 @@ function FluxoCompra({ utilizador, viagemInicial, aoFechar, aoComprar }) {
 
   async function concluirCompra(evento) {
     evento.preventDefault();
-    if (!assentoId) return setErro('Selecione um assento disponível.');
+    if (!atribuicaoAutomatica && assentoIds.length !== quantidade) return setErro(`Selecione ${quantidade} assento(s) ou escolha a atribuição automática.`);
     // O formulário precisa de ser lido antes da mudança de etapa. A etapa de
     // processamento desmonta o formulário e alguns navegadores móveis deixam
     // de disponibilizar o currentTarget depois dessa renderização.
@@ -498,14 +519,14 @@ function FluxoCompra({ utilizador, viagemInicial, aoFechar, aoComprar }) {
         ? { numeroCartao: formulario.numeroCartao, validade: formulario.validade, cvv: formulario.cvv }
         : { telefone: formulario.telefone };
       setMensagemProcessamento(`A enviar o pedido para a API falsa ${nomeMetodoPagamento(metodoPagamento)}...`);
-      const iniciada = await iniciarPagamentoSimulado({ viagemId: viagem.id, metodo: metodoPagamento, dadosPagamento, codigoCupao: cupaoAplicado?.codigo || null });
+      const iniciada = await iniciarPagamentoSimulado({ viagemId: viagem.id, quantidade, metodo: metodoPagamento, dadosPagamento, codigoCupao: cupaoAplicado?.codigo || null });
       setTransacaoPagamento(iniciada);
       setMensagemProcessamento('Pedido recebido. A aguardar a confirmação simulada...');
       const aprovada = await processarPagamentoSimulado(iniciada.referencia);
       setTransacaoPagamento(aprovada);
-      setMensagemProcessamento('Pagamento aprovado. A emitir o bilhete eletrónico...');
-      const compra = await comprarBilhete({ viagemId: viagem.id, assentoId, metodoPagamento, referenciaPagamento: aprovada.referencia, codigoCupao: cupaoAplicado?.codigo || null });
-      setBilhete(compra.bilhete);
+      setMensagemProcessamento(`Pagamento aprovado. A emitir ${quantidade} bilhete(s) eletrónico(s)...`);
+      const compra = await comprarBilhete({ viagemId: viagem.id, assentoIds, quantidade, atribuicaoAutomatica, metodoPagamento, referenciaPagamento: aprovada.referencia, codigoCupao: cupaoAplicado?.codigo || null });
+      setBilhetesComprados(compra.bilhetes || [compra.bilhete]);
       setEtapa('concluida');
       aoComprar();
     } catch (falha) { setErro(falha.message); await actualizarAssentos().catch(() => {}); setEtapa('pagamento'); }
@@ -513,7 +534,7 @@ function FluxoCompra({ utilizador, viagemInicial, aoFechar, aoComprar }) {
   }
 
   const rota = viagem?.Route;
-  const valorPagamento = cupaoAplicado?.valorFinal ?? Number(viagem?.price || 0);
+  const valorPagamento = cupaoAplicado?.valorFinal ?? Number(viagem?.price || 0) * quantidade;
 
   // A tela de processamento é um diálogo independente. Isto evita que seja
   // cortada pelo scroll e pelo overflow do modal de compra em ecrãs pequenos.
@@ -554,15 +575,21 @@ function FluxoCompra({ utilizador, viagemInicial, aoFechar, aoComprar }) {
 
       {etapa === 'assentos' && <div className="selecao-assento">
         <ResumoViagem viagem={viagem} />
+        <div className="configuracao-multiplos-bilhetes vidro">
+          <label>Quantidade de bilhetes<select value={quantidade} onChange={(evento) => alterarQuantidade(evento.target.value)} disabled={aReservar}>{[1, 2, 3, 4, 5, 6].map((numero) => <option key={numero} value={numero}>{numero} bilhete{numero > 1 ? 's' : ''}</option>)}</select></label>
+          <label className="opcao-atribuicao-automatica"><input type="checkbox" checked={atribuicaoAutomatica} onChange={(evento) => alterarAtribuicaoAutomatica(evento.target.checked)} disabled={aReservar} /><span><strong>Atribuir assentos automaticamente</strong><small>Continue sem escolher lugares; o sistema atribuirá assentos livres.</small></span></label>
+          {!atribuicaoAutomatica && <strong className="contador-assentos">{assentoIds.length} de {quantidade} selecionado(s)</strong>}
+        </div>
         <div className="legenda-assentos"><span><i className="livre" /> Disponível</span><span><i className="reservado" /> Reservado agora</span><span><i className="ocupado" /> Vendido</span><span><i className="seleccionado" /> A sua seleção</span></div>
-        <MapaAssentos assentos={assentos} assentoId={assentoId} aoSelecionar={seleccionarAssento} />
+        {!atribuicaoAutomatica && <MapaAssentos assentos={assentos} assentoIds={assentoIds} aoSelecionar={seleccionarAssento} />}
+        {atribuicaoAutomatica && <div className="aviso-atribuicao-automatica"><Icone nome="assento" /><div><strong>Escolha automática ativa</strong><p>Os {quantidade} assento(s) serão atribuídos em conjunto quando o pagamento for confirmado.</p></div></div>}
         {aReservar && <p className="estado-reserva-assento">A reservar o assento com segurança...</p>}
-        {!aReservar && assentoId && <p className="estado-reserva-assento">Assento selecionado. Pode tocar noutro assento disponível para trocar.</p>}
-        <div className="rodape-etapa"><button className="botao-voltar" onClick={async () => { await libertarAssento(); setViagem(null); setEtapa('resultados'); }}>Voltar</button><button className="botao-pesquisar" disabled={aReservar} onClick={() => assentoId ? setEtapa('pagamento') : setErro('Selecione um assento disponível.')}>Continuar para pagamento</button></div>
+        {!aReservar && assentoIds.length > 0 && <p className="estado-reserva-assento">Toque novamente num assento selecionado para o remover da compra.</p>}
+        <div className="rodape-etapa"><button className="botao-voltar" onClick={async () => { await libertarAssento(); setViagem(null); setEtapa('resultados'); }}>Voltar</button><button className="botao-pesquisar" disabled={aReservar} onClick={() => atribuicaoAutomatica || assentoIds.length === quantidade ? setEtapa('pagamento') : setErro(`Selecione ${quantidade} assento(s) ou escolha a atribuição automática.`)}>Continuar para pagamento</button></div>
       </div>}
 
       {etapa === 'pagamento' && <form className="etapa-pagamento" onSubmit={concluirCompra}>
-        <ResumoViagem viagem={viagem} assento={assentos.find((item) => String(item.id) === String(assentoId))} />
+        <ResumoViagem viagem={viagem} assentos={assentos.filter((item) => assentoIds.some((id) => String(id) === String(item.id)))} quantidade={quantidade} atribuicaoAutomatica={atribuicaoAutomatica} />
         <div className="aplicar-cupao"><label>Cupão de desconto<input value={codigoCupao} onChange={(evento) => { setCodigoCupao(evento.target.value.toUpperCase()); setCupaoAplicado(null); }} maxLength="30" placeholder="Introduza o código" /></label><button type="button" disabled={aValidarCupao || !codigoCupao.trim()} onClick={aplicarCupao}>{aValidarCupao ? 'A validar...' : 'Aplicar cupão'}</button>{cupaoAplicado && <p><strong>{cupaoAplicado.percentagem}% de desconto aplicado.</strong> Poupa {formatarMeticais(cupaoAplicado.desconto)}. Total: {formatarMeticais(cupaoAplicado.valorFinal)}.</p>}</div>
         <div className="metodos-pagamento">{[['MPESA', 'M-Pesa'], ['EMOLA', 'e-Mola'], ['CARTAO', 'Cartão']].map(([valor, nome]) => <label className={metodoPagamento === valor ? 'seleccionado' : ''} key={valor}><input type="radio" name="pagamento" value={valor} checked={metodoPagamento === valor} onChange={() => setMetodoPagamento(valor)} /><span>{nome}</span><small>Pagamento simulado</small></label>)}</div>
         {metodoPagamento === 'CARTAO' ? <div className="dados-pagamento-simulado dados-cartao"><label>Número do cartão de demonstração<input name="numeroCartao" inputMode="numeric" placeholder="4242 4242 4242 4242" pattern="[0-9 ]{16,19}" required /></label><label>Validade<input name="validade" placeholder="12/30" pattern="[0-9]{2}/[0-9]{2}" required /></label><label>CVV<input name="cvv" type="password" inputMode="numeric" placeholder="123" pattern="[0-9]{3,4}" required /></label></div> : <div className="dados-pagamento-simulado"><label>Número associado ao {nomeMetodoPagamento(metodoPagamento)}<input name="telefone" type="tel" defaultValue={utilizador.telefone} placeholder="84 000 0000" required /></label></div>}
@@ -570,7 +597,7 @@ function FluxoCompra({ utilizador, viagemInicial, aoFechar, aoComprar }) {
         <div className="rodape-etapa"><button type="button" className="botao-voltar" onClick={() => setEtapa('assentos')}>Voltar</button><button type="submit" className="botao-pesquisar">Simular pagamento de {formatarMeticais(valorPagamento)}</button></div>
       </form>}
 
-      {etapa === 'concluida' && <div className="compra-concluida"><span className="icone-sucesso"><Icone nome="confirmado" /></span><h3>Bilhete emitido com sucesso</h3><p>O pagamento foi aprovado e o seu assento está confirmado.</p><div className="bilhete-resumo"><small>Código do bilhete</small><strong>{bilhete.codigo}</strong><span>{rota?.origin} → {rota?.destination}</span><span>Assento {bilhete.assento.numero} · {formatarMeticais(bilhete.preco)}</span></div><div className="acoes-bilhete-concluido"><BotaoPdfBilhete codigo={bilhete.codigo} className="botao-pesquisar" texto="Descarregar bilhete em PDF" /><button className="botao-voltar" onClick={aoFechar}>Concluir</button></div></div>}
+      {etapa === 'concluida' && <div className="compra-concluida"><span className="icone-sucesso"><Icone nome="confirmado" /></span><h3>{bilhetesComprados.length} bilhete(s) emitido(s) com sucesso</h3><p>O pagamento foi aprovado e todos os assentos estão confirmados.</p><div className="lista-bilhetes-compra">{bilhetesComprados.map((item) => <div className="bilhete-resumo" key={item.codigo}><small>Código do bilhete</small><strong>{item.codigo}</strong><span>{rota?.origin} → {rota?.destination}</span><span>Assento {item.assento.numero} · {formatarMeticais(item.preco)}</span><BotaoPdfBilhete codigo={item.codigo} texto="Descarregar PDF" /></div>)}</div><div className="acoes-bilhete-concluido"><button className="botao-voltar" onClick={aoFechar}>Concluir</button></div></div>}
 
       {erro && <p className="mensagem-formulario erro" role="alert">{erro}</p>}
       {!['concluida', 'processando'].includes(etapa) && <div className="vantagens-compra"><span><Icone nome="escudo" /> Pagamento seguro</span><span><Icone nome="bilhete" /> Bilhete eletrónico</span><span><Icone nome="confirmado" /> Confirmação imediata</span></div>}
@@ -578,8 +605,9 @@ function FluxoCompra({ utilizador, viagemInicial, aoFechar, aoComprar }) {
   </div>;
 }
 
-function ResumoViagem({ viagem, assento }) {
-  return <div className="resumo-compra"><div><small>Empresa</small><strong>{viagem.Empresa?.nome || 'Empresa de transporte'}</strong></div><div><small>Rota</small><strong>{viagem.Route?.origin} → {viagem.Route?.destination}</strong></div><div><small>Partida</small><strong>{formatarDataHora(viagem.departureAt)}</strong></div>{assento && <div><small>Assento</small><strong>{assento.numero}</strong></div>}<div><small>Total</small><strong>{formatarMeticais(viagem.price)}</strong></div></div>;
+function ResumoViagem({ viagem, assentos = [], quantidade = 1, atribuicaoAutomatica = false }) {
+  const total = Number(viagem.price) * quantidade;
+  return <div className="resumo-compra"><div><small>Empresa</small><strong>{viagem.Empresa?.nome || 'Empresa de transporte'}</strong></div><div><small>Rota</small><strong>{viagem.Route?.origin} → {viagem.Route?.destination}</strong></div><div><small>Partida</small><strong>{formatarDataHora(viagem.departureAt)}</strong></div><div><small>Bilhetes</small><strong>{quantidade}</strong></div><div><small>Assentos</small><strong>{atribuicaoAutomatica ? 'Atribuição automática' : assentos.length ? assentos.map((item) => item.numero).join(', ') : 'Por selecionar'}</strong></div><div><small>Total sem desconto</small><strong>{formatarMeticais(total)}</strong></div></div>;
 }
 
 function tituloEtapa(etapa) {

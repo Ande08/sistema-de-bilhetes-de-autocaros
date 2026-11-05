@@ -15,12 +15,12 @@ class LimiteErro3D extends Component {
   render() { return this.state.falhou ? this.props.alternativa : this.props.children; }
 }
 
-export default function MapaAssentos({ assentos, assentoId, aoSelecionar }) {
+export default function MapaAssentos({ assentos, assentoId, assentoIds = assentoId ? [assentoId] : [], aoSelecionar }) {
   const [modo, setModo] = useState('simples');
   const [falha3D, setFalha3D] = useState(false);
   const usar3D = modo === '3d' && !falha3D;
 
-  const mapaSimples = <MapaSimples assentos={assentos} assentoId={assentoId} aoSelecionar={aoSelecionar} />;
+  const mapaSimples = <MapaSimples assentos={assentos} assentoIds={assentoIds} aoSelecionar={aoSelecionar} />;
 
   return <section className="selector-assentos-completo">
     <div className="selector-assentos-topo">
@@ -33,13 +33,13 @@ export default function MapaAssentos({ assentos, assentoId, aoSelecionar }) {
 
     {usar3D ? <LimiteErro3D alternativa={mapaSimples} aoFalhar={() => setFalha3D(true)}>
       <Suspense fallback={<div className="mapa-3d-carregando">A preparar o interior do autocarro...</div>}>
-        <MapaAssentos3D assentos={assentos} assentoId={assentoId} aoSelecionar={aoSelecionar} />
+        <MapaAssentos3D assentos={assentos} assentoIds={assentoIds} aoSelecionar={aoSelecionar} />
       </Suspense>
     </LimiteErro3D> : mapaSimples}
   </section>;
 }
 
-function MapaSimples({ assentos, assentoId, aoSelecionar }) {
+function MapaSimples({ assentos, assentoIds, aoSelecionar }) {
   const filas = useMemo(() => agruparPorFila(assentos), [assentos]);
   return <div className="autocarro-2d" aria-label="Mapa simples dos assentos do autocarro">
     <div className="frente-autocarro"><span>Frente do autocarro</span><i aria-hidden="true" /></div>
@@ -47,9 +47,9 @@ function MapaSimples({ assentos, assentoId, aoSelecionar }) {
     <div className="filas-autocarro">
       {filas.map(({ fila, esquerda, direita }) => <div className="fila-autocarro" key={fila}>
         <i className="janela-mapa" title="Janela" aria-hidden="true" />
-        <div className="bloco-assentos lado-esquerdo">{esquerda.map((assento) => <BotaoAssento key={assento.id} assento={assento} assentoId={assentoId} aoSelecionar={aoSelecionar} />)}</div>
+        <div className="bloco-assentos lado-esquerdo">{esquerda.map((assento) => <BotaoAssento key={assento.id} assento={assento} assentoIds={assentoIds} aoSelecionar={aoSelecionar} />)}</div>
         <span className="corredor-mapa"><small>{fila}</small></span>
-        <div className="bloco-assentos lado-direito">{direita.map((assento) => <BotaoAssento key={assento.id} assento={assento} assentoId={assentoId} aoSelecionar={aoSelecionar} />)}</div>
+        <div className="bloco-assentos lado-direito">{direita.map((assento) => <BotaoAssento key={assento.id} assento={assento} assentoIds={assentoIds} aoSelecionar={aoSelecionar} />)}</div>
         <i className="janela-mapa" title="Janela" aria-hidden="true" />
       </div>)}
     </div>
@@ -57,8 +57,8 @@ function MapaSimples({ assentos, assentoId, aoSelecionar }) {
   </div>;
 }
 
-function BotaoAssento({ assento, assentoId, aoSelecionar }) {
-  const seleccionado = String(assentoId) === String(assento.id);
+function BotaoAssento({ assento, assentoIds, aoSelecionar }) {
+  const seleccionado = assentoIds.some((id) => String(id) === String(assento.id));
   const posicao = assento.juntoJanela ? 'junto à janela' : 'junto ao corredor';
   return <button
     type="button"

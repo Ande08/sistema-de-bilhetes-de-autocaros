@@ -23,6 +23,9 @@ export async function criarCompra(req, res, next) {
       operadorId: req.utilizador.id,
       viagemId: req.body.viagemId,
       assentoId: req.body.assentoId,
+      assentoIds: req.body.assentoIds,
+      quantidade: req.body.quantidade,
+      atribuicaoAutomatica: req.body.atribuicaoAutomatica,
       metodoPagamento: req.body.metodoPagamento,
       referenciaPagamento: req.body.referenciaPagamento,
       codigoCupao: req.body.codigoCupao
@@ -33,13 +36,13 @@ export async function criarCompra(req, res, next) {
         operacao: 'VENDA_ASSISTIDA',
         entidade: 'bilhete',
         entidadeId: compra.bilhete.codigo,
-        valoresNovos: { passageiroId, viagemId: req.body.viagemId },
+        valoresNovos: { passageiroId, viagemId: req.body.viagemId, quantidade: compra.quantidade, bilhetes: compra.bilhetes.map((item) => item.codigo) },
         enderecoIp: req.ip
       });
     }
-    req.app.get('io')?.to(`assentos:${req.body.viagemId}`).emit('assentos:actualizado', {
-      viagemId: Number(req.body.viagemId), assentoId: Number(req.body.assentoId), estado: 'OCUPADO'
-    });
+    compra.bilhetes.forEach((bilhete) => req.app.get('io')?.to(`assentos:${req.body.viagemId}`).emit('assentos:actualizado', {
+      viagemId: Number(req.body.viagemId), assentoId: Number(bilhete.assentoId), estado: 'OCUPADO'
+    }));
     return res.status(201).json({ sucesso: true, dados: compra });
   } catch (erro) { return next(erro); }
 }

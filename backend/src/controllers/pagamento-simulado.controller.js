@@ -20,7 +20,8 @@ export async function iniciarPagamentoSimulado(req, res, next) {
     const resumo = await calcularPrecoComCupao({
       codigo: req.body.codigoCupao,
       viagem,
-      utilizadorId: passageiroId
+      utilizadorId: passageiroId,
+      quantidade: req.body.quantidade
     });
     const transacao = gatewayPagamentoSimulado.iniciar({
       utilizadorId: req.utilizador.id,

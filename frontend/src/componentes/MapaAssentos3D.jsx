@@ -2,14 +2,14 @@ import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
-export default function MapaAssentos3D({ assentos, assentoId, aoSelecionar }) {
+export default function MapaAssentos3D({ assentos, assentoIds = [], aoSelecionar }) {
   const contentorRef = useRef(null);
   const canvasRef = useRef(null);
   const objectosRef = useRef(new Map());
-  const seleccionadoRef = useRef(assentoId);
+  const seleccionadosRef = useRef(assentoIds);
   const seleccionarRef = useRef(aoSelecionar);
 
-  seleccionadoRef.current = assentoId;
+  seleccionadosRef.current = assentoIds;
   seleccionarRef.current = aoSelecionar;
 
   useEffect(() => {
@@ -91,7 +91,7 @@ export default function MapaAssentos3D({ assentos, assentoId, aoSelecionar }) {
 
     function actualizarAspectos(foco = null) {
       objectosRef.current.forEach((grupo, id) => {
-        const seleccionado = String(seleccionadoRef.current) === id;
+        const seleccionado = seleccionadosRef.current.some((assentoSeleccionado) => String(assentoSeleccionado) === id);
         const ocupado = !grupo.userData.assento.disponivel;
         const temporario = grupo.userData.assento.reservadoTemporariamente;
         const cor = temporario ? 0xd69a2d : ocupado ? 0x879bab : seleccionado ? 0x0875d7 : foco === grupo ? 0x8bd6ff : 0xeaf8ff;
@@ -178,13 +178,13 @@ export default function MapaAssentos3D({ assentos, assentoId, aoSelecionar }) {
   useEffect(() => {
     objectosRef.current.forEach((grupo, id) => {
       const ocupado = !grupo.userData.assento.disponivel;
-      const seleccionado = String(assentoId) === id;
+      const seleccionado = assentoIds.some((assentoSeleccionado) => String(assentoSeleccionado) === id);
       const temporario = grupo.userData.assento.reservadoTemporariamente;
       const cor = temporario ? 0xd69a2d : ocupado ? 0x879bab : seleccionado ? 0x0875d7 : 0xeaf8ff;
       grupo.children.filter((item) => item.isMesh).forEach((item) => item.material.color.setHex(cor));
       grupo.position.y = seleccionado ? .08 : 0;
     });
-  }, [assentoId]);
+  }, [assentoIds]);
 
   return <div className="mapa-assentos-3d" ref={contentorRef}>
     <canvas ref={canvasRef} aria-label="Interior tridimensional do autocarro com janelas e assentos selecionáveis" />

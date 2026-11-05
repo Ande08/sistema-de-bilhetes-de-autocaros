@@ -73,9 +73,12 @@ export async function definirEstadoCupaoEmpresa(id, activo, administrador) {
   return cupao;
 }
 
-export async function calcularPrecoComCupao({ codigo, viagem, utilizadorId, transaction = null, bloquear = false }) {
-  const precoOriginal = arredondar(Number(viagem.price));
-  if (!String(codigo || '').trim()) return { cupao: null, precoOriginal, desconto: 0, valorFinal: precoOriginal };
+export async function calcularPrecoComCupao({ codigo, viagem, utilizadorId, quantidade = 1, transaction = null, bloquear = false }) {
+  const totalBilhetes = Number(quantidade);
+  if (!Number.isInteger(totalBilhetes) || totalBilhetes < 1 || totalBilhetes > 6) throw erroValidacao('A compra deve ter entre 1 e 6 bilhetes.');
+  const precoUnitarioOriginal = arredondar(Number(viagem.price));
+  const precoOriginal = arredondar(precoUnitarioOriginal * totalBilhetes);
+  if (!String(codigo || '').trim()) return { cupao: null, quantidade: totalBilhetes, precoUnitarioOriginal, descontoUnitario: 0, valorUnitarioFinal: precoUnitarioOriginal, precoOriginal, desconto: 0, valorFinal: precoOriginal };
 
   const codigoNormalizado = normalizarCodigoCupao(codigo);
   const cupao = await Cupao.findOne({
@@ -90,23 +93,29 @@ export async function calcularPrecoComCupao({ codigo, viagem, utilizadorId, tran
   if (agora < new Date(cupao.validoDe)) throw erroValidacao('Este cupão ainda não está válido.');
   if (agora > new Date(cupao.validoAte)) throw erroValidacao('Este cupão expirou.');
   if (precoOriginal < Number(cupao.valorMinimo)) throw erroValidacao(`Este cupão exige uma compra mínima de ${Number(cupao.valorMinimo).toFixed(2)} MT.`);
-  if (cupao.limiteUtilizacoes != null && cupao.totalUtilizacoes >= cupao.limiteUtilizacoes) {
+  if (cupao.limiteUtilizacoes != null && cupao.totalUtilizacoes + totalBilhetes > cupao.limiteUtilizacoes) {
     throw erroValidacao('O limite total de utilizações deste cupão foi atingido.');
   }
 
   const utilizacoesDoCliente = await Bilhete.count({
     where: { cupaoId: cupao.id, utilizadorId }, transaction
   });
-  if (utilizacoesDoCliente >= cupao.limitePorUtilizador) {
+  if (utilizacoesDoCliente + totalBilhetes > cupao.limitePorUtilizador) {
     throw erroValidacao('Este cliente já atingiu o limite de utilização do cupão.');
   }
 
-  const valores = calcularValoresCupao(precoOriginal, cupao.percentagem);
+  const valoresUnitarios = calcularValoresCupao(precoUnitarioOriginal, cupao.percentagem);
   return {
     cupao,
     codigo: cupao.codigo,
     percentagem: Number(cupao.percentagem),
-    ...valores
+    quantidade: totalBilhetes,
+    precoUnitarioOriginal,
+    descontoUnitario: valoresUnitarios.desconto,
+    valorUnitarioFinal: valoresUnitarios.valorFinal,
+    precoOriginal,
+    desconto: arredondar(valoresUnitarios.desconto * totalBilhetes),
+    valorFinal: arredondar(valoresUnitarios.valorFinal * totalBilhetes)
   };
 }
 

@@ -3,6 +3,7 @@ import { sequelize } from '../config/database.js';
 import { Assento, Bilhete, Reserva, Trip } from '../models/index.js';
 
 const ESTADOS_BILHETE_OCUPADO = ['RESERVADO', 'EMITIDO'];
+export const MAXIMO_BILHETES_POR_COMPRA = 6;
 
 export async function reservarAssentoTemporariamente({ viagemId, assentoId, utilizadorId }) {
   return sequelize.transaction(async (transaction) => {
@@ -28,23 +29,20 @@ export async function reservarAssentoTemporariamente({ viagemId, assentoId, util
       throw erroConflito('Este assento está temporariamente reservado por outro utilizador.');
     }
 
-    // Um utilizador conserva apenas um bloqueio por viagem. Ao mudar de lugar,
-    // o anterior é libertado na mesma transação.
+    // Uma compra pode bloquear vários assentos. O limite evita que uma única
+    // sessão retenha uma parte excessiva do autocarro durante a escolha.
     const anteriores = await Reserva.findAll({
       where: {
         viagemId,
         utilizadorId,
         estado: 'PENDENTE',
+        expiraEm: { [Op.gt]: agora },
         assentoId: { [Op.ne]: assentoId }
       },
       transaction,
       lock: transaction.LOCK.UPDATE
     });
-    if (anteriores.length) {
-      await Reserva.update({ estado: 'CANCELADA' }, {
-        where: { id: { [Op.in]: anteriores.map((item) => item.id) } }, transaction
-      });
-    }
+    if (anteriores.length >= MAXIMO_BILHETES_POR_COMPRA) throw erroConflito(`Pode selecionar no máximo ${MAXIMO_BILHETES_POR_COMPRA} assentos por compra.`);
 
     const expiraEm = novaExpiracao();
     if (reserva) {
@@ -52,7 +50,7 @@ export async function reservarAssentoTemporariamente({ viagemId, assentoId, util
     } else {
       await Reserva.create({ utilizadorId, viagemId, assentoId, estado: 'PENDENTE', expiraEm }, { transaction });
     }
-    return { viagemId: Number(viagemId), assentoId: Number(assentoId), expiraEm, libertados: anteriores.map((item) => item.assentoId) };
+    return { viagemId: Number(viagemId), assentoId: Number(assentoId), expiraEm, libertados: [] };
   });
 }
 

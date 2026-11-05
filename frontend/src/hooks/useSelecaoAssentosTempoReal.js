@@ -2,33 +2,32 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 import { URL_SERVIDOR, libertarReservaAssento, listarAssentos, obterSessaoGuardada, reservarAssento } from '../servicos/api.js';
 
-// Centraliza a reserva temporária, a renovação e a sincronização do mapa para
-// que o passageiro e o atendente utilizem exatamente as mesmas garantias.
+// Mantém várias reservas temporárias sincronizadas. Cada clique alterna um
+// assento e o backend continua a arbitrar conflitos entre compradores.
 export default function useSelecaoAssentosTempoReal(viagemId, aoErro) {
   const [assentos, setAssentos] = useState([]);
-  const [assentoId, setAssentoId] = useState('');
+  const [assentoIds, setAssentoIds] = useState([]);
   const [aReservar, setAReservar] = useState(false);
-  const assentoRef = useRef('');
-  assentoRef.current = assentoId;
+  const assentosRef = useRef([]);
+  assentosRef.current = assentoIds;
 
   const carregar = useCallback(async () => {
     if (!viagemId) return [];
     const lista = await listarAssentos(viagemId);
     setAssentos(lista);
-    setAssentoId((actual) => {
-      const aindaMeu = lista.find((item) => String(item.id) === String(actual) && item.reservadoPorMim);
-      const meu = aindaMeu || lista.find((item) => item.reservadoPorMim);
-      return meu?.id || '';
-    });
+    const meus = lista.filter((item) => item.reservadoPorMim).map((item) => item.id);
+    setAssentoIds(meus);
+    assentosRef.current = meus;
     return lista;
   }, [viagemId]);
 
   const seleccionar = useCallback(async (novoAssentoId) => {
-    if (!viagemId || aReservar || String(novoAssentoId) === String(assentoRef.current)) return;
+    if (!viagemId || aReservar) return;
+    const seleccionado = assentosRef.current.some((id) => String(id) === String(novoAssentoId));
     setAReservar(true);
     try {
-      await reservarAssento(viagemId, novoAssentoId);
-      setAssentoId(novoAssentoId);
+      if (seleccionado) await libertarReservaAssento(viagemId, novoAssentoId);
+      else await reservarAssento(viagemId, novoAssentoId);
       await carregar();
     } catch (erro) {
       await carregar().catch(() => {});
@@ -36,16 +35,16 @@ export default function useSelecaoAssentosTempoReal(viagemId, aoErro) {
     } finally { setAReservar(false); }
   }, [viagemId, aReservar, carregar, aoErro]);
 
-  const libertar = useCallback(async () => {
-    const actual = assentoRef.current;
-    if (!viagemId || !actual) return;
-    assentoRef.current = '';
-    setAssentoId('');
-    await libertarReservaAssento(viagemId, actual).catch(() => {});
-  }, [viagemId]);
+  const libertar = useCallback(async (assentoId = null) => {
+    if (!viagemId) return;
+    const ids = assentoId ? [assentoId] : [...assentosRef.current];
+    if (!ids.length) return;
+    await Promise.all(ids.map((id) => libertarReservaAssento(viagemId, id).catch(() => {})));
+    await carregar().catch(() => {});
+  }, [viagemId, carregar]);
 
   useEffect(() => {
-    if (!viagemId) { setAssentos([]); setAssentoId(''); return undefined; }
+    if (!viagemId) { setAssentos([]); setAssentoIds([]); assentosRef.current = []; return undefined; }
     let activo = true;
     carregar().catch((erro) => activo && aoErro?.(erro.message));
 
@@ -54,23 +53,17 @@ export default function useSelecaoAssentosTempoReal(viagemId, aoErro) {
       if (!resposta?.sucesso && activo) aoErro?.(resposta?.mensagem || 'Não foi possível acompanhar os assentos em tempo real.');
     });
     socket.on('assentos:actualizado', () => carregar().catch(() => {}));
-
-    // A consulta periódica cobre expirações e eventuais reconexões do socket.
     const actualizacao = setInterval(() => carregar().catch(() => {}), 15000);
-    // O bloqueio é renovado enquanto o utilizador permanece no fluxo de compra.
     const renovacao = setInterval(() => {
-      if (assentoRef.current) reservarAssento(viagemId, assentoRef.current).then(carregar).catch((erro) => aoErro?.(erro.message));
+      Promise.all(assentosRef.current.map((id) => reservarAssento(viagemId, id)))
+        .then(carregar).catch((erro) => aoErro?.(erro.message));
     }, 45000);
 
     return () => {
-      activo = false;
-      clearInterval(actualizacao);
-      clearInterval(renovacao);
-      socket.disconnect();
-      const actual = assentoRef.current;
-      if (actual) libertarReservaAssento(viagemId, actual).catch(() => {});
+      activo = false; clearInterval(actualizacao); clearInterval(renovacao); socket.disconnect();
+      assentosRef.current.forEach((id) => libertarReservaAssento(viagemId, id).catch(() => {}));
     };
   }, [viagemId, carregar, aoErro]);
 
-  return { assentos, assentoId, aReservar, seleccionar, libertar, actualizar: carregar };
+  return { assentos, assentoIds, assentoId: assentoIds[0] || '', aReservar, seleccionar, libertar, actualizar: carregar };
 }
