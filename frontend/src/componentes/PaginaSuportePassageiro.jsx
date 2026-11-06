@@ -5,7 +5,7 @@ import { ModalConfirmacao } from './Modal.jsx';
 import useHistoricoConversa from '../hooks/useHistoricoConversa.js';
 import { consultarAssistenteSuporte, criarTicketSuporte, listarTicketsSuporte, obterSessaoGuardada, pesquisarBilhetesSuporte } from '../servicos/api.js';
 
-const MENSAGEM_INICIAL_IA = { autor: 'IA', texto: 'Olá. Sou o assistente virtual da Viagem Bus. Posso ajudar com bilhetes, pagamentos, assentos, horários e dados da conta.' };
+const MENSAGEM_INICIAL_IA = { autor: 'IA', texto: 'Olá. Sou o assistente virtual da FambaTicket. Posso ajudar com bilhetes, pagamentos, assentos, horários e dados da conta.' };
 
 export default function PaginaSuportePassageiro() {
   const utilizadorId = obterSessaoGuardada()?.utilizador?.id || 'local';

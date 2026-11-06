@@ -1,6 +1,6 @@
-# Sistema de Bilhetes de Autocarros
+# FambaTicket
 
-Plataforma web multiempresa para pesquisar viagens, comparar transportadoras, escolher assentos, simular pagamentos, emitir bilhetes com QR Code e prestar suporte ao passageiro.
+FambaTicket é uma plataforma web multiempresa para pesquisar viagens, comparar transportadoras, escolher assentos, simular pagamentos, emitir bilhetes com QR Code e prestar suporte ao passageiro.
 
 O sistema foi desenvolvido em português, utiliza **MT (meticais)** como moeda e foi pensado para funcionar em computadores, tablets e principalmente telemóveis.
 

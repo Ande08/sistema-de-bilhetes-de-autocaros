@@ -115,7 +115,7 @@ function AplicacaoPrincipal() {
       <aside className={`barra-lateral vidro menu-liquid-glass ${menuAberto ? 'aberta' : ''}`}>
         <div className="logotipo">
           <span className="logotipo-icone"><Icone nome="autocarro" /></span>
-          <div><strong>Viagem Bus</strong><small>Mais destinos, mais histórias</small></div>
+          <div><strong>FambaTicket</strong><small>Mais destinos, mais histórias</small></div>
         </div>
         <nav aria-label="Navegação principal">
           {itensMenu.map(([icone, nome]) => (
@@ -132,9 +132,9 @@ function AplicacaoPrincipal() {
 
       <main className="conteudo">
         <div className="topo">
-          <div className="marca-topo-mobile" aria-label="Viagem Bus">
+          <div className="marca-topo-mobile" aria-label="FambaTicket">
             <span className="logotipo-icone"><Icone nome="autocarro" /></span>
-            <strong>Viagem Bus</strong>
+            <strong>FambaTicket</strong>
           </div>
           <label className="pesquisa vidro"><Icone nome="pesquisa" /><input readOnly onFocus={abrirPesquisaViagens} placeholder="Pesquisar rotas, cidades ou viagens..." aria-label="Ir para a pesquisa de viagens" /></label>
           <div className="perfil-topo">
@@ -414,7 +414,7 @@ function PaginaAutenticacao({ aoAutenticar }) {
     <div className="orbita orbita-um" /><div className="orbita orbita-dois" />
     <section className="apresentacao-autenticacao">
       <span className="marca-autenticacao"><Icone nome="autocarro" /></span>
-      <p className="etiqueta">Viagem Bus</p>
+      <p className="etiqueta">FambaTicket</p>
       <h1>Mais destinos,<br />mais histórias.</h1>
       <p>Compre o seu bilhete, escolha o assento e acompanhe todas as viagens num único lugar.</p>
       <div className="vantagens-autenticacao"><span><Icone nome="escudo" /> Compra segura</span><span><Icone nome="bilhete" /> Bilhete eletrónico</span><span><Icone nome="confirmado" /> Confirmação imediata</span></div>

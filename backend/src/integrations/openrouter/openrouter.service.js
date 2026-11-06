@@ -8,7 +8,7 @@ export async function solicitarConclusaoOpenRouter({ apiKey, modelo, mensagens, 
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
       'HTTP-Referer': process.env.CLIENT_URL || 'http://localhost:5173',
-      'X-Title': 'Viagem Bus'
+      'X-Title': 'FambaTicket'
     },
     body: JSON.stringify({ model: modelo, messages: mensagens, max_tokens: maxTokens, temperature: 0.3 }),
     signal: AbortSignal.timeout(20000)

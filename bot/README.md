@@ -1,4 +1,4 @@
-# Bot da Viagem Bus
+# Bot da FambaTicket
 
 A base original foi reduzida e integrada em `backend/src/integrations/whatsapp`. A execução isolada é feita por `backend/src/workers/whatsapp.worker.js`, sob gestão do PM2, para garantir uma única sessão Baileys ligada ao painel administrativo.
 

@@ -27,7 +27,7 @@ export async function enfileirarOtpWhatsapp({ verificacaoId, telefone, codigo, v
   const envio = await enfileirarEnvioWhatsapp({
     tipo: 'OTP', telefone, prioridade: 100, maxTentativas: 6, expiraEm,
     chaveIdempotencia: `OTP:${verificacaoId}`,
-    mensagem: `Viagem Bus\n\nO seu código de confirmação é: ${codigo}\n\nO código expira em ${validadeMinutos} minutos. Não partilhe este código com ninguém.`
+    mensagem: `FambaTicket\n\nO seu código de confirmação é: ${codigo}\n\nO código expira em ${validadeMinutos} minutos. Não partilhe este código com ninguém.`
   });
   return { fornecedor: 'WHATSAPP_BAILEYS_FILA', identificador: String(envio.id), estado: envio.estado };
 }

@@ -21,7 +21,7 @@ export function gerarBilhetePdf({ bilhete, empresa, rota, viagem, assento, pagam
   ];
 
   const comandos = ['1 1 1 rg 0 0 226.772 595.276 re f'];
-  comandos.push(textoPdf(textoAjustado(empresa?.nome || 'VIAGEM BUS', 28), 14, 570, 14, 'F2', [0, 0, 0]));
+  comandos.push(textoPdf(textoAjustado(empresa?.nome || 'FAMBATICKET', 28), 14, 570, 14, 'F2', [0, 0, 0]));
   comandos.push(textoPdf('BILHETE DE VIAGEM', 14, 550, 10, 'F2', [0, 0, 0]));
   comandos.push(textoPdf('Apresente no embarque', 14, 535, 8, 'F1', [0, 0, 0]));
   comandos.push('0 0 0 RG 14 525 m 212.772 525 l S');

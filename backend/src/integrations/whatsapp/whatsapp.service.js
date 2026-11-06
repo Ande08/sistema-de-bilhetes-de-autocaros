@@ -46,7 +46,7 @@ class ServicoWhatsApp {
       auth: state,
       logger: pino({ level: process.env.WHATSAPP_LOG_LEVEL || 'silent' }),
       printQRInTerminal: false,
-      browser: [process.env.WHATSAPP_NOME_DISPOSITIVO || 'Viagem Bus Avisos', 'Chrome', '1.0.0'],
+      browser: [process.env.WHATSAPP_NOME_DISPOSITIVO || 'FambaTicket Avisos', 'Chrome', '1.0.0'],
       keepAliveIntervalMs: 30_000,
       connectTimeoutMs: 60_000,
       defaultQueryTimeoutMs: 60_000

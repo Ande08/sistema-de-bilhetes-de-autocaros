@@ -63,7 +63,7 @@ app.use('/ficheiros/empresas', express.static(directorioLogotiposEmpresas, {
 app.get('/api/health', (_req, res) => {
   res.json({
     sucesso: true,
-    mensagem: 'API do Sistema de Bilhetes disponível',
+    mensagem: 'API da FambaTicket disponível',
     dataHora: new Date().toISOString()
   });
 });

@@ -18,14 +18,14 @@ export async function enviarAvisoManualViagem(viagemId, conteudo, utilizador) {
       include: [{ model: User, attributes: ['id', 'telefone'] }], transaction
     });
     const campanha = randomUUID();
-    const texto = `Viagem Bus\n\nAviso sobre a viagem ${viagem.Route.origin} para ${viagem.Route.destination}, com partida em ${formatarDataHora(viagem.departureAt)}:\n\n${mensagem}\n\nConsulte o sistema para informações atualizadas.`;
+    const texto = `FambaTicket\n\nAviso sobre a viagem ${viagem.Route.origin} para ${viagem.Route.destination}, com partida em ${formatarDataHora(viagem.departureAt)}:\n\n${mensagem}\n\nConsulte o sistema para informações atualizadas.`;
     const total = await criarAvisosParaPassageiros({ viagem, bilhetes, titulo: 'Aviso de viagem', texto, campanha, transaction });
     return { totalDestinatarios: total, viagemId: viagem.id };
   });
 }
 
 export async function enfileirarCancelamentoViagem({ viagem, bilhetes, transaction }) {
-  const texto = `Viagem Bus\n\nA viagem ${viagem.Route.origin} para ${viagem.Route.destination}, prevista para ${formatarDataHora(viagem.departureAt)}, foi cancelada. O bilhete foi cancelado e, quando aplicável, o pagamento ficou marcado como reembolsado na simulação.\n\nConsulte a sua conta ou contacte o suporte.`;
+  const texto = `FambaTicket\n\nA viagem ${viagem.Route.origin} para ${viagem.Route.destination}, prevista para ${formatarDataHora(viagem.departureAt)}, foi cancelada. O bilhete foi cancelado e, quando aplicável, o pagamento ficou marcado como reembolsado na simulação.\n\nConsulte a sua conta ou contacte o suporte.`;
   return criarAvisosParaPassageiros({ viagem, bilhetes, titulo: 'Viagem cancelada', texto, campanha: `CANCELAMENTO-${viagem.id}`, transaction });
 }
 
@@ -35,7 +35,7 @@ async function criarAvisosParaPassageiros({ viagem, bilhetes, titulo, texto, cam
     if (bilhete.User?.telefone && bilhete.utilizadorId) passageiros.set(String(bilhete.utilizadorId), bilhete.User);
   });
   for (const [utilizadorId, utilizador] of passageiros) {
-    await Notificacao.create({ utilizadorId, titulo, mensagem: texto.replace('Viagem Bus\n\n', ''), tipo: 'VIAGEM' }, { transaction });
+    await Notificacao.create({ utilizadorId, titulo, mensagem: texto.replace('FambaTicket\n\n', ''), tipo: 'VIAGEM' }, { transaction });
     await enfileirarEnvioWhatsapp({
       tipo: 'AVISO_VIAGEM', utilizadorId, viagemId: viagem.id, telefone: utilizador.telefone,
       mensagem: texto, chaveIdempotencia: `AVISO:${campanha}:${utilizadorId}`, prioridade: 20, maxTentativas: 10

@@ -53,7 +53,7 @@ export default function PainelAdministrador({ utilizador, aoSair, aoActualizarUt
 
   return <div className="admin-aplicacao">
     <aside className="admin-lateral menu-liquid-glass menu-liquid-glass-escuro">
-      <div className="logotipo"><span className={`logotipo-icone ${logoEmpresa ? 'com-imagem' : ''}`}>{logoEmpresa ? <img src={logoEmpresa} alt={`Logótipo da ${empresaPainel.nome}`} /> : <Icone nome="autocarro" />}</span><div><strong>{empresaPainel?.nome || 'Viagem Bus'}</strong><small>Administração</small></div></div>
+      <div className="logotipo"><span className={`logotipo-icone ${logoEmpresa ? 'com-imagem' : ''}`}>{logoEmpresa ? <img src={logoEmpresa} alt={`Logótipo da ${empresaPainel.nome}`} /> : <Icone nome="autocarro" />}</span><div><strong>{empresaPainel?.nome || 'FambaTicket'}</strong><small>Administração</small></div></div>
       <nav>{secoes.map((item) => <button key={item} className={secao === item ? 'ativo' : ''} onClick={() => setSecao(item)}>{item}</button>)}</nav>
       <button className="admin-sair" onClick={aoSair}>Terminar sessão</button>
     </aside>

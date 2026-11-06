@@ -13,7 +13,7 @@ export default function PaginaValidacaoBilhete({ codigo }) {
 
   return <main className="pagina-validacao-bilhete">
     <section className="cartao-validacao-bilhete vidro">
-      <header className="marca-validacao"><span className="logotipo-icone"><Icone nome="autocarro" /></span><div><strong>Viagem Bus</strong><small>Verificação oficial de bilhete</small></div></header>
+      <header className="marca-validacao"><span className="logotipo-icone"><Icone nome="autocarro" /></span><div><strong>FambaTicket</strong><small>Verificação oficial de bilhete</small></div></header>
       {!resultado && !erro && <div className="validacao-carregando"><span className="marca-carregamento"><Icone nome="bilhete" /></span><h1>A verificar o bilhete</h1><p>Estamos a consultar o registo oficial.</p></div>}
       {erro && <div className="resultado-validacao resultado-invalido"><span><Icone nome="alerta" /></span><h1>Bilhete não confirmado</h1><p>{erro}</p><strong>{codigo}</strong></div>}
       {resultado && <>
@@ -32,7 +32,7 @@ export default function PaginaValidacaoBilhete({ codigo }) {
           <div><dt>Estado do bilhete</dt><dd>{traduzirEstado(resultado.bilhete.estado)}</dd></div>
           <div><dt>Estado da viagem</dt><dd>{traduzirEstado(resultado.viagem.estado)}</dd></div>
         </dl>
-        <p className="nota-validacao">A consulta confirma o registo diretamente no Sistema de Bilhetes. Nenhum dado pessoal ou financeiro é exibido.</p>
+        <p className="nota-validacao">A consulta confirma o registo diretamente na FambaTicket. Nenhum dado pessoal ou financeiro é exibido.</p>
       </>}
       <a className="botao-pagina-validacao" href="/">Ir para a página inicial</a>
     </section>
